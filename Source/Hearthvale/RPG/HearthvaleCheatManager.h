@@ -10,6 +10,7 @@ class AHearthvaleCharacter;
  * Console commands for testing (press ` in game to open the console):
  *   GiveXP Woodcutting 500     GiveItem CopperOre 5     ListItems
  *   ClearInventory             ResetSkills              SaveNow / DeleteSave
+ *   GoTo Tree (teleport next to the nearest node of that kind)   Interact
  *   ToggleRPGPanels
  */
 UCLASS()
@@ -42,6 +43,14 @@ public:
 
 	UFUNCTION(Exec)
 	void ToggleRPGPanels();
+
+	/** Teleports next to the nearest resource node of a kind (Tree, CopperRock, PerchSpot...). */
+	UFUNCTION(Exec)
+	void GoTo(FName NodeKind);
+
+	/** Same as pressing the interact key. */
+	UFUNCTION(Exec)
+	void Interact();
 
 private:
 	AHearthvaleCharacter* GetHearthvaleCharacter() const;

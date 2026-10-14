@@ -9,11 +9,15 @@
 #include "Hearthvale.h"
 #include "Widgets/Input/SVirtualJoystick.h"
 #include "RPG/HearthvaleCheatManager.h"
+#include "UObject/ConstructorHelpers.h"
 
 AHearthvalePlayerController::AHearthvalePlayerController()
 {
 	// Test commands (GiveXP, GiveItem, ...) for development builds
 	CheatClass = UHearthvaleCheatManager::StaticClass();
+
+	static ConstructorHelpers::FObjectFinder<UInputMappingContext> RPGMappingAsset(TEXT("/Game/Input/IMC_Hearthvale.IMC_Hearthvale"));
+	RPGMappingContext = RPGMappingAsset.Object;
 }
 
 void AHearthvalePlayerController::BeginPlay()
@@ -53,6 +57,11 @@ void AHearthvalePlayerController::SetupInputComponent()
 			for (UInputMappingContext* CurrentContext : DefaultMappingContexts)
 			{
 				Subsystem->AddMappingContext(CurrentContext, 0);
+			}
+
+			if (RPGMappingContext)
+			{
+				Subsystem->AddMappingContext(RPGMappingContext, 1);
 			}
 
 			// only add these IMCs if we're not using mobile touch input

@@ -12,7 +12,12 @@
 #include "InputActionValue.h"
 #include "Hearthvale.h"
 #include "TimerManager.h"
+#include "UObject/ConstructorHelpers.h"
+#include "InputAction.h"
+#include "RPG/GatheringComponent.h"
+#include "RPG/HearthvaleHUD.h"
 #include "RPG/HearthvaleSaveGame.h"
+#include "RPG/InteractionComponent.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
@@ -54,6 +59,10 @@ AHearthvaleCharacter::AHearthvaleCharacter()
 	// RPG progress
 	Skills = CreateDefaultSubobject<USkillsComponent>(TEXT("Skills"));
 	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
+	Gathering = CreateDefaultSubobject<UGatheringComponent>(TEXT("Gathering"));
+	Interaction = CreateDefaultSubobject<UInteractionComponent>(TEXT("Interaction"));
+	static ConstructorHelpers::FObjectFinder<UInputAction> InteractActionAsset(TEXT("/Game/Input/Actions/IA_Interact.IA_Interact"));
+	InteractAction = InteractActionAsset.Object;
 	StartingItems = {{TEXT("CopperAxe"), 1}, {TEXT("CopperPickaxe"), 1}, {TEXT("FishingNet"), 1}, {TEXT("Perch"), 3}, {TEXT("Coins"), 25}};
 
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
@@ -75,6 +84,12 @@ void AHearthvaleCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AHearthvaleCharacter::Look);
+
+		// Interacting
+		if (InteractAction)
+		{
+			EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &AHearthvaleCharacter::DoInteract);
+		}
 	}
 	else
 	{
@@ -192,6 +207,23 @@ void AHearthvaleCharacter::StartNewCharacter()
 		else
 		{
 			UE_LOG(LogHearthvale, Warning, TEXT("Starting item '%s' doesn't exist."), *Entry.Key.ToString());
+		}
+	}
+}
+
+void AHearthvaleCharacter::DoInteract()
+{
+	Interaction->Interact();
+}
+
+void AHearthvaleCharacter::ShowMessage(const FText& Text, const FLinearColor& Color) const
+{
+	UE_LOG(LogHearthvale, Log, TEXT("Message: %s"), *Text.ToString());
+	if (const APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+	{
+		if (AHearthvaleHUD* HUD = PlayerController->GetHUD<AHearthvaleHUD>())
+		{
+			HUD->AddMessage(Text, Color);
 		}
 	}
 }

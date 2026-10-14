@@ -22,8 +22,18 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
 	bool bShowPanels = true;
 
+	/** Adds a line to the message feed ("You get some logs."). */
+	void AddMessage(const FText& Text, const FLinearColor& Color = FLinearColor::White);
+
 private:
 	struct FXPDrop
+	{
+		FString Text;
+		FLinearColor Color;
+		float Age = 0.f;
+	};
+
+	struct FMessage
 	{
 		FString Text;
 		FLinearColor Color;
@@ -40,9 +50,12 @@ private:
 	void DrawPanel(float X, float Y, const FString& Title, const TArray<TPair<FString, FLinearColor>>& Lines);
 	void DrawXPDrops(float DeltaSeconds);
 	void DrawBanner(float DeltaSeconds);
+	void DrawMessages(float DeltaSeconds);
+	void DrawInteraction(AHearthvaleCharacter* Character);
 
 	TWeakObjectPtr<AHearthvaleCharacter> BoundCharacter;
 	TArray<FXPDrop> XPDrops;
+	TArray<FMessage> Messages;
 	FString BannerText;
 	FLinearColor BannerColor = FLinearColor::White;
 	float BannerTime = 0.f;

@@ -12,6 +12,8 @@ class UCameraComponent;
 class UInputAction;
 class USkillsComponent;
 class UInventoryComponent;
+class UGatheringComponent;
+class UInteractionComponent;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
@@ -40,6 +42,14 @@ class AHearthvaleCharacter : public ACharacter
 	/** The items being carried */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInventoryComponent> Inventory;
+
+	/** Works trees, rocks and fishing spots */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UGatheringComponent> Gathering;
+
+	/** Finds what the player can interact with */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInteractionComponent> Interaction;
 
 	/** Seconds between autosaves */
 	UPROPERTY(EditDefaultsOnly, Category="RPG")
@@ -71,6 +81,10 @@ protected:
 	/** Mouse Look Input Action */
 	UPROPERTY(EditAnywhere, Category="Input")
 	UInputAction* MouseLookAction;
+
+	/** Interact Input Action (use the tree, rock, chest... in front of you) */
+	UPROPERTY(EditAnywhere, Category="Input")
+	UInputAction* InteractAction;
 
 public:
 
@@ -119,6 +133,17 @@ public:
 	FORCEINLINE USkillsComponent* GetSkills() const { return Skills; }
 
 	FORCEINLINE UInventoryComponent* GetInventory() const { return Inventory; }
+
+	FORCEINLINE UGatheringComponent* GetGathering() const { return Gathering; }
+
+	FORCEINLINE UInteractionComponent* GetInteraction() const { return Interaction; }
+
+	/** Shows a line in the player's message feed (does nothing for non-players). */
+	void ShowMessage(const FText& Text, const FLinearColor& Color = FLinearColor::White) const;
+
+	/** Handles interact presses from either controls or UI interfaces */
+	UFUNCTION(BlueprintCallable, Category="Input")
+	virtual void DoInteract();
 
 	/** Writes skills and items to the save; false if it failed. */
 	UFUNCTION(BlueprintCallable, Category="RPG")

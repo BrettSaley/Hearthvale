@@ -33,6 +33,10 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Input|Input Mappings")
 	TArray<UInputMappingContext*> MobileExcludedMappingContexts;
 
+	/** Hearthvale's own keys (interact, ...) */
+	UPROPERTY(EditAnywhere, Category="Input|Input Mappings")
+	TObjectPtr<UInputMappingContext> RPGMappingContext;
+
 	/** Mobile controls widget to spawn */
 	UPROPERTY(EditAnywhere, Category="Input|Touch Controls")
 	TSubclassOf<UUserWidget> MobileControlsWidgetClass;

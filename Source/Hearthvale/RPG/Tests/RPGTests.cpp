@@ -3,6 +3,7 @@
 // -ExecCmds="Automation RunTests Hearthvale; Quit".
 
 #include "Misc/AutomationTest.h"
+#include "RPG/GatheringComponent.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
@@ -95,6 +96,35 @@ bool FInventoryTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Swapping moves the coins"), Inventory->FindSlot(Coins), 0);
 	Inventory->Clear();
 	TestEqual(TEXT("Clear empties everything"), Inventory->FreeSlotCount(), Capacity);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGatheringTest, "Hearthvale.Gathering", TestFlags)
+bool FGatheringTest::RunTest(const FString& Parameters)
+{
+	TestEqual(TEXT("Base chance at the required level"), UGatheringComponent::SuccessChance(1, 1, 1, 0.f), 0.3f);
+	TestTrue(TEXT("Higher level is better"), UGatheringComponent::SuccessChance(20, 1, 1, 0.f) > UGatheringComponent::SuccessChance(10, 1, 1, 0.f));
+	TestTrue(TEXT("Better tools are better"), UGatheringComponent::SuccessChance(10, 1, 3, 0.f) > UGatheringComponent::SuccessChance(10, 1, 1, 0.f));
+	TestTrue(TEXT("Harder nodes are slower"), UGatheringComponent::SuccessChance(10, 1, 1, 0.1f) < UGatheringComponent::SuccessChance(10, 1, 1, 0.f));
+	TestEqual(TEXT("Never above 90%"), UGatheringComponent::SuccessChance(99, 1, 9, 0.f), 0.9f);
+	TestEqual(TEXT("Never below 5%"), UGatheringComponent::SuccessChance(1, 99, 1, 1.f), 0.05f);
+
+	USkillsComponent* Skills = NewObject<USkillsComponent>();
+	UInventoryComponent* Inventory = NewObject<UInventoryComponent>();
+	UItemDefinition* CopperAxe = MakeItem(false);
+	CopperAxe->ToolType = EToolType::Axe;
+	CopperAxe->ToolPower = 1;
+	UItemDefinition* IronAxe = MakeItem(false);
+	IronAxe->ToolType = EToolType::Axe;
+	IronAxe->ToolPower = 2;
+	IronAxe->Requirements.Add(ESkill::Woodcutting, 10);
+	TestNull(TEXT("No axe, no tool"), UGatheringComponent::FindBestTool(Inventory, Skills, EToolType::Axe));
+	Inventory->AddItem(CopperAxe);
+	Inventory->AddItem(IronAxe);
+	TestEqual(TEXT("Too low for the iron axe, so copper"), UGatheringComponent::FindBestTool(Inventory, Skills, EToolType::Axe), CopperAxe);
+	Skills->AddXP(ESkill::Woodcutting, USkillLibrary::XPForLevel(10));
+	TestEqual(TEXT("At level 10 the iron axe is best"), UGatheringComponent::FindBestTool(Inventory, Skills, EToolType::Axe), IronAxe);
+	TestNull(TEXT("An axe isn't a pickaxe"), UGatheringComponent::FindBestTool(Inventory, Skills, EToolType::Pickaxe));
 	return true;
 }
 
