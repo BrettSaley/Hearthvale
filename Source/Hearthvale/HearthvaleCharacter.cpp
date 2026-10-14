@@ -16,6 +16,9 @@
 #include "InputAction.h"
 #include "EngineUtils.h"
 #include "HearthvalePlayerController.h"
+#include "RPG/CraftingComponent.h"
+#include "RPG/CraftingStation.h"
+#include "RPG/CraftingStationDefinition.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/GroundItem.h"
 #include "RPG/HearthvaleHUD.h"
@@ -63,9 +66,13 @@ AHearthvaleCharacter::AHearthvaleCharacter()
 	Skills = CreateDefaultSubobject<USkillsComponent>(TEXT("Skills"));
 	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
 	Gathering = CreateDefaultSubobject<UGatheringComponent>(TEXT("Gathering"));
+	Crafting = CreateDefaultSubobject<UCraftingComponent>(TEXT("Crafting"));
+	CampfireDefinition = TSoftObjectPtr<UCraftingStationDefinition>(FSoftObjectPath(TEXT("/Game/Crafting/Stations/Campfire.Campfire")));
 	Interaction = CreateDefaultSubobject<UInteractionComponent>(TEXT("Interaction"));
 	static ConstructorHelpers::FObjectFinder<UInputAction> InteractActionAsset(TEXT("/Game/Input/Actions/IA_Interact.IA_Interact"));
 	InteractAction = InteractActionAsset.Object;
+	static ConstructorHelpers::FObjectFinder<UInputAction> UseItemActionAsset(TEXT("/Game/Input/Actions/IA_UseItem.IA_UseItem"));
+	UseItemAction = UseItemActionAsset.Object;
 	StartingItems = {{TEXT("CopperAxe"), 1}, {TEXT("CopperPickaxe"), 1}, {TEXT("FishingNet"), 1}, {TEXT("PotatoSeed"), 6}, {TEXT("Coins"), 25}};
 
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
@@ -92,6 +99,10 @@ void AHearthvaleCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 		if (InteractAction)
 		{
 			EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &AHearthvaleCharacter::DoInteract);
+		}
+		if (UseItemAction)
+		{
+			EnhancedInputComponent->BindAction(UseItemAction, ETriggerEvent::Started, this, &AHearthvaleCharacter::DoUseItem);
 		}
 	}
 	else
@@ -123,7 +134,7 @@ void AHearthvaleCharacter::MouseLook(const FInputActionValue& Value)
 	// With the character window open the mouse works the UI instead of the camera.
 	if (const AHearthvalePlayerController* PlayerController = Cast<AHearthvalePlayerController>(GetController()))
 	{
-		if (PlayerController->IsPanelOpen())
+		if (PlayerController->IsMenuOpen())
 		{
 			return;
 		}
@@ -248,6 +259,7 @@ void AHearthvaleCharacter::ShowMessage(const FText& Text, const FLinearColor& Co
 void AHearthvaleCharacter::StopActions()
 {
 	Gathering->StopGathering();
+	Crafting->StopCrafting();
 }
 
 void AHearthvaleCharacter::DropItem(int32 SlotIndex)
@@ -283,4 +295,47 @@ UItemDefinition* AHearthvaleCharacter::GetHeldItem() const
 {
 	const FItemStack Stack = Inventory->GetSlot(HeldSlot);
 	return Stack.IsEmpty() ? nullptr : Stack.Item.Get();
+}
+
+void AHearthvaleCharacter::DoUseItem()
+{
+	// With a window open the right mouse button belongs to it.
+	if (const AHearthvalePlayerController* PlayerController = Cast<AHearthvalePlayerController>(GetController()))
+	{
+		if (PlayerController->IsMenuOpen())
+		{
+			return;
+		}
+	}
+	const UItemDefinition* Held = GetHeldItem();
+	if (Held && Held->CanLightFire())
+	{
+		LightFire(HeldSlot);
+	}
+}
+
+bool AHearthvaleCharacter::LightFire(int32 SlotIndex)
+{
+	const FItemStack Stack = Inventory->GetSlot(SlotIndex);
+	UCraftingStationDefinition* FireDefinition = CampfireDefinition.LoadSynchronous();
+	if (Stack.IsEmpty() || !Stack.Item->CanLightFire() || !FireDefinition)
+	{
+		return false;
+	}
+	const FLinearColor Warning(1.f, 0.45f, 0.4f);
+	const FVector Feet = GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+	const FVector Spot = Feet + GetActorForwardVector() * 110.f;
+	for (const ACraftingStation* Station : TActorRange<ACraftingStation>(GetWorld()))
+	{
+		if (FVector::Dist2D(Station->GetActorLocation(), Spot) < 160.f)
+		{
+			ShowMessage(NSLOCTEXT("Hearthvale", "FireTooClose", "There's already something burning here."), Warning);
+			return false;
+		}
+	}
+	StopActions();
+	Inventory->RemoveFromSlot(SlotIndex, 1);
+	ACraftingStation::SpawnFire(GetWorld(), FireDefinition, Spot, Stack.Item->BurnSeconds);
+	ShowMessage(FText::Format(NSLOCTEXT("Hearthvale", "FireLit", "The {0} catch, and a fire starts to burn."), Stack.Item->DisplayName.ToLower()));
+	return true;
 }

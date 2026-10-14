@@ -24,6 +24,12 @@ void UMenuButtonWidget::Setup(const FText& Label, TFunction<void()> InOnClicked,
 	OnClicked = MoveTemp(InOnClicked);
 }
 
+void UMenuButtonWidget::SetDimmed(bool bInDimmed)
+{
+	bDimmed = bInDimmed;
+	UpdateLook();
+}
+
 void UMenuButtonWidget::SetSelected(bool bInSelected)
 {
 	bSelected = bInSelected;
@@ -67,5 +73,5 @@ void UMenuButtonWidget::UpdateLook()
 	}
 	const FLinearColor Fill = bSelected ? HearthvaleUI::SlotHoverColor : bHovered ? HearthvaleUI::SlotLineColor : FLinearColor::Transparent;
 	Background->SetBrush(HearthvaleUI::RoundedBrush(Fill, 3.f));
-	Text->SetColorAndOpacity(FSlateColor(bSelected || bHovered ? HearthvaleUI::GoldColor : HearthvaleUI::TextColor));
+	Text->SetColorAndOpacity(FSlateColor(bDimmed ? HearthvaleUI::MutedColor : bSelected || bHovered ? HearthvaleUI::GoldColor : HearthvaleUI::TextColor));
 }

@@ -19,6 +19,9 @@ public:
 	/** Selected buttons (the open tab) stay lit. */
 	void SetSelected(bool bInSelected);
 
+	/** Dimmed buttons (nothing to make) read as unavailable but still click. */
+	void SetDimmed(bool bInDimmed);
+
 protected:
 	virtual void NativeOnInitialized() override;
 	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
@@ -37,4 +40,5 @@ private:
 	TFunction<void()> OnClicked;
 	bool bHovered = false;
 	bool bSelected = false;
+	bool bDimmed = false;
 };

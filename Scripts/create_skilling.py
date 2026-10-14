@@ -164,12 +164,11 @@ NODE_UPDATES = {
     "CopperRock": dict(message="You mine some {0}.", drops=[("UncutJade", 80)]),
     "IronRock": dict(message="You mine some {0}.", drops=[("UncutJade", 60), ("UncutAmber", 120)]),
     "SilverRock": dict(message="You mine some {0}.", drops=[("UncutAmber", 80), ("UncutSapphire", 200), ("UncutRuby", 600)]),
-    # Fishing spots give fish straight away.
+    # Fishing spots give raw fish (cooked on a fire; see create_crafting.py).
     "PerchSpot": dict(item="Perch", message="You catch a {0}.", drops=[]),
     "TroutSpot": dict(item="Trout", message="You catch a {0}.", drops=[]),
     "PikeSpot": dict(item="Pike", message="You catch a {0}.", drops=[]),
 }
-FISH_EXAMINE = {"Perch": "A little striped fish.", "Trout": "Speckled and slippery.", "Pike": "All teeth."}
 
 
 def update_nodes():
@@ -181,10 +180,6 @@ def update_nodes():
             node.set_editor_property("success_message", unreal.Text(u["message"]))
         node.set_editor_property("bonus_drops", [drop(i, n) for i, n in u["drops"]])
         save(node)
-    for name, text in FISH_EXAMINE.items():
-        fish = item(name)
-        fish.set_editor_property("examine", unreal.Text(text))
-        save(fish)
 
 
 # --- Clearing out cooking ---

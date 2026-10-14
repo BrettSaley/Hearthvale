@@ -16,7 +16,7 @@ namespace
 {
 	/** Where the plants sit on the 240 x 160 cm patch: two rows of three. */
 	const FVector PlantSpots[] = {{-75.f, -38.f, 0.f}, {0.f, -38.f, 0.f}, {75.f, -38.f, 0.f}, {-75.f, 38.f, 0.f}, {0.f, 38.f, 0.f}, {75.f, 38.f, 0.f}};
-	const FLinearColor Warning(1.f, 0.45f, 0.4f);
+	const FLinearColor PatchWarning(1.f, 0.45f, 0.4f);
 
 	FText FormatTimeLeft(float Seconds)
 	{
@@ -146,13 +146,13 @@ bool AFarmPatch::Plant(AHearthvaleCharacter* Character)
 		const int32 AnySeed = FindSeedSlot(Inventory, nullptr, nullptr);
 		if (AnySeed == INDEX_NONE)
 		{
-			Character->ShowMessage(LOCTEXT("NoSeeds", "You have no seeds to plant."), Warning);
+			Character->ShowMessage(LOCTEXT("NoSeeds", "You have no seeds to plant."), PatchWarning);
 		}
 		else
 		{
 			const UItemDefinition* Seed = Inventory->GetSlot(AnySeed).Item;
 			Character->ShowMessage(FText::Format(LOCTEXT("NeedLevel", "You need a Farming level of {0} to plant {1}."),
-				Seed->Crop->RequiredLevel, Seed->DisplayName.ToLower()), Warning);
+				Seed->Crop->RequiredLevel, Seed->DisplayName.ToLower()), PatchWarning);
 		}
 		return false;
 	}

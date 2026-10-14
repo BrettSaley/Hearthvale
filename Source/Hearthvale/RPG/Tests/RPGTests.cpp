@@ -3,7 +3,9 @@
 // -ExecCmds="Automation RunTests Hearthvale; Quit".
 
 #include "Misc/AutomationTest.h"
+#include "RPG/CraftingComponent.h"
 #include "RPG/CropDefinition.h"
+#include "RPG/RecipeDefinition.h"
 #include "RPG/FarmPatch.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/HearthvaleSaveGame.h"
@@ -169,6 +171,41 @@ bool FFarmingTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("Might isn't"), USkillLibrary::IsGatheringSkill(ESkill::Might));
 	TestEqual(TEXT("Old raw fish load as fish"), UHearthvaleSaveGame::UpgradeItemId(TEXT("RawTrout")), FName(TEXT("Trout")));
 	TestEqual(TEXT("Other IDs are unchanged"), UHearthvaleSaveGame::UpgradeItemId(TEXT("Logs")), FName(TEXT("Logs")));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCraftingTest, "Hearthvale.Crafting", TestFlags)
+bool FCraftingTest::RunTest(const FString& Parameters)
+{
+	UInventoryComponent* Inventory = NewObject<UInventoryComponent>();
+	UItemDefinition* IronOre = MakeItem(false);
+	UItemDefinition* IronBar = MakeItem(false);
+	UItemDefinition* Plank = MakeItem(false);
+	UItemDefinition* IronAxe = MakeItem(false);
+
+	URecipeDefinition* Smelt = NewObject<URecipeDefinition>();
+	Smelt->Inputs.Add(FItemAmount{IronOre, 2});
+	Smelt->Output = IronBar;
+	URecipeDefinition* Smith = NewObject<URecipeDefinition>();
+	Smith->Inputs.Add(FItemAmount{IronBar, 2});
+	Smith->Inputs.Add(FItemAmount{Plank, 1});
+	Smith->Output = IronAxe;
+
+	TestEqual(TEXT("Nothing carried, nothing to make"), UCraftingComponent::CountCraftable(Inventory, Smelt), 0);
+	TestEqual(TEXT("Making without ingredients fails"), UCraftingComponent::CraftOnce(Inventory, Smelt), -1);
+	Inventory->AddItem(IronOre, 5);
+	TestEqual(TEXT("5 ore makes 2 bars (2 each)"), UCraftingComponent::CountCraftable(Inventory, Smelt), 2);
+	TestEqual(TEXT("Smelting fits"), UCraftingComponent::CraftOnce(Inventory, Smelt), 0);
+	TestEqual(TEXT("Took two ore"), Inventory->CountItem(IronOre), 3);
+	TestEqual(TEXT("Made a bar"), Inventory->CountItem(IronBar), 1);
+	UCraftingComponent::CraftOnce(Inventory, Smelt);
+	TestEqual(TEXT("Two bars, but no plank: no axe"), UCraftingComponent::CountCraftable(Inventory, Smith), 0);
+	Inventory->AddItem(Plank);
+	TestEqual(TEXT("With a plank, one axe"), UCraftingComponent::CountCraftable(Inventory, Smith), 1);
+	UCraftingComponent::CraftOnce(Inventory, Smith);
+	TestEqual(TEXT("The axe is made"), Inventory->CountItem(IronAxe), 1);
+	TestEqual(TEXT("The bars are used"), Inventory->CountItem(IronBar), 0);
+	TestEqual(TEXT("The plank is used"), Inventory->CountItem(Plank), 0);
 	return true;
 }
 

@@ -53,10 +53,10 @@ ITEMS = {
     "IronOre": dict(name="Iron ore", examine="Rusty-red iron ore.", category=Cat.RESOURCE, value=17),
     "SilverOre": dict(name="Silver ore", examine="It glints even in the dark.", category=Cat.RESOURCE, value=75),
 
-    # Fish (from fishing) and other food; healing matters once there's combat.
-    "Perch": dict(name="Perch", examine="A little striped fish.", category=Cat.FOOD, value=8, heal=3),
-    "Trout": dict(name="Trout", examine="Speckled and slippery.", category=Cat.FOOD, value=30, heal=6),
-    "Pike": dict(name="Pike", examine="All teeth.", category=Cat.FOOD, value=60, heal=9),
+    # Fish as caught (cook them on a fire; the IDs are just the fish names).
+    "Perch": dict(name="Raw perch", examine="A little striped fish. Cook it on a fire.", category=Cat.RESOURCE, value=5),
+    "Trout": dict(name="Raw trout", examine="Speckled and slippery. Cook it on a fire.", category=Cat.RESOURCE, value=20),
+    "Pike": dict(name="Raw pike", examine="All teeth. Cook it on a fire.", category=Cat.RESOURCE, value=40),
     "CookedMeat": dict(name="Cooked meat", examine="Juicy.", category=Cat.FOOD, value=5, heal=4),
 
     # Farming: seeds (planted in farm patches; create_skilling.py links them to their crops) and produce.
@@ -68,6 +68,32 @@ ITEMS = {
     "Onion": dict(name="Onion", examine="Layers upon layers.", category=Cat.FOOD, value=10, heal=2),
     "Cabbage": dict(name="Cabbage", examine="A tight green head of leaves.", category=Cat.FOOD, value=22, heal=4),
     "Pumpkin": dict(name="Pumpkin", examine="Heavy, orange and very round.", category=Cat.FOOD, value=55, heal=7),
+
+    # Refined: made at stations from gathered things (see create_crafting.py).
+    "Plank": dict(name="Plank", examine="Sawn from plain logs.", category=Cat.RESOURCE, value=8),
+    "OakPlank": dict(name="Oak plank", examine="A sturdy oak plank.", category=Cat.RESOURCE, value=35),
+    "AshPlank": dict(name="Ash plank", examine="Light and springy.", category=Cat.RESOURCE, value=80),
+    "CopperBar": dict(name="Copper bar", examine="Soft, bright metal.", category=Cat.RESOURCE, value=12),
+    "IronBar": dict(name="Iron bar", examine="Plain, honest iron.", category=Cat.RESOURCE, value=40),
+    "SteelBar": dict(name="Steel bar", examine="Iron, worked until it gave up its weakness.", category=Cat.RESOURCE, value=100),
+    "SilverBar": dict(name="Silver bar", examine="Cool and gleaming.", category=Cat.RESOURCE, value=120),
+    "GrilledPerch": dict(name="Grilled perch", examine="Crisp skin, flaky inside.", category=Cat.FOOD, value=10, heal=4),
+    "GrilledTrout": dict(name="Grilled trout", examine="Smells wonderful.", category=Cat.FOOD, value=35, heal=7),
+    "GrilledPike": dict(name="Grilled pike", examine="Mind the bones.", category=Cat.FOOD, value=70, heal=10),
+    "BakedPotato": dict(name="Baked potato", examine="Hot all the way through.", category=Cat.FOOD, value=8, heal=4),
+    "OnionSoup": dict(name="Onion soup", examine="Sweet and savoury.", category=Cat.FOOD, value=25, heal=6),
+    "CabbageStew": dict(name="Cabbage stew", examine="Hearty and green.", category=Cat.FOOD, value=45, heal=9),
+    "PumpkinSoup": dict(name="Pumpkin soup", examine="Thick, orange and warming.", category=Cat.FOOD, value=80, heal=12),
+    "FishStew": dict(name="Fish stew", examine="Trout, potato and onion. A proper meal.", category=Cat.FOOD, value=70, heal=14),
+    "Jade": dict(name="Jade", examine="Polished green stone.", category=Cat.VALUABLE, value=90),
+    "Amber": dict(name="Amber", examine="Glowing, honey-coloured.", category=Cat.VALUABLE, value=170),
+    "Sapphire": dict(name="Sapphire", examine="A deep blue cut gem.", category=Cat.VALUABLE, value=320),
+    "Ruby": dict(name="Ruby", examine="A blazing red cut gem.", category=Cat.VALUABLE, value=850),
+    "SilverRing": dict(name="Silver ring", examine="A plain silver band.", category=Cat.VALUABLE, value=150, slot=Slot.RING),
+    "JadeRing": dict(name="Jade ring", examine="Silver set with jade.", category=Cat.VALUABLE, value=280, slot=Slot.RING),
+    "AmberRing": dict(name="Amber ring", examine="Silver set with amber.", category=Cat.VALUABLE, value=380, slot=Slot.RING),
+    "SapphireRing": dict(name="Sapphire ring", examine="Silver set with a sapphire.", category=Cat.VALUABLE, value=560, slot=Slot.RING),
+    "RubyRing": dict(name="Ruby ring", examine="Silver set with a ruby. Breathtaking.", category=Cat.VALUABLE, value=1200, slot=Slot.RING),
 
     # Valuables (for drop tables later)
     "UncutJade": dict(name="Uncut jade", examine="A rough green stone.", category=Cat.VALUABLE, value=40),

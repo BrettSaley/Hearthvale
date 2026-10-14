@@ -109,6 +109,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Food", meta = (ClampMin = 0))
 	int32 HealAmount = 0;
 
+	/** Seconds a fire lit from this burns; 0 if it won't light (logs only). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Firemaking", meta = (ClampMin = 0))
+	float BurnSeconds = 0.f;
+
 	/** What planting this grows, for seeds. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Farming")
 	TObjectPtr<UCropDefinition> Crop;
@@ -127,6 +131,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Items")
 	bool IsSeed() const { return Crop != nullptr; }
+
+	UFUNCTION(BlueprintPure, Category = "Items")
+	bool CanLightFire() const { return BurnSeconds > 0.f; }
 
 	/** Loads an item by ID ("CopperAxe"); null if there's no such item. */
 	UFUNCTION(BlueprintCallable, Category = "Items")

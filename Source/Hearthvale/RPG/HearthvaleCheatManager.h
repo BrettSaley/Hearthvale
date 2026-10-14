@@ -13,6 +13,7 @@ class AHearthvaleCharacter;
  *   GoTo Tree (teleport next to the nearest node of that kind)   Interact
  *   ToggleInventory / ToggleSkills (the character window)
  *   GoTo FarmPatch             GrowCrops (finish growing every planted patch)
+ *   GoTo Furnace / Anvil / Workbench / Range / Campfire
  */
 UCLASS()
 class HEARTHVALE_API UHearthvaleCheatManager : public UCheatManager

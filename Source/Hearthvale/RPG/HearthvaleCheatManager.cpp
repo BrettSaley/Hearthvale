@@ -2,6 +2,8 @@
 #include "GameFramework/PlayerController.h"
 #include "HearthvaleCharacter.h"
 #include "HearthvalePlayerController.h"
+#include "RPG/CraftingStation.h"
+#include "RPG/CraftingStationDefinition.h"
 #include "RPG/FarmPatch.h"
 #include "RPG/HearthvaleSaveGame.h"
 #include "RPG/GatheringNodeDefinition.h"
@@ -108,7 +110,7 @@ void UHearthvaleCheatManager::GoTo(FName NodeKind)
 	{
 		return;
 	}
-	// Resource nodes by definition name; "FarmPatch" for the nearest patch.
+	// Resource nodes by definition name, stations by their name (Furnace), "FarmPatch" for the nearest patch.
 	AActor* Nearest = nullptr;
 	auto Consider = [&Nearest, Character](AActor* Candidate)
 	{
@@ -123,6 +125,13 @@ void UHearthvaleCheatManager::GoTo(FName NodeKind)
 		if (Node->GetDefinition() && Node->GetDefinition()->GetFName() == NodeKind)
 		{
 			Consider(Node);
+		}
+	}
+	for (ACraftingStation* Station : TActorRange<ACraftingStation>(GetWorld()))
+	{
+		if (Station->GetDefinition() && Station->GetDefinition()->DisplayName.ToString().Equals(NodeKind.ToString(), ESearchCase::IgnoreCase))
+		{
+			Consider(Station);
 		}
 	}
 	if (NodeKind.ToString().Equals(TEXT("FarmPatch"), ESearchCase::IgnoreCase))
@@ -144,7 +153,7 @@ void UHearthvaleCheatManager::GoTo(FName NodeKind)
 		Away = FVector::ForwardVector;
 	}
 	// Patches are bigger than nodes, so stand a little further off.
-	const float Distance = Nearest->IsA<AFarmPatch>() ? 180.f : 130.f;
+	const float Distance = Nearest->IsA<AFarmPatch>() ? 180.f : Nearest->IsA<ACraftingStation>() ? 160.f : 130.f;
 	const FVector Spot = Nearest->GetActorLocation() + Away * Distance + FVector(0.f, 0.f, 100.f);
 	Character->TeleportTo(Spot, (-Away).Rotation());
 	GetOuterAPlayerController()->SetControlRotation((-Away).Rotation());

@@ -7,6 +7,7 @@
 #include "HearthvaleCharacter.h"
 #include "InputAction.h"
 #include "RPG/InventoryComponent.h"
+#include "RPG/UI/CraftingMenuWidget.h"
 #include "RPG/UI/HotbarWidget.h"
 #include "Engine/LocalPlayer.h"
 #include "InputMappingContext.h"
@@ -46,6 +47,9 @@ void AHearthvalePlayerController::BeginPlay()
 		Panel = CreateWidget<UCharacterPanelWidget>(this, UCharacterPanelWidget::StaticClass());
 		Panel->AddToPlayerScreen(10);
 		Panel->SetVisibility(ESlateVisibility::Collapsed);
+		CraftingMenu = CreateWidget<UCraftingMenuWidget>(this, UCraftingMenuWidget::StaticClass());
+		CraftingMenu->AddToPlayerScreen(10);
+		CraftingMenu->SetVisibility(ESlateVisibility::Collapsed);
 		Hotbar = CreateWidget<UHotbarWidget>(this, UHotbarWidget::StaticClass());
 		Hotbar->AddToPlayerScreen(5);
 		Hotbar->BindCharacter(Cast<AHearthvaleCharacter>(GetPawn()));
@@ -148,31 +152,75 @@ void AHearthvalePlayerController::SetPanelOpen(bool bOpen, EPanelTab Tab)
 	}
 	if (bOpen)
 	{
+		CloseCraftingMenu();
 		Panel->BindCharacter(Cast<AHearthvaleCharacter>(GetPawn()));
 		Panel->ShowTab(Tab);
 		Panel->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
-		if (Hotbar)
-		{
-			Hotbar->SetVisibility(ESlateVisibility::Collapsed);
-		}
-		// Keys still reach the game (walk with the window open); the mouse works the window.
-		FInputModeGameAndUI InputMode;
-		InputMode.SetHideCursorDuringCapture(false);
-		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-		SetInputMode(InputMode);
-		SetShowMouseCursor(true);
 	}
 	else
 	{
 		Panel->CloseItemMenu();
 		Panel->SetVisibility(ESlateVisibility::Collapsed);
-		SetInputMode(FInputModeGameOnly());
-		if (Hotbar)
-		{
-			Hotbar->SetVisibility(ESlateVisibility::HitTestInvisible);
-		}
-		SetShowMouseCursor(false);
 	}
+	UpdateInputMode();
+}
+
+void AHearthvalePlayerController::ToggleCraftingMenu(ACraftingStation* Station)
+{
+	if (!CraftingMenu)
+	{
+		return;
+	}
+	if (IsCraftingMenuOpen() && CraftingMenu->GetStation() == Station)
+	{
+		CloseCraftingMenu();
+		return;
+	}
+	SetPanelOpen(false);
+	CraftingMenu->Open(Cast<AHearthvaleCharacter>(GetPawn()), Station);
+	CraftingMenu->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+	UpdateInputMode();
+}
+
+void AHearthvalePlayerController::CloseCraftingMenu()
+{
+	if (IsCraftingMenuOpen())
+	{
+		CraftingMenu->SetVisibility(ESlateVisibility::Collapsed);
+		UpdateInputMode();
+	}
+}
+
+bool AHearthvalePlayerController::IsCraftingMenuOpen() const
+{
+	return CraftingMenu && CraftingMenu->GetVisibility() != ESlateVisibility::Collapsed;
+}
+
+bool AHearthvalePlayerController::IsMenuOpen() const
+{
+	return IsPanelOpen() || IsCraftingMenuOpen();
+}
+
+void AHearthvalePlayerController::UpdateInputMode()
+{
+	const bool bMenu = IsMenuOpen();
+	if (Hotbar)
+	{
+		Hotbar->SetVisibility(IsPanelOpen() ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
+	}
+	if (bMenu)
+	{
+		// Keys still reach the game (walk with a window open); the mouse works the window.
+		FInputModeGameAndUI InputMode;
+		InputMode.SetHideCursorDuringCapture(false);
+		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		SetInputMode(InputMode);
+	}
+	else
+	{
+		SetInputMode(FInputModeGameOnly());
+	}
+	SetShowMouseCursor(bMenu);
 }
 
 bool AHearthvalePlayerController::IsPanelOpen() const

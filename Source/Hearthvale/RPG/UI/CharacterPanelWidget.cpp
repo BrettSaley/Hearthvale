@@ -1,4 +1,4 @@
-#include "RPG/UI/CharacterPanelWidget.h"
+﻿#include "RPG/UI/CharacterPanelWidget.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/CanvasPanel.h"
@@ -28,7 +28,7 @@ namespace
 	constexpr int32 Columns = UInventoryComponent::HotbarSize;
 	constexpr float WindowWidth = Columns * (UInventorySlotWidget::Size + 4.f) + 24.f;
 
-	FText ToolName(EToolType Type)
+	FText ToolTypeName(EToolType Type)
 	{
 		switch (Type)
 		{
@@ -150,7 +150,7 @@ UWidget* UCharacterPanelWidget::BuildInventoryPage()
 	InventoryFooter = HearthvaleUI::MakeText(WidgetTree, FText::GetEmpty(), 10, HearthvaleUI::MutedColor);
 	Page->AddChildToVerticalBox(InventoryFooter)->SetPadding(FMargin(2.f, 8.f, 2.f, 0.f));
 	UTextBlock* Hint = HearthvaleUI::MakeText(WidgetTree,
-		LOCTEXT("InventoryHint", "Drag to move  ·  Right-click for options  ·  Shift-click to drop  ·  Hover and press 1-9 to put on the hotbar"), 9, HearthvaleUI::MutedColor);
+		LOCTEXT("InventoryHint", "Drag to move  Â·  Right-click for options  Â·  Shift-click to drop  Â·  Hover and press 1-9 to put on the hotbar"), 9, HearthvaleUI::MutedColor);
 	Hint->SetAutoWrapText(true);
 	Page->AddChildToVerticalBox(Hint)->SetPadding(FMargin(2.f, 2.f, 2.f, 0.f));
 	return Page;
@@ -355,7 +355,7 @@ UWidget* UCharacterPanelWidget::MakeItemTooltip(const FItemStack& Stack)
 	}
 	if (Item->ToolType != EToolType::None)
 	{
-		AddTooltipLine(Lines, FText::Format(LOCTEXT("ToolPower", "{0}, power {1}"), ToolName(Item->ToolType), Item->ToolPower), HearthvaleUI::TextColor);
+		AddTooltipLine(Lines, FText::Format(LOCTEXT("ToolPower", "{0}, power {1}"), ToolTypeName(Item->ToolType), Item->ToolPower), HearthvaleUI::TextColor);
 	}
 	if (Item->AccuracyBonus || Item->StrengthBonus || Item->DefenceBonus)
 	{
@@ -367,6 +367,11 @@ UWidget* UCharacterPanelWidget::MakeItemTooltip(const FItemStack& Stack)
 		const bool bMet = !Skills || Skills->GetLevel(Requirement.Key) >= Requirement.Value;
 		AddTooltipLine(Lines, FText::Format(LOCTEXT("Requires", "Requires {0} {1}"), USkillLibrary::GetSkillName(Requirement.Key),
 			Requirement.Value), bMet ? HearthvaleUI::GoodColor : HearthvaleUI::BadColor);
+	}
+	if (Item->CanLightFire())
+	{
+		AddTooltipLine(Lines, FText::Format(LOCTEXT("Burns", "Light a fire with it (right-click held, or the menu): burns {0}s"),
+			FMath::RoundToInt(Item->BurnSeconds)), HearthvaleUI::GoodColor);
 	}
 	if (Item->IsSeed())
 	{
@@ -407,6 +412,16 @@ void UCharacterPanelWidget::OpenItemMenu(int32 SlotIndex, FVector2D ScreenPositi
 
 	TWeakObjectPtr<AHearthvaleCharacter> WeakCharacter = Owner;
 	TWeakObjectPtr<UItemDefinition> Item = Stack.Item.Get();
+	if (Stack.Item->CanLightFire())
+	{
+		AddMenuOption(LOCTEXT("FireOption", "Light a fire"), [WeakCharacter, SlotIndex]
+		{
+			if (WeakCharacter.IsValid())
+			{
+				WeakCharacter->LightFire(SlotIndex);
+			}
+		});
+	}
 	AddMenuOption(LOCTEXT("DropOption", "Drop"), [WeakThis = TWeakObjectPtr<UCharacterPanelWidget>(this), SlotIndex]
 	{
 		if (WeakThis.IsValid())

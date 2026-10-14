@@ -14,6 +14,8 @@ class USkillsComponent;
 class UInventoryComponent;
 class UGatheringComponent;
 class UItemDefinition;
+class UCraftingComponent;
+class UCraftingStationDefinition;
 class UInteractionComponent;
 struct FInputActionValue;
 
@@ -49,6 +51,14 @@ class AHearthvaleCharacter : public ACharacter
 	/** Works trees, rocks and fishing spots */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UGatheringComponent> Gathering;
+
+	/** Makes things at campfires, furnaces, anvils and workbenches */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UCraftingComponent> Crafting;
+
+	/** What lighting logs makes */
+	UPROPERTY(EditDefaultsOnly, Category="RPG")
+	TSoftObjectPtr<UCraftingStationDefinition> CampfireDefinition;
 
 	/** Finds what the player can interact with */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
@@ -91,6 +101,10 @@ protected:
 	/** Interact Input Action (use the tree, rock, chest... in front of you) */
 	UPROPERTY(EditAnywhere, Category="Input")
 	UInputAction* InteractAction;
+
+	/** Use Item Input Action (light a fire with held logs, ...) */
+	UPROPERTY(EditAnywhere, Category="Input")
+	UInputAction* UseItemAction;
 
 public:
 
@@ -145,6 +159,8 @@ public:
 
 	FORCEINLINE UGatheringComponent* GetGathering() const { return Gathering; }
 
+	FORCEINLINE UCraftingComponent* GetCrafting() const { return Crafting; }
+
 	FORCEINLINE UInteractionComponent* GetInteraction() const { return Interaction; }
 
 	/** Shows a line in the player's message feed (does nothing for non-players). */
@@ -170,6 +186,14 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category="RPG")
 	FOnHeldSlotChanged OnHeldSlotChanged;
+
+	/** Uses the held item (right mouse): logs light a fire. */
+	UFUNCTION(BlueprintCallable, Category="Input")
+	virtual void DoUseItem();
+
+	/** Lights a campfire in front of the character with the logs in a slot; false (with a message) if it can't. */
+	UFUNCTION(BlueprintCallable, Category="RPG")
+	bool LightFire(int32 SlotIndex);
 
 	/** Stops gathering or whatever else the character is busy with. */
 	UFUNCTION(BlueprintCallable, Category="RPG")

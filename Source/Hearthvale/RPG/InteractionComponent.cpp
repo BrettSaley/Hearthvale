@@ -2,6 +2,8 @@
 #include "Engine/OverlapResult.h"
 #include "Engine/World.h"
 #include "HearthvaleCharacter.h"
+#include "RPG/CraftingComponent.h"
+#include "RPG/CraftingStation.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/ResourceNode.h"
 
@@ -75,7 +77,9 @@ void UInteractionComponent::Interact()
 	UpdateFocus();
 	// Pressing again on what we're already working stops.
 	UGatheringComponent* Gathering = Character->GetGathering();
-	if (Gathering->IsGathering() && Gathering->GetCurrentSource() == Focus.Get())
+	const UCraftingComponent* Crafting = Character->GetCrafting();
+	if ((Gathering->IsGathering() && Gathering->GetCurrentSource() == Focus.Get())
+		|| (Crafting->IsCrafting() && Crafting->GetCurrentStation() == Focus.Get()))
 	{
 		Character->StopActions();
 		return;

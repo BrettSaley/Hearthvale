@@ -4,7 +4,11 @@
 #include "Engine/Font.h"
 #include "HearthvaleCharacter.h"
 #include "HearthvalePlayerController.h"
+#include "RPG/CraftingComponent.h"
+#include "RPG/CraftingStation.h"
+#include "RPG/CraftingStationDefinition.h"
 #include "RPG/GatheringComponent.h"
+#include "RPG/RecipeDefinition.h"
 #include "RPG/InteractionComponent.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
@@ -159,6 +163,15 @@ void AHearthvaleHUD::DrawInteraction(AHearthvaleCharacter* Character)
 	{
 		DrawProgress(FString::Printf(TEXT("%s %s..."), *Info.ActionVerb.ToString(), *Info.DisplayName.ToString()),
 			Gathering->GetAttemptProgress(), USkillLibrary::GetSkillColor(Info.Skill));
+		return;
+	}
+	const UCraftingComponent* Crafting = Character->GetCrafting();
+	if (Crafting->IsCrafting() && Crafting->GetCurrentStation())
+	{
+		const UCraftingStationDefinition* Station = Crafting->GetCurrentStation()->GetDefinition();
+		DrawProgress(FString::Printf(TEXT("%s %s...  (%d to go)"), *Station->ActionVerb.ToString(),
+			*Crafting->GetCurrentRecipe()->Output->DisplayName.ToString().ToLower(), Crafting->GetRemaining()),
+			Crafting->GetProgress(), FLinearColor(1.f, 0.7f, 0.3f));
 		return;
 	}
 

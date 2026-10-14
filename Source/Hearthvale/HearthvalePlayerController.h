@@ -11,6 +11,8 @@ class UInputMappingContext;
 class UUserWidget;
 class UInputAction;
 class UHotbarWidget;
+class UCraftingMenuWidget;
+class ACraftingStation;
 
 /**
  *  Basic PlayerController class for a third person game
@@ -38,6 +40,21 @@ public:
 
 	/** Opens the window on a tab, or closes it if that tab is already showing. */
 	void TogglePanel(EPanelTab Tab);
+
+	/** Opens the recipe list for a station, or closes it if it's already open there. */
+	void ToggleCraftingMenu(ACraftingStation* Station);
+
+	void CloseCraftingMenu();
+
+	UFUNCTION(BlueprintPure, Category="UI")
+	bool IsCraftingMenuOpen() const;
+
+	UFUNCTION(BlueprintPure, Category="UI")
+	UCraftingMenuWidget* GetCraftingMenu() const { return CraftingMenu; }
+
+	/** Whether any window has the mouse (the character window or a crafting menu). */
+	UFUNCTION(BlueprintPure, Category="UI")
+	bool IsMenuOpen() const;
 
 	/** A hotbar number key (0-8): holds that slot, or with the window open, moves the item under the mouse there. */
 	void HotbarKey(int32 Slot);
@@ -72,6 +89,10 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Input")
 	TObjectPtr<UInputAction> HotbarScrollAction;
 
+	/** The recipe list at a station */
+	UPROPERTY()
+	TObjectPtr<UCraftingMenuWidget> CraftingMenu;
+
 	/** The hotbar along the bottom of the screen */
 	UPROPERTY()
 	TObjectPtr<UHotbarWidget> Hotbar;
@@ -94,6 +115,9 @@ protected:
 
 	/** Gameplay initialization */
 	virtual void BeginPlay() override;
+
+	/** Frees the mouse cursor while a window is open, and hides the hotbar behind the character window */
+	void UpdateInputMode();
 
 	/** Points the hotbar at a newly possessed character */
 	virtual void OnPossess(APawn* InPawn) override;
