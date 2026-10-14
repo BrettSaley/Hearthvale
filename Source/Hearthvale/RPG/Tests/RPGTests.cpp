@@ -3,6 +3,7 @@
 // -ExecCmds="Automation RunTests Hearthvale; Quit".
 
 #include "Misc/AutomationTest.h"
+#include "RPG/CookingComponent.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
@@ -125,6 +126,48 @@ bool FGatheringTest::RunTest(const FString& Parameters)
 	Skills->AddXP(ESkill::Woodcutting, USkillLibrary::XPForLevel(10));
 	TestEqual(TEXT("At level 10 the iron axe is best"), UGatheringComponent::FindBestTool(Inventory, Skills, EToolType::Axe), IronAxe);
 	TestNull(TEXT("An axe isn't a pickaxe"), UGatheringComponent::FindBestTool(Inventory, Skills, EToolType::Pickaxe));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCookingTest, "Hearthvale.Cooking", TestFlags)
+bool FCookingTest::RunTest(const FString& Parameters)
+{
+	TestEqual(TEXT("Half burn at the required level"), UCookingComponent::BurnChance(1, 1, 31), 0.5f);
+	TestEqual(TEXT("No burning at the stop level"), UCookingComponent::BurnChance(31, 1, 31), 0.f);
+	TestEqual(TEXT("No burning above it"), UCookingComponent::BurnChance(99, 1, 31), 0.f);
+	TestTrue(TEXT("Burns less as the level rises"), UCookingComponent::BurnChance(20, 1, 31) < UCookingComponent::BurnChance(10, 1, 31));
+	TestTrue(TEXT("A range burns less than a fire"), UCookingComponent::BurnChance(10, 1, 31, 0.75f) < UCookingComponent::BurnChance(10, 1, 31));
+
+	USkillsComponent* Skills = NewObject<USkillsComponent>();
+	UInventoryComponent* Inventory = NewObject<UInventoryComponent>();
+	UItemDefinition* Perch = MakeItem(false);
+	UItemDefinition* BurntFish = MakeItem(false);
+	UItemDefinition* RawPerch = MakeItem(false);
+	RawPerch->CookedItem = Perch;
+	RawPerch->BurntItem = BurntFish;
+	UItemDefinition* Trout = MakeItem(false);
+	UItemDefinition* RawTrout = MakeItem(false);
+	RawTrout->CookedItem = Trout;
+	RawTrout->BurntItem = BurntFish;
+	RawTrout->CookingLevel = 15;
+	TestEqual(TEXT("Stop-burning level defaults to 30 above"), RawTrout->GetStopBurningLevel(), 45);
+
+	TestEqual(TEXT("Nothing raw, nothing to cook"), UCookingComponent::FindRawSlot(Inventory, Skills, nullptr), INDEX_NONE);
+	Inventory->AddItem(MakeItem(false));
+	Inventory->AddItem(RawTrout);
+	Inventory->AddItem(RawPerch, 2);
+	TestEqual(TEXT("Trout is too high, so the first perch"), UCookingComponent::FindRawSlot(Inventory, Skills, nullptr), 2);
+	TestEqual(TEXT("Ignoring levels finds the trout"), UCookingComponent::FindRawSlot(Inventory, nullptr, nullptr), 1);
+	TestEqual(TEXT("Only trout: none cookable yet"), UCookingComponent::FindRawSlot(Inventory, Skills, RawTrout), INDEX_NONE);
+
+	TestEqual(TEXT("Cooking gives the cooked item"), UCookingComponent::CookSlot(Inventory, 2, false), Perch);
+	TestEqual(TEXT("...in the same slot"), Inventory->GetSlot(2).Item.Get(), Perch);
+	TestEqual(TEXT("Burning gives the burnt item"), UCookingComponent::CookSlot(Inventory, 3, true), BurntFish);
+	TestEqual(TEXT("...in the same slot"), Inventory->GetSlot(3).Item.Get(), BurntFish);
+	TestEqual(TEXT("No raw perch left"), Inventory->CountItem(RawPerch), 0);
+	TestNull(TEXT("Cooked food can't be cooked again"), UCookingComponent::CookSlot(Inventory, 2, false));
+	Skills->AddXP(ESkill::Cooking, USkillLibrary::XPForLevel(15));
+	TestEqual(TEXT("At level 15 the trout is next"), UCookingComponent::FindRawSlot(Inventory, Skills, nullptr), 1);
 	return true;
 }
 

@@ -13,6 +13,9 @@ class UInputAction;
 class USkillsComponent;
 class UInventoryComponent;
 class UGatheringComponent;
+class UCookingComponent;
+class ACookingStation;
+class UItemDefinition;
 class UInteractionComponent;
 struct FInputActionValue;
 
@@ -46,6 +49,10 @@ class AHearthvaleCharacter : public ACharacter
 	/** Works trees, rocks and fishing spots */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UGatheringComponent> Gathering;
+
+	/** Cooks raw food at fires and ranges */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UCookingComponent> Cooking;
 
 	/** Finds what the player can interact with */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
@@ -104,6 +111,9 @@ protected:
 	/** Called for looking input */
 	void Look(const FInputActionValue& Value);
 
+	/** Called for mouse looking input (ignored while the character window is open and the cursor is free) */
+	void MouseLook(const FInputActionValue& Value);
+
 public:
 
 	/** Handles move inputs from either controls or UI interfaces */
@@ -136,6 +146,8 @@ public:
 
 	FORCEINLINE UGatheringComponent* GetGathering() const { return Gathering; }
 
+	FORCEINLINE UCookingComponent* GetCooking() const { return Cooking; }
+
 	FORCEINLINE UInteractionComponent* GetInteraction() const { return Interaction; }
 
 	/** Shows a line in the player's message feed (does nothing for non-players). */
@@ -144,6 +156,21 @@ public:
 	/** Handles interact presses from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoInteract();
+
+	/** Stops gathering, cooking or whatever else the character is busy with. */
+	UFUNCTION(BlueprintCallable, Category="RPG")
+	void StopActions();
+
+	/** Cooks one kind of raw item at the nearest fire or range, if there is one in reach. */
+	UFUNCTION(BlueprintCallable, Category="RPG")
+	void CookItem(UItemDefinition* Item);
+
+	/** Puts everything in an inventory slot on the ground at the character's feet. */
+	UFUNCTION(BlueprintCallable, Category="RPG")
+	void DropItem(int32 SlotIndex);
+
+	/** The closest fire or range within reach, or null. */
+	ACookingStation* FindNearbyCookingStation() const;
 
 	/** Writes skills and items to the save; false if it failed. */
 	UFUNCTION(BlueprintCallable, Category="RPG")

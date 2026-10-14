@@ -8,8 +8,9 @@
 class AHearthvaleCharacter;
 
 /**
- * A placeholder HUD drawn straight to the screen until the real UI exists:
- * skill and inventory panels, XP drops and level-up banners.
+ * The always-on screen overlay: the interaction prompt and progress bar, the
+ * message feed, XP drops and level-up banners. The inventory and skills live
+ * in the character window (UCharacterPanelWidget).
  */
 UCLASS()
 class HEARTHVALE_API AHearthvaleHUD : public AHUD
@@ -18,9 +19,6 @@ class HEARTHVALE_API AHearthvaleHUD : public AHUD
 
 public:
 	virtual void DrawHUD() override;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
-	bool bShowPanels = true;
 
 	/** Adds a line to the message feed ("You get some logs."). */
 	void AddMessage(const FText& Text, const FLinearColor& Color = FLinearColor::White);
@@ -47,7 +45,8 @@ private:
 	void HandleLevelUp(ESkill Skill, int32 NewLevel);
 
 	void BindTo(AHearthvaleCharacter* Character);
-	void DrawPanel(float X, float Y, const FString& Title, const TArray<TPair<FString, FLinearColor>>& Lines);
+	void DrawProgress(const FString& Text, float Progress, const FLinearColor& Color);
+	void DrawKeyHints();
 	void DrawXPDrops(float DeltaSeconds);
 	void DrawBanner(float DeltaSeconds);
 	void DrawMessages(float DeltaSeconds);

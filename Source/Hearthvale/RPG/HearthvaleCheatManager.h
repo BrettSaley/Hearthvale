@@ -11,7 +11,8 @@ class AHearthvaleCharacter;
  *   GiveXP Woodcutting 500     GiveItem CopperOre 5     ListItems
  *   ClearInventory             ResetSkills              SaveNow / DeleteSave
  *   GoTo Tree (teleport next to the nearest node of that kind)   Interact
- *   ToggleRPGPanels
+ *   ToggleInventory / ToggleSkills (the character window)
+ *   GoTo also takes Campfire or Range
  */
 UCLASS()
 class HEARTHVALE_API UHearthvaleCheatManager : public UCheatManager
@@ -42,9 +43,12 @@ public:
 	void DeleteSave();
 
 	UFUNCTION(Exec)
-	void ToggleRPGPanels();
+	void ToggleInventory();
 
-	/** Teleports next to the nearest resource node of a kind (Tree, CopperRock, PerchSpot...). */
+	UFUNCTION(Exec)
+	void ToggleSkills();
+
+	/** Teleports next to the nearest resource node of a kind (Tree, CopperRock, PerchSpot...) or cooking station (Campfire, Range). */
 	UFUNCTION(Exec)
 	void GoTo(FName NodeKind);
 

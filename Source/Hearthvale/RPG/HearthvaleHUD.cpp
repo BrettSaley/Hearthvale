@@ -3,6 +3,8 @@
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
 #include "HearthvaleCharacter.h"
+#include "HearthvalePlayerController.h"
+#include "RPG/CookingComponent.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/InteractionComponent.h"
@@ -35,33 +37,7 @@ void AHearthvaleHUD::DrawHUD()
 	}
 	const float DeltaSeconds = GetWorld()->GetDeltaSeconds();
 
-	if (bShowPanels)
-	{
-		const USkillsComponent* Skills = Character->GetSkills();
-		TArray<TPair<FString, FLinearColor>> SkillLines;
-		for (ESkill Skill : TEnumRange<ESkill>())
-		{
-			SkillLines.Emplace(FString::Printf(TEXT("%-12s %2d   %s xp"), *USkillLibrary::GetSkillName(Skill).ToString(),
-				Skills->GetLevel(Skill), *FText::AsNumber(Skills->GetXP(Skill)).ToString()), USkillLibrary::GetSkillColor(Skill));
-		}
-		DrawPanel(20.f, 80.f, FString::Printf(TEXT("Skills  (total %d, combat %d)"), Skills->GetTotalLevel(),
-			Skills->GetCombatLevel()), SkillLines);
-
-		const UInventoryComponent* Inventory = Character->GetInventory();
-		TArray<TPair<FString, FLinearColor>> ItemLines;
-		for (const FItemStack& Slot : Inventory->GetSlots())
-		{
-			if (!Slot.IsEmpty())
-			{
-				ItemLines.Emplace(Slot.Quantity > 1 || Slot.Item->bStackable
-					? FString::Printf(TEXT("%s x %s"), *Slot.Item->DisplayName.ToString(), *FText::AsNumber(Slot.Quantity).ToString())
-					: Slot.Item->DisplayName.ToString(), FLinearColor::White);
-			}
-		}
-		const float PanelX = Canvas->ClipX - 300.f;
-		DrawPanel(PanelX, 80.f, FString::Printf(TEXT("Inventory  (%d / %d)"),
-			Inventory->GetCapacity() - Inventory->FreeSlotCount(), Inventory->GetCapacity()), ItemLines);
-	}
+	DrawKeyHints();
 	DrawInteraction(Character);
 	DrawMessages(DeltaSeconds);
 	DrawXPDrops(DeltaSeconds);
@@ -93,17 +69,18 @@ void AHearthvaleHUD::HandleLevelUp(ESkill Skill, int32 NewLevel)
 	BannerTime = BannerLifetime;
 }
 
-void AHearthvaleHUD::DrawPanel(float X, float Y, const FString& Title, const TArray<TPair<FString, FLinearColor>>& Lines)
+void AHearthvaleHUD::DrawKeyHints()
 {
-	const float Width = 280.f;
-	const float Height = LineHeight * (Lines.Num() + 1) + 16.f;
-	DrawRect(FLinearColor(0.05f, 0.04f, 0.03f, 0.7f), X, Y, Width, Height);
-	UFont* Font = GEngine->GetSmallFont();
-	DrawText(Title, Gold, X + 8.f, Y + 6.f, Font, 1.1f);
-	for (int32 Index = 0; Index < Lines.Num(); ++Index)
+	const AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(PlayerOwner);
+	if (Controller && Controller->IsPanelOpen())
 	{
-		DrawText(Lines[Index].Key, Lines[Index].Value, X + 8.f, Y + 8.f + LineHeight * (Index + 1), Font);
+		return;
 	}
+	const FString Text = TEXT("[I] Inventory    [K] Skills");
+	UFont* Font = GEngine->GetSmallFont();
+	float Width, Height;
+	GetTextSize(Text, Width, Height, Font);
+	DrawText(Text, FLinearColor(1.f, 1.f, 1.f, 0.6f), Canvas->ClipX - Width - 24.f, Canvas->ClipY - Height - 20.f, Font);
 }
 
 void AHearthvaleHUD::DrawXPDrops(float DeltaSeconds)
@@ -178,27 +155,27 @@ void AHearthvaleHUD::DrawMessages(float DeltaSeconds)
 
 void AHearthvaleHUD::DrawInteraction(AHearthvaleCharacter* Character)
 {
-	UFont* Font = GEngine->GetMediumFont();
-	const float CenterX = Canvas->ClipX * 0.5f;
-	const float Y = Canvas->ClipY * 0.72f;
+	// While busy: what's being done, and a bar for the current attempt.
 	const UGatheringComponent* Gathering = Character->GetGathering();
-
-	// While gathering: what's being done, and a bar for the current attempt.
 	if (Gathering->IsGathering())
 	{
 		const UGatheringNodeDefinition* Definition = Gathering->GetCurrentNode()->GetDefinition();
-		const FString Text = FString::Printf(TEXT("%s %s..."), *Definition->ActionVerb.ToString(), *Definition->DisplayName.ToString());
-		float Width, Height;
-		GetTextSize(Text, Width, Height, Font);
-		DrawText(Text, FLinearColor::White, CenterX - Width * 0.5f, Y, Font);
-		const float BarWidth = 220.f;
-		const float BarY = Y + Height + 6.f;
-		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.6f), CenterX - BarWidth * 0.5f - 2.f, BarY - 2.f, BarWidth + 4.f, 12.f);
-		DrawRect(USkillLibrary::GetSkillColor(Definition->Skill), CenterX - BarWidth * 0.5f, BarY,
-			BarWidth * Gathering->GetAttemptProgress(), 8.f);
+		DrawProgress(FString::Printf(TEXT("%s %s..."), *Definition->ActionVerb.ToString(), *Definition->DisplayName.ToString()),
+			Gathering->GetAttemptProgress(), USkillLibrary::GetSkillColor(Definition->Skill));
+		return;
+	}
+	const UCookingComponent* Cooking = Character->GetCooking();
+	if (Cooking->IsCooking())
+	{
+		const UItemDefinition* Next = Cooking->GetNextItem();
+		DrawProgress(FString::Printf(TEXT("Cooking %s..."), Next ? *Next->DisplayName.ToString().ToLower() : TEXT("")),
+			Cooking->GetAttemptProgress(), USkillLibrary::GetSkillColor(ESkill::Cooking));
 		return;
 	}
 
+	UFont* Font = GEngine->GetMediumFont();
+	const float CenterX = Canvas->ClipX * 0.5f;
+	const float Y = Canvas->ClipY * 0.72f;
 	FInteractionPrompt Prompt;
 	if (!Character->GetInteraction()->GetFocusPrompt(Prompt))
 	{
@@ -212,4 +189,18 @@ void AHearthvaleHUD::DrawInteraction(AHearthvaleCharacter* Character)
 	GetTextSize(Text, Width, Height, Font);
 	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), CenterX - Width * 0.5f - 10.f, Y - 4.f, Width + 20.f, Height + 8.f);
 	DrawText(Text, Color, CenterX - Width * 0.5f, Y, Font);
+}
+
+void AHearthvaleHUD::DrawProgress(const FString& Text, float Progress, const FLinearColor& Color)
+{
+	UFont* Font = GEngine->GetMediumFont();
+	const float CenterX = Canvas->ClipX * 0.5f;
+	const float Y = Canvas->ClipY * 0.72f;
+	float Width, Height;
+	GetTextSize(Text, Width, Height, Font);
+	DrawText(Text, FLinearColor::White, CenterX - Width * 0.5f, Y, Font);
+	const float BarWidth = 220.f;
+	const float BarY = Y + Height + 6.f;
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.6f), CenterX - BarWidth * 0.5f - 2.f, BarY - 2.f, BarWidth + 4.f, 12.f);
+	DrawRect(Color, CenterX - BarWidth * 0.5f, BarY, BarWidth * Progress, 8.f);
 }

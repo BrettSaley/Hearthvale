@@ -14,7 +14,12 @@
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
 #include "InputAction.h"
+#include "EngineUtils.h"
+#include "HearthvalePlayerController.h"
+#include "RPG/CookingComponent.h"
+#include "RPG/CookingStation.h"
 #include "RPG/GatheringComponent.h"
+#include "RPG/GroundItem.h"
 #include "RPG/HearthvaleHUD.h"
 #include "RPG/HearthvaleSaveGame.h"
 #include "RPG/InteractionComponent.h"
@@ -60,6 +65,7 @@ AHearthvaleCharacter::AHearthvaleCharacter()
 	Skills = CreateDefaultSubobject<USkillsComponent>(TEXT("Skills"));
 	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
 	Gathering = CreateDefaultSubobject<UGatheringComponent>(TEXT("Gathering"));
+	Cooking = CreateDefaultSubobject<UCookingComponent>(TEXT("Cooking"));
 	Interaction = CreateDefaultSubobject<UInteractionComponent>(TEXT("Interaction"));
 	static ConstructorHelpers::FObjectFinder<UInputAction> InteractActionAsset(TEXT("/Game/Input/Actions/IA_Interact.IA_Interact"));
 	InteractAction = InteractActionAsset.Object;
@@ -80,7 +86,7 @@ void AHearthvaleCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 
 		// Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AHearthvaleCharacter::Move);
-		EnhancedInputComponent->BindAction(MouseLookAction, ETriggerEvent::Triggered, this, &AHearthvaleCharacter::Look);
+		EnhancedInputComponent->BindAction(MouseLookAction, ETriggerEvent::Triggered, this, &AHearthvaleCharacter::MouseLook);
 
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AHearthvaleCharacter::Look);
@@ -113,6 +119,19 @@ void AHearthvaleCharacter::Look(const FInputActionValue& Value)
 
 	// route the input
 	DoLook(LookAxisVector.X, LookAxisVector.Y);
+}
+
+void AHearthvaleCharacter::MouseLook(const FInputActionValue& Value)
+{
+	// With the character window open the mouse works the UI instead of the camera.
+	if (const AHearthvalePlayerController* PlayerController = Cast<AHearthvalePlayerController>(GetController()))
+	{
+		if (PlayerController->IsPanelOpen())
+		{
+			return;
+		}
+	}
+	Look(Value);
 }
 
 void AHearthvaleCharacter::DoMove(float Right, float Forward)
@@ -226,4 +245,51 @@ void AHearthvaleCharacter::ShowMessage(const FText& Text, const FLinearColor& Co
 			HUD->AddMessage(Text, Color);
 		}
 	}
+}
+
+void AHearthvaleCharacter::StopActions()
+{
+	Gathering->StopGathering();
+	Cooking->StopCooking();
+}
+
+ACookingStation* AHearthvaleCharacter::FindNearbyCookingStation() const
+{
+	ACookingStation* Nearest = nullptr;
+	float NearestDistance = Interaction->Range + 100.f;
+	for (ACookingStation* Station : TActorRange<ACookingStation>(GetWorld()))
+	{
+		const float Distance = FVector::Dist2D(Station->GetActorLocation(), GetActorLocation());
+		if (Distance < NearestDistance)
+		{
+			Nearest = Station;
+			NearestDistance = Distance;
+		}
+	}
+	return Nearest;
+}
+
+void AHearthvaleCharacter::CookItem(UItemDefinition* Item)
+{
+	if (ACookingStation* Station = FindNearbyCookingStation())
+	{
+		Cooking->StartCooking(Station, Item);
+	}
+	else
+	{
+		ShowMessage(NSLOCTEXT("Hearthvale", "NoFire", "You need to be at a fire or range to cook that."), FLinearColor(1.f, 0.45f, 0.4f));
+	}
+}
+
+void AHearthvaleCharacter::DropItem(int32 SlotIndex)
+{
+	const FItemStack Stack = Inventory->RemoveFromSlot(SlotIndex);
+	if (Stack.IsEmpty())
+	{
+		return;
+	}
+	// Just in front of the feet, a little scattered so drops don't stack exactly.
+	const FVector Feet = GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+	const FVector Scatter(FMath::FRandRange(-15.f, 15.f), FMath::FRandRange(-15.f, 15.f), 0.f);
+	AGroundItem::Spawn(GetWorld(), Stack, Feet + GetActorForwardVector() * 45.f + Scatter);
 }

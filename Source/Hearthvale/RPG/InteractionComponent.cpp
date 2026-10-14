@@ -2,6 +2,8 @@
 #include "Engine/OverlapResult.h"
 #include "Engine/World.h"
 #include "HearthvaleCharacter.h"
+#include "RPG/CookingComponent.h"
+#include "RPG/CookingStation.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/ResourceNode.h"
 
@@ -73,10 +75,13 @@ void UInteractionComponent::Interact()
 	}
 	// Re-check what's in front of us; the 10 Hz focus update may lag a fresh step.
 	UpdateFocus();
+	// Pressing again on what we're already working stops.
 	UGatheringComponent* Gathering = Character->GetGathering();
-	if (Gathering->IsGathering() && Gathering->GetCurrentNode() == Focus.Get())
+	UCookingComponent* Cooking = Character->GetCooking();
+	if ((Gathering->IsGathering() && Gathering->GetCurrentNode() == Focus.Get())
+		|| (Cooking->IsCooking() && Cooking->GetCurrentStation() == Focus.Get()))
 	{
-		Gathering->StopGathering();
+		Character->StopActions();
 		return;
 	}
 	if (IInteractable* Interactable = Cast<IInteractable>(Focus.Get()))

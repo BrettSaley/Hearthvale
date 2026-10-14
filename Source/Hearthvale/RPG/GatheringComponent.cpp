@@ -74,7 +74,7 @@ bool UGatheringComponent::StartGathering(AResourceNode* Node)
 	{
 		return true;
 	}
-	StopGathering();
+	Character->StopActions();
 	const USkillsComponent* Skills = Character->GetSkills();
 	if (Skills->GetLevel(Definition->Skill) < Definition->RequiredLevel)
 	{

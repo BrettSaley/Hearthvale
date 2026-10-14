@@ -19,7 +19,7 @@ public:
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-	/** Uses the focused thing; pressing again while gathering from it stops. */
+	/** Uses the focused thing; pressing again while gathering from or cooking at it stops. */
 	UFUNCTION(BlueprintCallable, Category = "Interaction")
 	void Interact();
 

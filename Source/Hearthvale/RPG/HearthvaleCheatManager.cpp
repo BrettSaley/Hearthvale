@@ -1,7 +1,8 @@
 #include "RPG/HearthvaleCheatManager.h"
 #include "GameFramework/PlayerController.h"
 #include "HearthvaleCharacter.h"
-#include "RPG/HearthvaleHUD.h"
+#include "HearthvalePlayerController.h"
+#include "RPG/CookingStation.h"
 #include "RPG/HearthvaleSaveGame.h"
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/InventoryComponent.h"
@@ -84,11 +85,19 @@ void UHearthvaleCheatManager::DeleteSave()
 	Say(TEXT("Save deleted; starting over."));
 }
 
-void UHearthvaleCheatManager::ToggleRPGPanels()
+void UHearthvaleCheatManager::ToggleInventory()
 {
-	if (AHearthvaleHUD* HUD = Cast<AHearthvaleHUD>(GetOuterAPlayerController()->GetHUD()))
+	if (AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(GetOuterAPlayerController()))
 	{
-		HUD->bShowPanels = !HUD->bShowPanels;
+		Controller->TogglePanel(EPanelTab::Inventory);
+	}
+}
+
+void UHearthvaleCheatManager::ToggleSkills()
+{
+	if (AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(GetOuterAPlayerController()))
+	{
+		Controller->TogglePanel(EPanelTab::Skills);
 	}
 }
 
@@ -99,14 +108,28 @@ void UHearthvaleCheatManager::GoTo(FName NodeKind)
 	{
 		return;
 	}
-	AResourceNode* Nearest = nullptr;
+	// Resource nodes by definition name; cooking stations by their display name.
+	AActor* Nearest = nullptr;
+	auto Consider = [&Nearest, Character](AActor* Candidate)
+	{
+		if (!Nearest || FVector::Dist(Candidate->GetActorLocation(), Character->GetActorLocation())
+			< FVector::Dist(Nearest->GetActorLocation(), Character->GetActorLocation()))
+		{
+			Nearest = Candidate;
+		}
+	};
 	for (AResourceNode* Node : TActorRange<AResourceNode>(GetWorld()))
 	{
-		if (Node->GetDefinition() && Node->GetDefinition()->GetFName() == NodeKind
-			&& (!Nearest || FVector::Dist(Node->GetActorLocation(), Character->GetActorLocation())
-				< FVector::Dist(Nearest->GetActorLocation(), Character->GetActorLocation())))
+		if (Node->GetDefinition() && Node->GetDefinition()->GetFName() == NodeKind)
 		{
-			Nearest = Node;
+			Consider(Node);
+		}
+	}
+	for (ACookingStation* Station : TActorRange<ACookingStation>(GetWorld()))
+	{
+		if (Station->GetDisplayName().ToString().Equals(NodeKind.ToString(), ESearchCase::IgnoreCase))
+		{
+			Consider(Station);
 		}
 	}
 	if (!Nearest)
@@ -120,7 +143,9 @@ void UHearthvaleCheatManager::GoTo(FName NodeKind)
 	{
 		Away = FVector::ForwardVector;
 	}
-	const FVector Spot = Nearest->GetActorLocation() + Away * 130.f + FVector(0.f, 0.f, 100.f);
+	// Stations are bulkier than nodes, so stand a little further off.
+	const float Distance = Nearest->IsA<ACookingStation>() ? 170.f : 130.f;
+	const FVector Spot = Nearest->GetActorLocation() + Away * Distance + FVector(0.f, 0.f, 100.f);
 	Character->TeleportTo(Spot, (-Away).Rotation());
 	GetOuterAPlayerController()->SetControlRotation((-Away).Rotation());
 }

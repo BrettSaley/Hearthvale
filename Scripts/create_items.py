@@ -5,6 +5,7 @@ Run headless (with the editor closed):
 or in the editor: Tools > Execute Python Script.
 
 Items that already exist are left alone, so edits made in the editor are kept.
+Cooking data (what raw food cooks into) is set by create_cooking.py.
 To rebuild an item from this list, delete its asset first.
 """
 

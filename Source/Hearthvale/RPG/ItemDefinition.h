@@ -108,6 +108,25 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Food", meta = (ClampMin = 0))
 	int32 HealAmount = 0;
 
+	/** What cooking this makes; set on raw food only. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Cooking")
+	TObjectPtr<UItemDefinition> CookedItem;
+
+	/** What it turns into when burnt. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Cooking", meta = (EditCondition = "CookedItem != nullptr"))
+	TObjectPtr<UItemDefinition> BurntItem;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Cooking", meta = (EditCondition = "CookedItem != nullptr", ClampMin = 1, ClampMax = 99))
+	int32 CookingLevel = 1;
+
+	/** Given for each one cooked (nothing for burning it). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Cooking", meta = (EditCondition = "CookedItem != nullptr", ClampMin = 0))
+	int32 CookingXP = 0;
+
+	/** The Cooking level from which it never burns; 0 means 30 levels above CookingLevel. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Cooking", meta = (EditCondition = "CookedItem != nullptr", ClampMin = 0, ClampMax = 120))
+	int32 StopBurningLevel = 0;
+
 	virtual FPrimaryAssetId GetPrimaryAssetId() const override;
 
 	/** The item's ID: its asset name. */
@@ -119,6 +138,11 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Items")
 	bool IsFood() const { return HealAmount > 0; }
+
+	UFUNCTION(BlueprintPure, Category = "Items")
+	bool IsCookable() const { return CookedItem != nullptr; }
+
+	int32 GetStopBurningLevel() const { return StopBurningLevel > 0 ? StopBurningLevel : CookingLevel + 30; }
 
 	/** Loads an item by ID ("CopperAxe"); null if there's no such item. */
 	UFUNCTION(BlueprintCallable, Category = "Items")

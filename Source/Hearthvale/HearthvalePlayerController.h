@@ -4,10 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "RPG/UI/CharacterPanelWidget.h"
 #include "HearthvalePlayerController.generated.h"
 
 class UInputMappingContext;
 class UUserWidget;
+class UInputAction;
 
 /**
  *  Basic PlayerController class for a third person game
@@ -23,6 +25,19 @@ public:
 	/** Constructor */
 	AHearthvalePlayerController();
 
+	/** Opens the character window on a tab (freeing the mouse cursor), or closes it. */
+	UFUNCTION(BlueprintCallable, Category="UI")
+	void SetPanelOpen(bool bOpen, EPanelTab Tab = EPanelTab::Inventory);
+
+	UFUNCTION(BlueprintPure, Category="UI")
+	bool IsPanelOpen() const;
+
+	UFUNCTION(BlueprintPure, Category="UI")
+	UCharacterPanelWidget* GetPanel() const { return Panel; }
+
+	/** Opens the window on a tab, or closes it if that tab is already showing. */
+	void TogglePanel(EPanelTab Tab);
+
 protected:
 
 	/** Input Mapping Contexts */
@@ -36,6 +51,18 @@ protected:
 	/** Hearthvale's own keys (interact, ...) */
 	UPROPERTY(EditAnywhere, Category="Input|Input Mappings")
 	TObjectPtr<UInputMappingContext> RPGMappingContext;
+
+	/** Opens the inventory (I) */
+	UPROPERTY(EditAnywhere, Category="Input")
+	TObjectPtr<UInputAction> InventoryAction;
+
+	/** Opens the skills (K) */
+	UPROPERTY(EditAnywhere, Category="Input")
+	TObjectPtr<UInputAction> SkillsAction;
+
+	/** The character window: inventory and skills */
+	UPROPERTY()
+	TObjectPtr<UCharacterPanelWidget> Panel;
 
 	/** Mobile controls widget to spawn */
 	UPROPERTY(EditAnywhere, Category="Input|Touch Controls")
