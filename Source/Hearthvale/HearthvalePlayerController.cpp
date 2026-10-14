@@ -8,6 +8,13 @@
 #include "Blueprint/UserWidget.h"
 #include "Hearthvale.h"
 #include "Widgets/Input/SVirtualJoystick.h"
+#include "RPG/HearthvaleCheatManager.h"
+
+AHearthvalePlayerController::AHearthvalePlayerController()
+{
+	// Test commands (GiveXP, GiveItem, ...) for development builds
+	CheatClass = UHearthvaleCheatManager::StaticClass();
+}
 
 void AHearthvalePlayerController::BeginPlay()
 {

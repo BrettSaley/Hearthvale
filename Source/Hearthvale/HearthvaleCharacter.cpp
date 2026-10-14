@@ -11,6 +11,11 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "Hearthvale.h"
+#include "TimerManager.h"
+#include "RPG/HearthvaleSaveGame.h"
+#include "RPG/InventoryComponent.h"
+#include "RPG/ItemDefinition.h"
+#include "RPG/SkillsComponent.h"
 
 AHearthvaleCharacter::AHearthvaleCharacter()
 {
@@ -45,6 +50,11 @@ AHearthvaleCharacter::AHearthvaleCharacter()
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
+
+	// RPG progress
+	Skills = CreateDefaultSubobject<USkillsComponent>(TEXT("Skills"));
+	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
+	StartingItems = {{TEXT("CopperAxe"), 1}, {TEXT("CopperPickaxe"), 1}, {TEXT("FishingNet"), 1}, {TEXT("Perch"), 3}, {TEXT("Coins"), 25}};
 
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
@@ -130,4 +140,58 @@ void AHearthvaleCharacter::DoJumpEnd()
 {
 	// signal the character to stop jumping
 	StopJumping();
+}
+
+void AHearthvaleCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	bIsPlayerCharacter = NewController && NewController->IsPlayerController();
+	if (!bIsPlayerCharacter)
+	{
+		return;
+	}
+	if (UHearthvaleSaveGame::LoadProgress(Skills, Inventory))
+	{
+		UE_LOG(LogHearthvale, Log, TEXT("Loaded progress: total level %d, %d inventory slots used."), Skills->GetTotalLevel(),
+			Inventory->GetCapacity() - Inventory->FreeSlotCount());
+	}
+	else
+	{
+		StartNewCharacter();
+		UE_LOG(LogHearthvale, Log, TEXT("No save found; started a new character."));
+	}
+	GetWorldTimerManager().SetTimer(AutosaveTimer, FTimerDelegate::CreateWeakLambda(this, [this] { SaveProgress(); }),
+		AutosaveInterval, true);
+}
+
+void AHearthvaleCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (bIsPlayerCharacter)
+	{
+		SaveProgress();
+	}
+	Super::EndPlay(EndPlayReason);
+}
+
+bool AHearthvaleCharacter::SaveProgress()
+{
+	return UHearthvaleSaveGame::SaveProgress(Skills, Inventory);
+}
+
+void AHearthvaleCharacter::StartNewCharacter()
+{
+	Skills->ResetSkills();
+	Inventory->Clear();
+	for (const TPair<FName, int32>& Entry : StartingItems)
+	{
+		if (UItemDefinition* Item = UItemDefinition::FindItem(Entry.Key))
+		{
+			Inventory->AddItem(Item, Entry.Value);
+		}
+		else
+		{
+			UE_LOG(LogHearthvale, Warning, TEXT("Starting item '%s' doesn't exist."), *Entry.Key.ToString());
+		}
+	}
 }

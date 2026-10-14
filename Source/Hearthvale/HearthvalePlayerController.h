@@ -17,7 +17,12 @@ UCLASS(abstract)
 class AHearthvalePlayerController : public APlayerController
 {
 	GENERATED_BODY()
-	
+
+public:
+
+	/** Constructor */
+	AHearthvalePlayerController();
+
 protected:
 
 	/** Input Mapping Contexts */

@@ -10,6 +10,8 @@
 class USpringArmComponent;
 class UCameraComponent;
 class UInputAction;
+class USkillsComponent;
+class UInventoryComponent;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
@@ -30,7 +32,28 @@ class AHearthvaleCharacter : public ACharacter
 	/** Follow camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FollowCamera;
-	
+
+	/** XP and levels in every skill */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USkillsComponent> Skills;
+
+	/** The items being carried */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInventoryComponent> Inventory;
+
+	/** Seconds between autosaves */
+	UPROPERTY(EditDefaultsOnly, Category="RPG")
+	float AutosaveInterval = 30.f;
+
+	/** Item ID -> quantity a brand new character starts with */
+	UPROPERTY(EditDefaultsOnly, Category="RPG")
+	TMap<FName, int32> StartingItems;
+
+	/** Whether a player controls this character (only players load and save) */
+	bool bIsPlayerCharacter = false;
+
+	FTimerHandle AutosaveTimer;
+
 protected:
 
 	/** Jump Input Action */
@@ -92,5 +115,24 @@ public:
 
 	/** Returns FollowCamera subobject **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+
+	FORCEINLINE USkillsComponent* GetSkills() const { return Skills; }
+
+	FORCEINLINE UInventoryComponent* GetInventory() const { return Inventory; }
+
+	/** Writes skills and items to the save; false if it failed. */
+	UFUNCTION(BlueprintCallable, Category="RPG")
+	bool SaveProgress();
+
+	/** Fresh skills and the starting items. */
+	UFUNCTION(BlueprintCallable, Category="RPG")
+	void StartNewCharacter();
+
+protected:
+
+	/** Loads the save (or starts a new character) when a player takes control */
+	virtual void PossessedBy(AController* NewController) override;
+
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 };
 

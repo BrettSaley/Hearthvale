@@ -1,8 +1,9 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "HearthvaleGameMode.h"
+#include "RPG/HearthvaleHUD.h"
 
 AHearthvaleGameMode::AHearthvaleGameMode()
 {
-	// stub
+	HUDClass = AHearthvaleHUD::StaticClass();
 }
