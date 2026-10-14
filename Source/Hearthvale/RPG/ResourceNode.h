@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "RPG/Gatherable.h"
 #include "RPG/Interactable.h"
 #include "ResourceNode.generated.h"
 
@@ -14,7 +15,7 @@ struct FNodeMeshPart;
  * Details panel; the look and the gathering rules come from there.
  */
 UCLASS()
-class HEARTHVALE_API AResourceNode : public AActor, public IInteractable
+class HEARTHVALE_API AResourceNode : public AActor, public IInteractable, public IGatherable
 {
 	GENERATED_BODY()
 
@@ -26,6 +27,9 @@ public:
 
 	virtual bool GetInteractionPrompt(const AHearthvaleCharacter* Character, FInteractionPrompt& OutPrompt) const override;
 	virtual void Interact(AHearthvaleCharacter* Character) override;
+
+	virtual bool GetGatherInfo(FGatherInfo& OutInfo) const override;
+	virtual bool OnGathered(AHearthvaleCharacter* Character) override;
 
 	UFUNCTION(BlueprintPure, Category = "Gathering")
 	UGatheringNodeDefinition* GetDefinition() const { return Definition; }

@@ -4,12 +4,9 @@
 #include "Engine/Font.h"
 #include "HearthvaleCharacter.h"
 #include "HearthvalePlayerController.h"
-#include "RPG/CookingComponent.h"
 #include "RPG/GatheringComponent.h"
-#include "RPG/GatheringNodeDefinition.h"
 #include "RPG/InteractionComponent.h"
 #include "RPG/InventoryComponent.h"
-#include "RPG/ResourceNode.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
 
@@ -157,19 +154,11 @@ void AHearthvaleHUD::DrawInteraction(AHearthvaleCharacter* Character)
 {
 	// While busy: what's being done, and a bar for the current attempt.
 	const UGatheringComponent* Gathering = Character->GetGathering();
-	if (Gathering->IsGathering())
+	FGatherInfo Info;
+	if (Gathering->GetCurrentInfo(Info))
 	{
-		const UGatheringNodeDefinition* Definition = Gathering->GetCurrentNode()->GetDefinition();
-		DrawProgress(FString::Printf(TEXT("%s %s..."), *Definition->ActionVerb.ToString(), *Definition->DisplayName.ToString()),
-			Gathering->GetAttemptProgress(), USkillLibrary::GetSkillColor(Definition->Skill));
-		return;
-	}
-	const UCookingComponent* Cooking = Character->GetCooking();
-	if (Cooking->IsCooking())
-	{
-		const UItemDefinition* Next = Cooking->GetNextItem();
-		DrawProgress(FString::Printf(TEXT("Cooking %s..."), Next ? *Next->DisplayName.ToString().ToLower() : TEXT("")),
-			Cooking->GetAttemptProgress(), USkillLibrary::GetSkillColor(ESkill::Cooking));
+		DrawProgress(FString::Printf(TEXT("%s %s..."), *Info.ActionVerb.ToString(), *Info.DisplayName.ToString()),
+			Gathering->GetAttemptProgress(), USkillLibrary::GetSkillColor(Info.Skill));
 		return;
 	}
 
@@ -181,10 +170,14 @@ void AHearthvaleHUD::DrawInteraction(AHearthvaleCharacter* Character)
 	{
 		return;
 	}
+	// Usable: the key and action. Not yet: what it's waiting on (a status) or missing (a requirement).
+	const bool bWaiting = !Prompt.bAvailable && !Prompt.Status.IsEmpty();
 	const FString Text = Prompt.bAvailable
 		? FString::Printf(TEXT("[E]  %s  %s"), *Prompt.Action.ToString(), *Prompt.Target.ToString())
-		: FString::Printf(TEXT("%s  -  requires %s"), *Prompt.Target.ToString(), *Prompt.Requirement.ToString());
-	const FLinearColor Color = Prompt.bAvailable ? FLinearColor(0.55f, 0.95f, 1.f) : FLinearColor(1.f, 0.45f, 0.4f);
+		: bWaiting
+			? FString::Printf(TEXT("%s  -  %s"), *Prompt.Target.ToString(), *Prompt.Status.ToString())
+			: FString::Printf(TEXT("%s  -  requires %s"), *Prompt.Target.ToString(), *Prompt.Requirement.ToString());
+	const FLinearColor Color = Prompt.bAvailable ? FLinearColor(0.55f, 0.95f, 1.f) : bWaiting ? FLinearColor(0.9f, 0.85f, 0.6f) : FLinearColor(1.f, 0.45f, 0.4f);
 	float Width, Height;
 	GetTextSize(Text, Width, Height, Font);
 	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), CenterX - Width * 0.5f - 10.f, Y - 4.f, Width + 20.f, Height + 8.f);

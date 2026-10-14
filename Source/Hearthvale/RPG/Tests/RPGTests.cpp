@@ -3,8 +3,10 @@
 // -ExecCmds="Automation RunTests Hearthvale; Quit".
 
 #include "Misc/AutomationTest.h"
-#include "RPG/CookingComponent.h"
+#include "RPG/CropDefinition.h"
+#include "RPG/FarmPatch.h"
 #include "RPG/GatheringComponent.h"
+#include "RPG/HearthvaleSaveGame.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
@@ -126,48 +128,47 @@ bool FGatheringTest::RunTest(const FString& Parameters)
 	Skills->AddXP(ESkill::Woodcutting, USkillLibrary::XPForLevel(10));
 	TestEqual(TEXT("At level 10 the iron axe is best"), UGatheringComponent::FindBestTool(Inventory, Skills, EToolType::Axe), IronAxe);
 	TestNull(TEXT("An axe isn't a pickaxe"), UGatheringComponent::FindBestTool(Inventory, Skills, EToolType::Pickaxe));
+	TestEqual(TEXT("A held axe is used even if a better one is carried"), UGatheringComponent::FindBestTool(Inventory, Skills, EToolType::Axe, CopperAxe), CopperAxe);
+	TestEqual(TEXT("Holding something else falls back to the best"), UGatheringComponent::FindBestTool(Inventory, Skills, EToolType::Axe, MakeItem(true)), IronAxe);
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCookingTest, "Hearthvale.Cooking", TestFlags)
-bool FCookingTest::RunTest(const FString& Parameters)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFarmingTest, "Hearthvale.Farming", TestFlags)
+bool FFarmingTest::RunTest(const FString& Parameters)
 {
-	TestEqual(TEXT("Half burn at the required level"), UCookingComponent::BurnChance(1, 1, 31), 0.5f);
-	TestEqual(TEXT("No burning at the stop level"), UCookingComponent::BurnChance(31, 1, 31), 0.f);
-	TestEqual(TEXT("No burning above it"), UCookingComponent::BurnChance(99, 1, 31), 0.f);
-	TestTrue(TEXT("Burns less as the level rises"), UCookingComponent::BurnChance(20, 1, 31) < UCookingComponent::BurnChance(10, 1, 31));
-	TestTrue(TEXT("A range burns less than a fire"), UCookingComponent::BurnChance(10, 1, 31, 0.75f) < UCookingComponent::BurnChance(10, 1, 31));
+	TestTrue(TEXT("Just planted is a seedling"), AFarmPatch::StageAfter(0.0, 100.f) == EPatchState::Seedling);
+	TestTrue(TEXT("Halfway it's growing"), AFarmPatch::StageAfter(50.0, 100.f) == EPatchState::Growing);
+	TestTrue(TEXT("Done is ready"), AFarmPatch::StageAfter(100.0, 100.f) == EPatchState::Ready);
+	TestTrue(TEXT("Long after is still ready"), AFarmPatch::StageAfter(1.0e6, 100.f) == EPatchState::Ready);
 
 	USkillsComponent* Skills = NewObject<USkillsComponent>();
 	UInventoryComponent* Inventory = NewObject<UInventoryComponent>();
-	UItemDefinition* Perch = MakeItem(false);
-	UItemDefinition* BurntFish = MakeItem(false);
-	UItemDefinition* RawPerch = MakeItem(false);
-	RawPerch->CookedItem = Perch;
-	RawPerch->BurntItem = BurntFish;
-	UItemDefinition* Trout = MakeItem(false);
-	UItemDefinition* RawTrout = MakeItem(false);
-	RawTrout->CookedItem = Trout;
-	RawTrout->BurntItem = BurntFish;
-	RawTrout->CookingLevel = 15;
-	TestEqual(TEXT("Stop-burning level defaults to 30 above"), RawTrout->GetStopBurningLevel(), 45);
-
-	TestEqual(TEXT("Nothing raw, nothing to cook"), UCookingComponent::FindRawSlot(Inventory, Skills, nullptr), INDEX_NONE);
+	auto MakeSeed = [](int32 Level)
+	{
+		UItemDefinition* Seed = MakeItem(true);
+		Seed->Crop = NewObject<UCropDefinition>();
+		Seed->Crop->RequiredLevel = Level;
+		return Seed;
+	};
+	UItemDefinition* Potato = MakeSeed(1);
+	UItemDefinition* Onion = MakeSeed(10);
+	UItemDefinition* Cabbage = MakeSeed(20);
+	TestEqual(TEXT("No seeds, nothing to plant"), AFarmPatch::FindSeedSlot(Inventory, Skills, nullptr), INDEX_NONE);
 	Inventory->AddItem(MakeItem(false));
-	Inventory->AddItem(RawTrout);
-	Inventory->AddItem(RawPerch, 2);
-	TestEqual(TEXT("Trout is too high, so the first perch"), UCookingComponent::FindRawSlot(Inventory, Skills, nullptr), 2);
-	TestEqual(TEXT("Ignoring levels finds the trout"), UCookingComponent::FindRawSlot(Inventory, nullptr, nullptr), 1);
-	TestEqual(TEXT("Only trout: none cookable yet"), UCookingComponent::FindRawSlot(Inventory, Skills, RawTrout), INDEX_NONE);
+	Inventory->AddItem(Potato, 5);
+	Inventory->AddItem(Onion, 5);
+	Inventory->AddItem(Cabbage, 5);
+	TestEqual(TEXT("At level 1 only potatoes"), AFarmPatch::FindSeedSlot(Inventory, Skills, nullptr), 1);
+	TestEqual(TEXT("Ignoring levels, the highest seed"), AFarmPatch::FindSeedSlot(Inventory, nullptr, nullptr), 3);
+	Skills->AddXP(ESkill::Farming, USkillLibrary::XPForLevel(10));
+	TestEqual(TEXT("At level 10, onions beat potatoes"), AFarmPatch::FindSeedSlot(Inventory, Skills, nullptr), 2);
+	TestEqual(TEXT("A held seed wins if it can be planted"), AFarmPatch::FindSeedSlot(Inventory, Skills, Potato), 1);
+	TestEqual(TEXT("A held seed that's too high doesn't"), AFarmPatch::FindSeedSlot(Inventory, Skills, Cabbage), 2);
 
-	TestEqual(TEXT("Cooking gives the cooked item"), UCookingComponent::CookSlot(Inventory, 2, false), Perch);
-	TestEqual(TEXT("...in the same slot"), Inventory->GetSlot(2).Item.Get(), Perch);
-	TestEqual(TEXT("Burning gives the burnt item"), UCookingComponent::CookSlot(Inventory, 3, true), BurntFish);
-	TestEqual(TEXT("...in the same slot"), Inventory->GetSlot(3).Item.Get(), BurntFish);
-	TestEqual(TEXT("No raw perch left"), Inventory->CountItem(RawPerch), 0);
-	TestNull(TEXT("Cooked food can't be cooked again"), UCookingComponent::CookSlot(Inventory, 2, false));
-	Skills->AddXP(ESkill::Cooking, USkillLibrary::XPForLevel(15));
-	TestEqual(TEXT("At level 15 the trout is next"), UCookingComponent::FindRawSlot(Inventory, Skills, nullptr), 1);
+	TestTrue(TEXT("Farming is a gathering skill"), USkillLibrary::IsGatheringSkill(ESkill::Farming));
+	TestFalse(TEXT("Might isn't"), USkillLibrary::IsGatheringSkill(ESkill::Might));
+	TestEqual(TEXT("Old raw fish load as fish"), UHearthvaleSaveGame::UpgradeItemId(TEXT("RawTrout")), FName(TEXT("Trout")));
+	TestEqual(TEXT("Other IDs are unchanged"), UHearthvaleSaveGame::UpgradeItemId(TEXT("Logs")), FName(TEXT("Logs")));
 	return true;
 }
 

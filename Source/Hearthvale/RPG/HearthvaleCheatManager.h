@@ -12,7 +12,7 @@ class AHearthvaleCharacter;
  *   ClearInventory             ResetSkills              SaveNow / DeleteSave
  *   GoTo Tree (teleport next to the nearest node of that kind)   Interact
  *   ToggleInventory / ToggleSkills (the character window)
- *   GoTo also takes Campfire or Range
+ *   GoTo FarmPatch             GrowCrops (finish growing every planted patch)
  */
 UCLASS()
 class HEARTHVALE_API UHearthvaleCheatManager : public UCheatManager
@@ -48,9 +48,13 @@ public:
 	UFUNCTION(Exec)
 	void ToggleSkills();
 
-	/** Teleports next to the nearest resource node of a kind (Tree, CopperRock, PerchSpot...) or cooking station (Campfire, Range). */
+	/** Teleports next to the nearest resource node of a kind (Tree, CopperRock, PerchSpot...), or FarmPatch. */
 	UFUNCTION(Exec)
 	void GoTo(FName NodeKind);
+
+	/** Finishes growing every planted patch. */
+	UFUNCTION(Exec)
+	void GrowCrops();
 
 	/** Same as pressing the interact key. */
 	UFUNCTION(Exec)

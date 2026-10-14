@@ -57,6 +57,38 @@ void AResourceNode::Interact(AHearthvaleCharacter* Character)
 	Character->GetGathering()->StartGathering(this);
 }
 
+bool AResourceNode::GetGatherInfo(FGatherInfo& OutInfo) const
+{
+	if (!Definition || bDepleted)
+	{
+		return false;
+	}
+	OutInfo.DisplayName = Definition->DisplayName;
+	OutInfo.ActionVerb = Definition->ActionVerb;
+	OutInfo.StartMessage = Definition->StartMessage;
+	OutInfo.SuccessMessage = Definition->SuccessMessage;
+	OutInfo.Skill = Definition->Skill;
+	OutInfo.RequiredLevel = Definition->RequiredLevel;
+	OutInfo.Tool = Definition->Tool;
+	OutInfo.Item = Definition->Item;
+	OutInfo.XP = Definition->XP;
+	OutInfo.AttemptInterval = Definition->AttemptInterval;
+	OutInfo.Difficulty = Definition->Difficulty;
+	OutInfo.Montage = Definition->GatherMontage;
+	OutInfo.BonusDrops = Definition->BonusDrops;
+	return true;
+}
+
+bool AResourceNode::OnGathered(AHearthvaleCharacter* Character)
+{
+	if (Definition && FMath::FRand() < Definition->DepleteChance)
+	{
+		Deplete();
+		return true;
+	}
+	return false;
+}
+
 void AResourceNode::Deplete()
 {
 	if (bDepleted || !Definition)

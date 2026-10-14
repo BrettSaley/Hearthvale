@@ -24,8 +24,8 @@ enum class EPanelTab : uint8
 };
 
 /**
- * The character window in the bottom-right corner, with Inventory and Skills
- * tabs. The player controller opens and closes it (I and K).
+ * The character window, with Inventory (backpack above, hotbar below) and
+ * Skills tabs. The player controller opens and closes it (I and K).
  */
 UCLASS()
 class HEARTHVALE_API UCharacterPanelWidget : public UUserWidget
@@ -63,6 +63,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Character Panel")
 	void MoveItem(int32 FromSlot, int32 ToSlot);
 
+	/** Slots report the mouse coming and going, for the 1-9 shortcut. */
+	void SetHoveredSlot(int32 SlotIndex, bool bHovered);
+
+	/** The inventory slot under the mouse, or -1. */
+	int32 GetHoveredSlot() const { return HoveredSlot; }
+
 	/** The hover box for an item: name, examine text, stats and requirements. */
 	UWidget* MakeItemTooltip(const FItemStack& Stack);
 
@@ -87,6 +93,7 @@ private:
 
 	TWeakObjectPtr<AHearthvaleCharacter> Character;
 	EPanelTab CurrentTab = EPanelTab::Inventory;
+	int32 HoveredSlot = INDEX_NONE;
 
 	UPROPERTY()
 	TObjectPtr<UWidgetSwitcher> Pages;
@@ -96,6 +103,9 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UUniformGridPanel> SlotGrid;
+
+	UPROPERTY()
+	TObjectPtr<UUniformGridPanel> HotbarGrid;
 
 	UPROPERTY()
 	TArray<TObjectPtr<UInventorySlotWidget>> SlotWidgets;

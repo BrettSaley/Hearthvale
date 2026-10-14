@@ -2,9 +2,7 @@
 #include "Animation/AnimInstance.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "HearthvaleCharacter.h"
-#include "RPG/GatheringNodeDefinition.h"
 #include "RPG/InventoryComponent.h"
-#include "RPG/ResourceNode.h"
 #include "RPG/SkillsComponent.h"
 
 #define LOCTEXT_NAMESPACE "Gathering"
@@ -23,6 +21,13 @@ namespace
 	}
 
 	const FLinearColor Warning(1.f, 0.45f, 0.4f);
+	const FLinearColor Lucky(1.f, 0.8f, 0.3f);
+
+	bool GetInfo(const AActor* Source, FGatherInfo& OutInfo)
+	{
+		const IGatherable* Gatherable = Cast<IGatherable>(Source);
+		return Gatherable && Gatherable->GetGatherInfo(OutInfo);
+	}
 }
 
 UGatheringComponent::UGatheringComponent()
@@ -48,8 +53,13 @@ bool UGatheringComponent::MeetsRequirements(const UItemDefinition* Item, const U
 	return true;
 }
 
-UItemDefinition* UGatheringComponent::FindBestTool(const UInventoryComponent* Inventory, const USkillsComponent* Skills, EToolType Type)
+UItemDefinition* UGatheringComponent::FindBestTool(const UInventoryComponent* Inventory, const USkillsComponent* Skills, EToolType Type,
+	UItemDefinition* Preferred)
 {
+	if (Preferred && Preferred->ToolType == Type && Type != EToolType::None && MeetsRequirements(Preferred, Skills))
+	{
+		return Preferred;
+	}
 	UItemDefinition* Best = nullptr;
 	for (const FItemStack& Slot : Inventory->GetSlots())
 	{
@@ -62,47 +72,60 @@ UItemDefinition* UGatheringComponent::FindBestTool(const UInventoryComponent* In
 	return Best;
 }
 
-bool UGatheringComponent::StartGathering(AResourceNode* Node)
+int32 UGatheringComponent::GetToolPower(const FGatherInfo& Info) const
+{
+	if (Info.Tool == EToolType::None)
+	{
+		return 1;
+	}
+	const AHearthvaleCharacter* Character = GetCharacter();
+	const UItemDefinition* Tool = FindBestTool(Character->GetInventory(), Character->GetSkills(), Info.Tool, Character->GetHeldItem());
+	return Tool ? FMath::Max(1, Tool->ToolPower) : 0;
+}
+
+bool UGatheringComponent::StartGathering(AActor* Source)
 {
 	AHearthvaleCharacter* Character = GetCharacter();
-	const UGatheringNodeDefinition* Definition = Node ? Node->GetDefinition() : nullptr;
-	if (!Character || !Definition || Node->IsDepleted())
+	FGatherInfo Info;
+	if (!Character || !GetInfo(Source, Info))
 	{
 		return false;
 	}
-	if (Node == CurrentNode)
+	if (Source == CurrentSource)
 	{
 		return true;
 	}
 	Character->StopActions();
-	const USkillsComponent* Skills = Character->GetSkills();
-	if (Skills->GetLevel(Definition->Skill) < Definition->RequiredLevel)
+	if (Character->GetSkills()->GetLevel(Info.Skill) < Info.RequiredLevel)
 	{
 		Character->ShowMessage(FText::Format(LOCTEXT("NeedLevel", "You need a {0} level of {1} to do that."),
-			USkillLibrary::GetSkillName(Definition->Skill), Definition->RequiredLevel), Warning);
+			USkillLibrary::GetSkillName(Info.Skill), Info.RequiredLevel), Warning);
 		return false;
 	}
-	if (!FindBestTool(Character->GetInventory(), Skills, Definition->Tool))
+	if (GetToolPower(Info) == 0)
 	{
-		Character->ShowMessage(FText::Format(LOCTEXT("NeedTool", "You need {0} you can use."), ToolName(Definition->Tool)), Warning);
+		Character->ShowMessage(FText::Format(LOCTEXT("NeedTool", "You need {0} you can use."), ToolName(Info.Tool)), Warning);
 		return false;
 	}
-	if (Definition->Item && !Character->GetInventory()->CanFit(Definition->Item))
+	if (Info.Item && !Character->GetInventory()->CanFit(Info.Item))
 	{
 		Character->ShowMessage(LOCTEXT("Full", "Your inventory is too full to hold any more."), Warning);
 		return false;
 	}
 
-	CurrentNode = Node;
+	CurrentSource = Source;
 	StartLocation = Character->GetActorLocation();
 	Elapsed = 0.f;
-	FVector ToNode = Node->GetActorLocation() - StartLocation;
-	ToNode.Z = 0.f;
-	if (!ToNode.IsNearlyZero())
+	FVector ToSource = Source->GetActorLocation() - StartLocation;
+	ToSource.Z = 0.f;
+	if (!ToSource.IsNearlyZero())
 	{
-		Character->SetActorRotation(ToNode.Rotation());
+		Character->SetActorRotation(ToSource.Rotation());
 	}
-	Character->ShowMessage(Definition->StartMessage);
+	if (!Info.StartMessage.IsEmpty())
+	{
+		Character->ShowMessage(Info.StartMessage);
+	}
 	SetComponentTickEnabled(true);
 	OnGatheringChanged.Broadcast();
 	return true;
@@ -110,33 +133,38 @@ bool UGatheringComponent::StartGathering(AResourceNode* Node)
 
 void UGatheringComponent::StopGathering()
 {
-	if (!CurrentNode)
+	if (!CurrentSource)
 	{
 		return;
 	}
-	CurrentNode = nullptr;
+	CurrentSource = nullptr;
 	SetComponentTickEnabled(false);
 	OnGatheringChanged.Broadcast();
 }
 
+bool UGatheringComponent::GetCurrentInfo(FGatherInfo& OutInfo) const
+{
+	return CurrentSource && GetInfo(CurrentSource, OutInfo);
+}
+
 float UGatheringComponent::GetAttemptProgress() const
 {
-	const UGatheringNodeDefinition* Definition = CurrentNode ? CurrentNode->GetDefinition() : nullptr;
-	return Definition ? FMath::Clamp(Elapsed / Definition->AttemptInterval, 0.f, 1.f) : 0.f;
+	FGatherInfo Info;
+	return GetCurrentInfo(Info) ? FMath::Clamp(Elapsed / Info.AttemptInterval, 0.f, 1.f) : 0.f;
 }
 
 void UGatheringComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	AHearthvaleCharacter* Character = GetCharacter();
-	if (!CurrentNode || !Character || CurrentNode->IsDepleted()
-		|| FVector::Dist2D(Character->GetActorLocation(), StartLocation) > MaxDrift)
+	FGatherInfo Info;
+	if (!Character || !GetCurrentInfo(Info) || FVector::Dist2D(Character->GetActorLocation(), StartLocation) > MaxDrift)
 	{
 		StopGathering();
 		return;
 	}
 	Elapsed += DeltaTime;
-	if (Elapsed >= CurrentNode->GetDefinition()->AttemptInterval)
+	if (Elapsed >= Info.AttemptInterval)
 	{
 		Elapsed = 0.f;
 		Attempt();
@@ -146,36 +174,43 @@ void UGatheringComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 void UGatheringComponent::Attempt()
 {
 	AHearthvaleCharacter* Character = GetCharacter();
-	const UGatheringNodeDefinition* Definition = CurrentNode->GetDefinition();
+	FGatherInfo Info;
+	GetCurrentInfo(Info);
 	USkillsComponent* Skills = Character->GetSkills();
 	UInventoryComponent* Inventory = Character->GetInventory();
-	const UItemDefinition* Tool = FindBestTool(Inventory, Skills, Definition->Tool);
-	if (!Tool)
+	const int32 ToolPower = GetToolPower(Info);
+	if (ToolPower == 0)
 	{
 		StopGathering();
 		return;
 	}
-	if (Definition->GatherMontage)
+	if (Info.Montage)
 	{
-		Character->PlayAnimMontage(Definition->GatherMontage);
+		Character->PlayAnimMontage(Info.Montage);
 	}
-	const float Chance = SuccessChance(Skills->GetLevel(Definition->Skill), Definition->RequiredLevel, Tool->ToolPower, Definition->Difficulty);
-	if (FMath::FRand() >= Chance)
+	if (FMath::FRand() >= SuccessChance(Skills->GetLevel(Info.Skill), Info.RequiredLevel, ToolPower, Info.Difficulty))
 	{
 		return;
 	}
-	if (Definition->Item)
+	if (Info.Item)
 	{
-		Inventory->AddItem(Definition->Item);
-		Character->ShowMessage(FText::Format(LOCTEXT("Got", "You get some {0}."), Definition->Item->DisplayName.ToLower()));
+		Inventory->AddItem(Info.Item);
+		const FText Message = Info.SuccessMessage.IsEmpty() ? LOCTEXT("Got", "You get some {0}.") : Info.SuccessMessage;
+		Character->ShowMessage(FText::Format(Message, Info.Item->DisplayName.ToLower()));
 	}
-	Skills->AddXP(Definition->Skill, Definition->XP);
-	if (FMath::FRand() < Definition->DepleteChance)
+	Skills->AddXP(Info.Skill, Info.XP);
+	for (const FBonusDrop& Drop : Info.BonusDrops)
 	{
-		CurrentNode->Deplete();
+		if (Drop.Item && FMath::RandRange(1, Drop.OneIn) == 1 && Inventory->AddItem(Drop.Item, Drop.Quantity) > 0)
+		{
+			Character->ShowMessage(FText::Format(LOCTEXT("Bonus", "You also find: {0}!"), Drop.Item->DisplayName), Lucky);
+		}
+	}
+	if (Cast<IGatherable>(CurrentSource)->OnGathered(Character))
+	{
 		StopGathering();
 	}
-	else if (Definition->Item && !Inventory->CanFit(Definition->Item))
+	else if (Info.Item && !Inventory->CanFit(Info.Item))
 	{
 		Character->ShowMessage(LOCTEXT("Full", "Your inventory is too full to hold any more."), Warning);
 		StopGathering();

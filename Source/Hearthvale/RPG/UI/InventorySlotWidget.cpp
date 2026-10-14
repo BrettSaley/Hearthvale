@@ -50,6 +50,11 @@ void UInventorySlotWidget::NativeOnInitialized()
 	QuantitySlot->SetHorizontalAlignment(HAlign_Left);
 	QuantitySlot->SetVerticalAlignment(VAlign_Top);
 
+	KeyText = HearthvaleUI::MakeText(WidgetTree, FText::GetEmpty(), 8, HearthvaleUI::MutedColor);
+	UOverlaySlot* KeySlot = Layers->AddChildToOverlay(KeyText);
+	KeySlot->SetHorizontalAlignment(HAlign_Right);
+	KeySlot->SetVerticalAlignment(VAlign_Top);
+
 	WidgetTree->RootWidget = Box;
 	SetStack(FItemStack());
 }
@@ -58,6 +63,17 @@ void UInventorySlotWidget::Init(UCharacterPanelWidget* InPanel, int32 InIndex)
 {
 	Panel = InPanel;
 	Index = InIndex;
+}
+
+void UInventorySlotWidget::SetSelected(bool bInSelected)
+{
+	bSelected = bInSelected;
+	UpdateLook();
+}
+
+void UInventorySlotWidget::SetKeyLabel(const FText& Label)
+{
+	KeyText->SetText(Label);
 }
 
 void UInventorySlotWidget::SetStack(const FItemStack& InStack)
@@ -166,6 +182,10 @@ void UInventorySlotWidget::NativeOnMouseEnter(const FGeometry& InGeometry, const
 {
 	Super::NativeOnMouseEnter(InGeometry, InMouseEvent);
 	bHovered = true;
+	if (Panel.IsValid())
+	{
+		Panel->SetHoveredSlot(Index, true);
+	}
 	UpdateLook();
 }
 
@@ -173,6 +193,10 @@ void UInventorySlotWidget::NativeOnMouseLeave(const FPointerEvent& InMouseEvent)
 {
 	Super::NativeOnMouseLeave(InMouseEvent);
 	bHovered = false;
+	if (Panel.IsValid())
+	{
+		Panel->SetHoveredSlot(Index, false);
+	}
 	UpdateLook();
 }
 
@@ -182,9 +206,10 @@ void UInventorySlotWidget::UpdateLook()
 	{
 		return;
 	}
-	const bool bLit = bDropTarget || (bHovered && !Stack.IsEmpty());
+	const bool bLit = bDropTarget || bSelected || (bHovered && !Stack.IsEmpty());
+	const bool bOutlined = bDropTarget || bSelected;
 	Background->SetBrush(HearthvaleUI::RoundedBrush(bLit ? HearthvaleUI::SlotHoverColor : HearthvaleUI::SlotColor, 4.f,
-		bDropTarget ? HearthvaleUI::GoldColor : HearthvaleUI::SlotLineColor, 1.f));
+		bOutlined ? HearthvaleUI::GoldColor : HearthvaleUI::SlotLineColor, bOutlined ? 2.f : 1.f));
 	// The item fades in its old slot while it's being dragged.
 	Background->SetContentColorAndOpacity(FLinearColor(1.f, 1.f, 1.f, bDragging ? 0.3f : 1.f));
 }

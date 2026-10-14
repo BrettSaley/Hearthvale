@@ -15,7 +15,7 @@ enum class ESkill : uint8
 	Woodcutting,
 	Mining,
 	Fishing,
-	Cooking,
+	Farming,
 	Count UMETA(Hidden)
 };
 ENUM_RANGE_BY_COUNT(ESkill, ESkill::Count)
@@ -48,6 +48,10 @@ public:
 	/** From the four combat skills: 3 for a new character, 99 when maxed. */
 	UFUNCTION(BlueprintPure, Category = "Skills")
 	static int32 CombatLevel(int32 Precision, int32 Might, int32 Guard, int32 Vitality);
+
+	/** Woodcutting, Mining, Fishing and Farming: the skills the game features for now. */
+	UFUNCTION(BlueprintPure, Category = "Skills")
+	static bool IsGatheringSkill(ESkill Skill);
 
 	/** Matches a skill by name, ignoring case ("woodcutting" -> Woodcutting). */
 	static bool SkillFromName(const FString& Name, ESkill& OutSkill);

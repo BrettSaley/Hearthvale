@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+#include "RPG/Gatherable.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/Skills.h"
 #include "GatheringNodeDefinition.generated.h"
@@ -52,6 +53,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Node")
 	FText StartMessage;
 
+	/** Said on each success; {0} is the item. Empty means "You get some {0}." */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Node")
+	FText SuccessMessage;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gathering")
 	ESkill Skill = ESkill::Woodcutting;
 
@@ -81,6 +86,10 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gathering", meta = (ClampMin = 0))
 	float RespawnSeconds = 10.f;
+
+	/** Rare extra finds rolled on each success (seeds from trees, gems from rocks). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gathering")
+	TArray<FBonusDrop> BonusDrops;
 
 	/** Played on each attempt, if set (needs the character's anim blueprint to have a montage slot). */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visuals")

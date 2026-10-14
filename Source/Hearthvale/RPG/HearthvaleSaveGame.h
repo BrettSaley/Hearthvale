@@ -2,11 +2,11 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/SaveGame.h"
+#include "RPG/FarmPatch.h"
 #include "RPG/Skills.h"
 #include "HearthvaleSaveGame.generated.h"
 
-class USkillsComponent;
-class UInventoryComponent;
+class AHearthvaleCharacter;
 
 /** One saved inventory slot; an empty ID is an empty slot. */
 USTRUCT()
@@ -21,7 +21,11 @@ struct FSavedItemStack
 	int32 Quantity = 0;
 };
 
-/** A character's progress: skills and items. */
+/**
+ * A character's progress: skills, items and their farm patches.
+ * Version 2 dropped Cooking (its XP isn't carried over to Farming, which took
+ * its place) and raw fish (they load as the plain fish).
+ */
 UCLASS()
 class HEARTHVALE_API UHearthvaleSaveGame : public USaveGame
 {
@@ -29,9 +33,10 @@ class HEARTHVALE_API UHearthvaleSaveGame : public USaveGame
 
 public:
 	static const FString SlotName;
+	static constexpr int32 CurrentVersion = 2;
 
 	UPROPERTY()
-	int32 Version = 1;
+	int32 Version = CurrentVersion;
 
 	UPROPERTY()
 	TMap<ESkill, int32> SkillXP;
@@ -39,11 +44,21 @@ public:
 	UPROPERTY()
 	TArray<FSavedItemStack> Inventory;
 
-	/** Write a character's progress to disk. */
-	static bool SaveProgress(const USkillsComponent* Skills, const UInventoryComponent* Inventory);
+	UPROPERTY()
+	int32 HeldSlot = 0;
 
-	/** Read saved progress into a character; false if there's no save. */
-	static bool LoadProgress(USkillsComponent* Skills, UInventoryComponent* Inventory);
+	/** By patch actor name. */
+	UPROPERTY()
+	TMap<FString, FSavedFarmPatch> FarmPatches;
+
+	/** Write a character's progress (and the farm patches in their world) to disk. */
+	static bool SaveProgress(const AHearthvaleCharacter* Character);
+
+	/** Read saved progress into a character and their world's patches; false if there's no save. */
+	static bool LoadProgress(AHearthvaleCharacter* Character);
 
 	static bool DeleteSave();
+
+	/** The current ID for an item ID from an older save. */
+	static FName UpgradeItemId(FName ItemId);
 };

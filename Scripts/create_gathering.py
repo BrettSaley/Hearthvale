@@ -135,13 +135,13 @@ NODES = {
                        level=30, tool=Tool.PICKAXE, item="SilverOre", xp=55, interval=2.4, difficulty=0.1, deplete=1.0,
                        respawn=30, parts=rock("Silver"), depleted=MINED),
     "PerchSpot": dict(name="Fishing spot", verb="Net", start="You cast out your net.", skill=Skill.FISHING,
-                      level=1, tool=Tool.FISHING_NET, item="RawPerch", xp=15, interval=3.0, difficulty=0.0, deplete=0.0,
+                      level=1, tool=Tool.FISHING_NET, item="Perch", xp=15, interval=3.0, difficulty=0.0, deplete=0.0,
                       respawn=0, parts=POOL, depleted=[]),
     "TroutSpot": dict(name="Fishing spot", verb="Net", start="You cast out your net.", skill=Skill.FISHING,
-                      level=20, tool=Tool.FISHING_NET, item="RawTrout", xp=50, interval=3.0, difficulty=0.0, deplete=0.0,
+                      level=20, tool=Tool.FISHING_NET, item="Trout", xp=50, interval=3.0, difficulty=0.0, deplete=0.0,
                       respawn=0, parts=POOL, depleted=[]),
     "PikeSpot": dict(name="Fishing spot", verb="Net", start="You cast out your net.", skill=Skill.FISHING,
-                     level=30, tool=Tool.FISHING_NET, item="RawPike", xp=70, interval=3.0, difficulty=0.05, deplete=0.0,
+                     level=30, tool=Tool.FISHING_NET, item="Pike", xp=70, interval=3.0, difficulty=0.05, deplete=0.0,
                      respawn=0, parts=POOL, depleted=[]),
 }
 DEFINITIONS = {}

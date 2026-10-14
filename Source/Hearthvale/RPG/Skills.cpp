@@ -55,7 +55,7 @@ FText USkillLibrary::GetSkillName(ESkill Skill)
 	case ESkill::Woodcutting: return LOCTEXT("Woodcutting", "Woodcutting");
 	case ESkill::Mining:      return LOCTEXT("Mining", "Mining");
 	case ESkill::Fishing:     return LOCTEXT("Fishing", "Fishing");
-	case ESkill::Cooking:     return LOCTEXT("Cooking", "Cooking");
+	case ESkill::Farming:     return LOCTEXT("Farming", "Farming");
 	default:                  return FText::GetEmpty();
 	}
 }
@@ -71,9 +71,14 @@ FLinearColor USkillLibrary::GetSkillColor(ESkill Skill)
 	case ESkill::Woodcutting: return FLinearColor::FromSRGBColor(FColor(128, 199, 97));
 	case ESkill::Mining:      return FLinearColor::FromSRGBColor(FColor(179, 168, 153));
 	case ESkill::Fishing:     return FLinearColor::FromSRGBColor(FColor(102, 184, 235));
-	case ESkill::Cooking:     return FLinearColor::FromSRGBColor(FColor(217, 128, 217));
+	case ESkill::Farming:     return FLinearColor::FromSRGBColor(FColor(222, 190, 92));
 	default:                  return FLinearColor::White;
 	}
+}
+
+bool USkillLibrary::IsGatheringSkill(ESkill Skill)
+{
+	return Skill == ESkill::Woodcutting || Skill == ESkill::Mining || Skill == ESkill::Fishing || Skill == ESkill::Farming;
 }
 
 int32 USkillLibrary::CombatLevel(int32 Precision, int32 Might, int32 Guard, int32 Vitality)

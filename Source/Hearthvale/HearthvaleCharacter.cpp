@@ -16,8 +16,6 @@
 #include "InputAction.h"
 #include "EngineUtils.h"
 #include "HearthvalePlayerController.h"
-#include "RPG/CookingComponent.h"
-#include "RPG/CookingStation.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/GroundItem.h"
 #include "RPG/HearthvaleHUD.h"
@@ -65,11 +63,10 @@ AHearthvaleCharacter::AHearthvaleCharacter()
 	Skills = CreateDefaultSubobject<USkillsComponent>(TEXT("Skills"));
 	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
 	Gathering = CreateDefaultSubobject<UGatheringComponent>(TEXT("Gathering"));
-	Cooking = CreateDefaultSubobject<UCookingComponent>(TEXT("Cooking"));
 	Interaction = CreateDefaultSubobject<UInteractionComponent>(TEXT("Interaction"));
 	static ConstructorHelpers::FObjectFinder<UInputAction> InteractActionAsset(TEXT("/Game/Input/Actions/IA_Interact.IA_Interact"));
 	InteractAction = InteractActionAsset.Object;
-	StartingItems = {{TEXT("CopperAxe"), 1}, {TEXT("CopperPickaxe"), 1}, {TEXT("FishingNet"), 1}, {TEXT("Perch"), 3}, {TEXT("Coins"), 25}};
+	StartingItems = {{TEXT("CopperAxe"), 1}, {TEXT("CopperPickaxe"), 1}, {TEXT("FishingNet"), 1}, {TEXT("PotatoSeed"), 6}, {TEXT("Coins"), 25}};
 
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
@@ -185,7 +182,7 @@ void AHearthvaleCharacter::PossessedBy(AController* NewController)
 	{
 		return;
 	}
-	if (UHearthvaleSaveGame::LoadProgress(Skills, Inventory))
+	if (UHearthvaleSaveGame::LoadProgress(this))
 	{
 		UE_LOG(LogHearthvale, Log, TEXT("Loaded progress: total level %d, %d inventory slots used."), Skills->GetTotalLevel(),
 			Inventory->GetCapacity() - Inventory->FreeSlotCount());
@@ -210,13 +207,14 @@ void AHearthvaleCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 bool AHearthvaleCharacter::SaveProgress()
 {
-	return UHearthvaleSaveGame::SaveProgress(Skills, Inventory);
+	return UHearthvaleSaveGame::SaveProgress(this);
 }
 
 void AHearthvaleCharacter::StartNewCharacter()
 {
 	Skills->ResetSkills();
 	Inventory->Clear();
+	SelectHotbarSlot(0);
 	for (const TPair<FName, int32>& Entry : StartingItems)
 	{
 		if (UItemDefinition* Item = UItemDefinition::FindItem(Entry.Key))
@@ -250,35 +248,6 @@ void AHearthvaleCharacter::ShowMessage(const FText& Text, const FLinearColor& Co
 void AHearthvaleCharacter::StopActions()
 {
 	Gathering->StopGathering();
-	Cooking->StopCooking();
-}
-
-ACookingStation* AHearthvaleCharacter::FindNearbyCookingStation() const
-{
-	ACookingStation* Nearest = nullptr;
-	float NearestDistance = Interaction->Range + 100.f;
-	for (ACookingStation* Station : TActorRange<ACookingStation>(GetWorld()))
-	{
-		const float Distance = FVector::Dist2D(Station->GetActorLocation(), GetActorLocation());
-		if (Distance < NearestDistance)
-		{
-			Nearest = Station;
-			NearestDistance = Distance;
-		}
-	}
-	return Nearest;
-}
-
-void AHearthvaleCharacter::CookItem(UItemDefinition* Item)
-{
-	if (ACookingStation* Station = FindNearbyCookingStation())
-	{
-		Cooking->StartCooking(Station, Item);
-	}
-	else
-	{
-		ShowMessage(NSLOCTEXT("Hearthvale", "NoFire", "You need to be at a fire or range to cook that."), FLinearColor(1.f, 0.45f, 0.4f));
-	}
 }
 
 void AHearthvaleCharacter::DropItem(int32 SlotIndex)
@@ -292,4 +261,26 @@ void AHearthvaleCharacter::DropItem(int32 SlotIndex)
 	const FVector Feet = GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
 	const FVector Scatter(FMath::FRandRange(-15.f, 15.f), FMath::FRandRange(-15.f, 15.f), 0.f);
 	AGroundItem::Spawn(GetWorld(), Stack, Feet + GetActorForwardVector() * 45.f + Scatter);
+}
+
+void AHearthvaleCharacter::SelectHotbarSlot(int32 Slot)
+{
+	const int32 NewSlot = FMath::Clamp(Slot, 0, UInventoryComponent::HotbarSize - 1);
+	if (NewSlot != HeldSlot)
+	{
+		HeldSlot = NewSlot;
+		OnHeldSlotChanged.Broadcast();
+	}
+}
+
+void AHearthvaleCharacter::CycleHotbar(int32 Direction)
+{
+	const int32 Size = UInventoryComponent::HotbarSize;
+	SelectHotbarSlot(((HeldSlot + Direction) % Size + Size) % Size);
+}
+
+UItemDefinition* AHearthvaleCharacter::GetHeldItem() const
+{
+	const FItemStack Stack = Inventory->GetSlot(HeldSlot);
+	return Stack.IsEmpty() ? nullptr : Stack.Item.Get();
 }

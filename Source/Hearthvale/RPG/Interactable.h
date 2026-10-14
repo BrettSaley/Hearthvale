@@ -25,6 +25,10 @@ struct HEARTHVALE_API FInteractionPrompt
 	/** Why it can't be used yet, e.g. "Woodcutting 15". */
 	UPROPERTY(BlueprintReadOnly, Category = "Interaction")
 	FText Requirement;
+
+	/** Shown instead of a requirement when it simply isn't ready: "growing, ready in 1:20". */
+	UPROPERTY(BlueprintReadOnly, Category = "Interaction")
+	FText Status;
 };
 
 UINTERFACE(MinimalAPI, meta = (CannotImplementInterfaceInBlueprint))

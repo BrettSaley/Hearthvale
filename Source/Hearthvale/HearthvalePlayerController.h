@@ -10,6 +10,7 @@
 class UInputMappingContext;
 class UUserWidget;
 class UInputAction;
+class UHotbarWidget;
 
 /**
  *  Basic PlayerController class for a third person game
@@ -38,6 +39,9 @@ public:
 	/** Opens the window on a tab, or closes it if that tab is already showing. */
 	void TogglePanel(EPanelTab Tab);
 
+	/** A hotbar number key (0-8): holds that slot, or with the window open, moves the item under the mouse there. */
+	void HotbarKey(int32 Slot);
+
 protected:
 
 	/** Input Mapping Contexts */
@@ -60,6 +64,18 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Input")
 	TObjectPtr<UInputAction> SkillsAction;
 
+	/** Hotbar keys 1-9 */
+	UPROPERTY(EditAnywhere, Category="Input")
+	TArray<TObjectPtr<UInputAction>> HotbarActions;
+
+	/** Mouse wheel: move along the hotbar */
+	UPROPERTY(EditAnywhere, Category="Input")
+	TObjectPtr<UInputAction> HotbarScrollAction;
+
+	/** The hotbar along the bottom of the screen */
+	UPROPERTY()
+	TObjectPtr<UHotbarWidget> Hotbar;
+
 	/** The character window: inventory and skills */
 	UPROPERTY()
 	TObjectPtr<UCharacterPanelWidget> Panel;
@@ -78,6 +94,9 @@ protected:
 
 	/** Gameplay initialization */
 	virtual void BeginPlay() override;
+
+	/** Points the hotbar at a newly possessed character */
+	virtual void OnPossess(APawn* InPawn) override;
 
 	/** Input mapping context setup */
 	virtual void SetupInputComponent() override;

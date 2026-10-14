@@ -24,8 +24,9 @@ struct HEARTHVALE_API FItemStack
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnInventoryChanged);
 
 /**
- * A fixed number of item slots. Stackable items share one slot; everything
- * else takes a slot each.
+ * A fixed number of item slots: the 9-slot hotbar, then the backpack.
+ * Stackable items share one slot; everything else takes a slot each. New
+ * items fill the first free slot, so the hotbar first.
  */
 UCLASS(ClassGroup = (RPG), meta = (BlueprintSpawnableComponent))
 class HEARTHVALE_API UInventoryComponent : public UActorComponent
@@ -92,12 +93,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Inventory")
 	int32 GetCapacity() const { return Capacity; }
 
+	/** The first slots are the hotbar (keys 1-9); the rest is the backpack. */
+	static constexpr int32 HotbarSize = 9;
+
 	UPROPERTY(BlueprintAssignable, Category = "Inventory")
 	FOnInventoryChanged OnInventoryChanged;
 
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Inventory", meta = (ClampMin = 1))
-	int32 Capacity = 24;
+	int32 Capacity = 36;
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Inventory")
 	TArray<FItemStack> Slots;

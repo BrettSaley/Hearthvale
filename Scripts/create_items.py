@@ -53,17 +53,21 @@ ITEMS = {
     "IronOre": dict(name="Iron ore", examine="Rusty-red iron ore.", category=Cat.RESOURCE, value=17),
     "SilverOre": dict(name="Silver ore", examine="It glints even in the dark.", category=Cat.RESOURCE, value=75),
 
-    # Food: raw (cook it first) and cooked.
-    "RawPerch": dict(name="Raw perch", examine="A little striped fish. Cook it first.", category=Cat.RESOURCE, value=5),
-    "RawTrout": dict(name="Raw trout", examine="Speckled and slippery. Cook it first.", category=Cat.RESOURCE, value=20),
-    "RawPike": dict(name="Raw pike", examine="All teeth. Cook it first.", category=Cat.RESOURCE, value=40),
-    "RawMeat": dict(name="Raw meat", examine="Needs cooking. Definitely needs cooking.", category=Cat.RESOURCE, value=3),
-    "Perch": dict(name="Perch", examine="Cooked perch.", category=Cat.FOOD, value=8, heal=3),
-    "Trout": dict(name="Trout", examine="Cooked trout.", category=Cat.FOOD, value=30, heal=6),
-    "Pike": dict(name="Pike", examine="Cooked pike.", category=Cat.FOOD, value=60, heal=9),
+    # Fish (from fishing) and other food; healing matters once there's combat.
+    "Perch": dict(name="Perch", examine="A little striped fish.", category=Cat.FOOD, value=8, heal=3),
+    "Trout": dict(name="Trout", examine="Speckled and slippery.", category=Cat.FOOD, value=30, heal=6),
+    "Pike": dict(name="Pike", examine="All teeth.", category=Cat.FOOD, value=60, heal=9),
     "CookedMeat": dict(name="Cooked meat", examine="Juicy.", category=Cat.FOOD, value=5, heal=4),
-    "BurntFish": dict(name="Burnt fish", examine="Charcoal with fins.", category=Cat.MISC, value=1),
-    "BurntMeat": dict(name="Burnt meat", examine="A cautionary tale.", category=Cat.MISC, value=1),
+
+    # Farming: seeds (planted in farm patches; create_skilling.py links them to their crops) and produce.
+    "PotatoSeed": dict(name="Potato seed", examine="Plant it and wait. Patience is a skill too.", category=Cat.RESOURCE, stackable=True, value=2),
+    "OnionSeed": dict(name="Onion seed", examine="Tiny, black and full of tears.", category=Cat.RESOURCE, stackable=True, value=6),
+    "CabbageSeed": dict(name="Cabbage seed", examine="Grows into something leafy.", category=Cat.RESOURCE, stackable=True, value=15),
+    "PumpkinSeed": dict(name="Pumpkin seed", examine="A flat seed with big ambitions.", category=Cat.RESOURCE, stackable=True, value=40),
+    "Potato": dict(name="Potato", examine="Lumpy and honest.", category=Cat.FOOD, value=4, heal=2),
+    "Onion": dict(name="Onion", examine="Layers upon layers.", category=Cat.FOOD, value=10, heal=2),
+    "Cabbage": dict(name="Cabbage", examine="A tight green head of leaves.", category=Cat.FOOD, value=22, heal=4),
+    "Pumpkin": dict(name="Pumpkin", examine="Heavy, orange and very round.", category=Cat.FOOD, value=55, heal=7),
 
     # Valuables (for drop tables later)
     "UncutJade": dict(name="Uncut jade", examine="A rough green stone.", category=Cat.VALUABLE, value=40),

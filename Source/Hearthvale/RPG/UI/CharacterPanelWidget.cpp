@@ -14,6 +14,7 @@
 #include "Components/WidgetSwitcher.h"
 #include "HearthvaleCharacter.h"
 #include "HearthvalePlayerController.h"
+#include "RPG/CropDefinition.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
 #include "RPG/UI/HearthvaleUIStyle.h"
@@ -24,8 +25,8 @@
 
 namespace
 {
-	constexpr int32 Columns = 4;
-	constexpr float WindowWidth = 4 * (UInventorySlotWidget::Size + 4.f) + 20.f;
+	constexpr int32 Columns = UInventoryComponent::HotbarSize;
+	constexpr float WindowWidth = Columns * (UInventorySlotWidget::Size + 4.f) + 24.f;
 
 	FText ToolName(EToolType Type)
 	{
@@ -64,7 +65,7 @@ void UCharacterPanelWidget::NativeOnInitialized()
 	BlockerSlot->SetAnchors(FAnchors(0.f, 0.f, 1.f, 1.f));
 	BlockerSlot->SetOffsets(FMargin(0.f));
 
-	// The window, in the bottom-right corner.
+	// The window, in the middle of the screen.
 	USizeBox* WindowSize = WidgetTree->ConstructWidget<USizeBox>();
 	WindowSize->SetWidthOverride(WindowWidth);
 	UBorder* Window = WidgetTree->ConstructWidget<UBorder>();
@@ -72,9 +73,9 @@ void UCharacterPanelWidget::NativeOnInitialized()
 	Window->SetPadding(FMargin(10.f));
 	WindowSize->SetContent(Window);
 	UCanvasPanelSlot* WindowSlot = Root->AddChildToCanvas(WindowSize);
-	WindowSlot->SetAnchors(FAnchors(1.f, 1.f));
-	WindowSlot->SetAlignment(FVector2D(1.f, 1.f));
-	WindowSlot->SetPosition(FVector2D(-24.f, -24.f));
+	WindowSlot->SetAnchors(FAnchors(0.5f, 0.5f));
+	WindowSlot->SetAlignment(FVector2D(0.5f, 0.5f));
+	WindowSlot->SetPosition(FVector2D(0.f, -30.f));
 	WindowSlot->SetAutoSize(true);
 
 	UVerticalBox* Layout = WidgetTree->ConstructWidget<UVerticalBox>();
@@ -135,15 +136,21 @@ void UCharacterPanelWidget::NativeOnInitialized()
 UWidget* UCharacterPanelWidget::BuildInventoryPage()
 {
 	UVerticalBox* Page = WidgetTree->ConstructWidget<UVerticalBox>();
+	// The backpack, then the hotbar row underneath, as in Minecraft.
 	SlotGrid = WidgetTree->ConstructWidget<UUniformGridPanel>();
 	SlotGrid->SetSlotPadding(FMargin(2.f));
 	Page->AddChildToVerticalBox(SlotGrid)->SetHorizontalAlignment(HAlign_Center);
-	BuildSlots(24);
+	Page->AddChildToVerticalBox(HearthvaleUI::MakeText(WidgetTree, LOCTEXT("HotbarLabel", "Hotbar  (keys 1-9)"), 10,
+		HearthvaleUI::MutedColor))->SetPadding(FMargin(2.f, 8.f, 2.f, 2.f));
+	HotbarGrid = WidgetTree->ConstructWidget<UUniformGridPanel>();
+	HotbarGrid->SetSlotPadding(FMargin(2.f));
+	Page->AddChildToVerticalBox(HotbarGrid)->SetHorizontalAlignment(HAlign_Center);
+	BuildSlots(36);
 
 	InventoryFooter = HearthvaleUI::MakeText(WidgetTree, FText::GetEmpty(), 10, HearthvaleUI::MutedColor);
 	Page->AddChildToVerticalBox(InventoryFooter)->SetPadding(FMargin(2.f, 8.f, 2.f, 0.f));
 	UTextBlock* Hint = HearthvaleUI::MakeText(WidgetTree,
-		LOCTEXT("InventoryHint", "Drag to move  ·  Right-click for options  ·  Shift-click to drop"), 9, HearthvaleUI::MutedColor);
+		LOCTEXT("InventoryHint", "Drag to move  ·  Right-click for options  ·  Shift-click to drop  ·  Hover and press 1-9 to put on the hotbar"), 9, HearthvaleUI::MutedColor);
 	Hint->SetAutoWrapText(true);
 	Page->AddChildToVerticalBox(Hint)->SetPadding(FMargin(2.f, 2.f, 2.f, 0.f));
 	return Page;
@@ -152,12 +159,22 @@ UWidget* UCharacterPanelWidget::BuildInventoryPage()
 void UCharacterPanelWidget::BuildSlots(int32 Count)
 {
 	SlotGrid->ClearChildren();
+	HotbarGrid->ClearChildren();
 	SlotWidgets.Reset();
+	const int32 Hotbar = UInventoryComponent::HotbarSize;
 	for (int32 Index = 0; Index < Count; ++Index)
 	{
 		UInventorySlotWidget* SlotWidget = CreateWidget<UInventorySlotWidget>(this, UInventorySlotWidget::StaticClass());
 		SlotWidget->Init(this, Index);
-		SlotGrid->AddChildToUniformGrid(SlotWidget, Index / Columns, Index % Columns);
+		if (Index < Hotbar)
+		{
+			SlotWidget->SetKeyLabel(FText::AsNumber(Index + 1));
+			HotbarGrid->AddChildToUniformGrid(SlotWidget, 0, Index);
+		}
+		else
+		{
+			SlotGrid->AddChildToUniformGrid(SlotWidget, (Index - Hotbar) / Columns, (Index - Hotbar) % Columns);
+		}
 		SlotWidgets.Add(SlotWidget);
 	}
 }
@@ -171,6 +188,10 @@ UWidget* UCharacterPanelWidget::BuildSkillsPage()
 	BarStyle.SetMarqueeImage(HearthvaleUI::RoundedBrush(FLinearColor::White, 3.f));
 	for (ESkill Skill : TEnumRange<ESkill>())
 	{
+		if (!USkillLibrary::IsGatheringSkill(Skill))
+		{
+			continue;
+		}
 		// Each row: name and level, then progress to the next level. Hover for the numbers.
 		UBorder* Row = WidgetTree->ConstructWidget<UBorder>();
 		Row->SetBrush(HearthvaleUI::RoundedBrush(FLinearColor::Transparent, 0.f));
@@ -219,6 +240,7 @@ void UCharacterPanelWidget::BindCharacter(AHearthvaleCharacter* NewCharacter)
 		{
 			NewCharacter->GetInventory()->OnInventoryChanged.AddUniqueDynamic(this, &UCharacterPanelWidget::RefreshInventory);
 			NewCharacter->GetSkills()->OnSkillsChanged.AddUniqueDynamic(this, &UCharacterPanelWidget::RefreshSkills);
+			NewCharacter->OnHeldSlotChanged.AddUniqueDynamic(this, &UCharacterPanelWidget::RefreshInventory);
 			if (NewCharacter->GetInventory()->GetCapacity() != SlotWidgets.Num())
 			{
 				BuildSlots(NewCharacter->GetInventory()->GetCapacity());
@@ -235,6 +257,7 @@ void UCharacterPanelWidget::Unbind()
 	{
 		Old->GetInventory()->OnInventoryChanged.RemoveDynamic(this, &UCharacterPanelWidget::RefreshInventory);
 		Old->GetSkills()->OnSkillsChanged.RemoveDynamic(this, &UCharacterPanelWidget::RefreshSkills);
+		Old->OnHeldSlotChanged.RemoveDynamic(this, &UCharacterPanelWidget::RefreshInventory);
 	}
 	Character.Reset();
 }
@@ -261,6 +284,7 @@ void UCharacterPanelWidget::RefreshInventory()
 	for (UInventorySlotWidget* SlotWidget : SlotWidgets)
 	{
 		SlotWidget->SetStack(Inventory->GetSlot(SlotWidget->GetIndex()));
+		SlotWidget->SetSelected(SlotWidget->GetIndex() == Owner->GetHeldSlot());
 	}
 	InventoryFooter->SetText(FText::Format(LOCTEXT("SlotsUsed", "{0} / {1} slots used"),
 		Inventory->GetCapacity() - Inventory->FreeSlotCount(), Inventory->GetCapacity()));
@@ -275,9 +299,15 @@ void UCharacterPanelWidget::RefreshSkills()
 	}
 	const USkillsComponent* Skills = Owner->GetSkills();
 	int32 Row = 0;
+	int32 TotalLevel = 0;
 	for (ESkill Skill : TEnumRange<ESkill>())
 	{
+		if (!USkillLibrary::IsGatheringSkill(Skill))
+		{
+			continue;
+		}
 		const int32 Level = Skills->GetLevel(Skill);
+		TotalLevel += Level;
 		const int32 XP = Skills->GetXP(Skill);
 		SkillLevels[Row]->SetText(FText::AsNumber(Level));
 		FText Tip;
@@ -297,8 +327,7 @@ void UCharacterPanelWidget::RefreshSkills()
 		SkillRows[Row]->SetToolTipText(Tip);
 		++Row;
 	}
-	SkillsFooter->SetText(FText::Format(LOCTEXT("SkillsFooter", "Total level {0}     Combat level {1}"),
-		Skills->GetTotalLevel(), Skills->GetCombatLevel()));
+	SkillsFooter->SetText(FText::Format(LOCTEXT("SkillsFooter", "Total level {0}"), TotalLevel));
 	// Requirements in item tooltips depend on levels.
 	RefreshInventory();
 }
@@ -339,10 +368,10 @@ UWidget* UCharacterPanelWidget::MakeItemTooltip(const FItemStack& Stack)
 		AddTooltipLine(Lines, FText::Format(LOCTEXT("Requires", "Requires {0} {1}"), USkillLibrary::GetSkillName(Requirement.Key),
 			Requirement.Value), bMet ? HearthvaleUI::GoodColor : HearthvaleUI::BadColor);
 	}
-	if (Item->IsCookable())
+	if (Item->IsSeed())
 	{
-		const bool bMet = !Skills || Skills->GetLevel(ESkill::Cooking) >= Item->CookingLevel;
-		AddTooltipLine(Lines, FText::Format(LOCTEXT("Cookable", "Cook at a fire or range: Cooking {0}"), Item->CookingLevel),
+		const bool bMet = !Skills || Skills->GetLevel(ESkill::Farming) >= Item->Crop->RequiredLevel;
+		AddTooltipLine(Lines, FText::Format(LOCTEXT("Seed", "Plant in a farm patch: Farming {0}"), Item->Crop->RequiredLevel),
 			bMet ? HearthvaleUI::GoodColor : HearthvaleUI::BadColor);
 	}
 	if (Item->Value > 0)
@@ -378,16 +407,6 @@ void UCharacterPanelWidget::OpenItemMenu(int32 SlotIndex, FVector2D ScreenPositi
 
 	TWeakObjectPtr<AHearthvaleCharacter> WeakCharacter = Owner;
 	TWeakObjectPtr<UItemDefinition> Item = Stack.Item.Get();
-	if (Stack.Item->IsCookable())
-	{
-		AddMenuOption(LOCTEXT("CookOption", "Cook"), [WeakCharacter, Item]
-		{
-			if (WeakCharacter.IsValid() && Item.IsValid())
-			{
-				WeakCharacter->CookItem(Item.Get());
-			}
-		});
-	}
 	AddMenuOption(LOCTEXT("DropOption", "Drop"), [WeakThis = TWeakObjectPtr<UCharacterPanelWidget>(this), SlotIndex]
 	{
 		if (WeakThis.IsValid())
@@ -445,6 +464,18 @@ void UCharacterPanelWidget::CloseItemMenu()
 bool UCharacterPanelWidget::IsItemMenuOpen() const
 {
 	return Menu && Menu->GetVisibility() == ESlateVisibility::Visible;
+}
+
+void UCharacterPanelWidget::SetHoveredSlot(int32 SlotIndex, bool bHovered)
+{
+	if (bHovered)
+	{
+		HoveredSlot = SlotIndex;
+	}
+	else if (HoveredSlot == SlotIndex)
+	{
+		HoveredSlot = INDEX_NONE;
+	}
 }
 
 void UCharacterPanelWidget::DropItem(int32 SlotIndex)

@@ -13,13 +13,13 @@ class UInputAction;
 class USkillsComponent;
 class UInventoryComponent;
 class UGatheringComponent;
-class UCookingComponent;
-class ACookingStation;
 class UItemDefinition;
 class UInteractionComponent;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnHeldSlotChanged);
 
 /**
  *  A simple player-controllable third person character
@@ -50,10 +50,6 @@ class AHearthvaleCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UGatheringComponent> Gathering;
 
-	/** Cooks raw food at fires and ranges */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UCookingComponent> Cooking;
-
 	/** Finds what the player can interact with */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInteractionComponent> Interaction;
@@ -65,6 +61,9 @@ class AHearthvaleCharacter : public ACharacter
 	/** Item ID -> quantity a brand new character starts with */
 	UPROPERTY(EditDefaultsOnly, Category="RPG")
 	TMap<FName, int32> StartingItems;
+
+	/** Which hotbar slot is held (0-8) */
+	int32 HeldSlot = 0;
 
 	/** Whether a player controls this character (only players load and save) */
 	bool bIsPlayerCharacter = false;
@@ -146,8 +145,6 @@ public:
 
 	FORCEINLINE UGatheringComponent* GetGathering() const { return Gathering; }
 
-	FORCEINLINE UCookingComponent* GetCooking() const { return Cooking; }
-
 	FORCEINLINE UInteractionComponent* GetInteraction() const { return Interaction; }
 
 	/** Shows a line in the player's message feed (does nothing for non-players). */
@@ -157,20 +154,30 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoInteract();
 
-	/** Stops gathering, cooking or whatever else the character is busy with. */
+	/** Holds a hotbar slot (0-8), like pressing its number key. */
+	UFUNCTION(BlueprintCallable, Category="RPG")
+	void SelectHotbarSlot(int32 Slot);
+
+	/** Moves the held slot along the hotbar (the mouse wheel), wrapping round. */
+	void CycleHotbar(int32 Direction);
+
+	UFUNCTION(BlueprintPure, Category="RPG")
+	int32 GetHeldSlot() const { return HeldSlot; }
+
+	/** The item in the held hotbar slot, or null. */
+	UFUNCTION(BlueprintPure, Category="RPG")
+	UItemDefinition* GetHeldItem() const;
+
+	UPROPERTY(BlueprintAssignable, Category="RPG")
+	FOnHeldSlotChanged OnHeldSlotChanged;
+
+	/** Stops gathering or whatever else the character is busy with. */
 	UFUNCTION(BlueprintCallable, Category="RPG")
 	void StopActions();
-
-	/** Cooks one kind of raw item at the nearest fire or range, if there is one in reach. */
-	UFUNCTION(BlueprintCallable, Category="RPG")
-	void CookItem(UItemDefinition* Item);
 
 	/** Puts everything in an inventory slot on the ground at the character's feet. */
 	UFUNCTION(BlueprintCallable, Category="RPG")
 	void DropItem(int32 SlotIndex);
-
-	/** The closest fire or range within reach, or null. */
-	ACookingStation* FindNearbyCookingStation() const;
 
 	/** Writes skills and items to the save; false if it failed. */
 	UFUNCTION(BlueprintCallable, Category="RPG")

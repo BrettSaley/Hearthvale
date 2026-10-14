@@ -12,7 +12,8 @@ class UTextBlock;
 
 /**
  * One inventory slot: shows the item, drags to move it, right-click for its
- * options, shift-click to drop it.
+ * options, shift-click to drop it. Without a panel (the on-screen hotbar) it
+ * only shows the item.
  */
 UCLASS()
 class HEARTHVALE_API UInventorySlotWidget : public UUserWidget
@@ -27,6 +28,12 @@ public:
 	void SetStack(const FItemStack& InStack);
 
 	int32 GetIndex() const { return Index; }
+
+	/** The held hotbar slot is outlined. */
+	void SetSelected(bool bInSelected);
+
+	/** A small label in the corner, for the hotbar number key. */
+	void SetKeyLabel(const FText& Label);
 
 protected:
 	virtual void NativeOnInitialized() override;
@@ -57,10 +64,14 @@ private:
 	UPROPERTY()
 	TObjectPtr<UTextBlock> QuantityText;
 
+	UPROPERTY()
+	TObjectPtr<UTextBlock> KeyText;
+
 	TWeakObjectPtr<UCharacterPanelWidget> Panel;
 	int32 Index = INDEX_NONE;
 	FItemStack Stack;
 	bool bHovered = false;
 	bool bDragging = false;
 	bool bDropTarget = false;
+	bool bSelected = false;
 };
