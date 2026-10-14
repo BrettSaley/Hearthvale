@@ -129,6 +129,7 @@ void AResourceNode::ApplyParts(const TArray<FNodeMeshPart>& Parts)
 		{
 			continue;
 		}
+		Mesh->SetCollisionProfileName(!Definition || Definition->bBlocksMovement ? UCollisionProfile::BlockAll_ProfileName : FName(TEXT("OverlapAllDynamic")));
 		Mesh->SetRelativeTransform(Parts[Index].Transform);
 		Mesh->EmptyOverrideMaterials();
 		if (UMaterialInterface* Material = Parts[Index].Material)

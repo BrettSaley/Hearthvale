@@ -19,7 +19,8 @@ public class Hearthvale : ModuleRules
 			"GameplayStateTreeModule",
 			"UMG",
 			"Slate",
-			"SlateCore"
+			"SlateCore",
+			"Landscape"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });

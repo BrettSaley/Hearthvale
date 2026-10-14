@@ -179,6 +179,8 @@ def update_nodes():
         if "message" in u:
             node.set_editor_property("success_message", unreal.Text(u["message"]))
         node.set_editor_property("bonus_drops", [drop(i, n) for i, n in u["drops"]])
+        # Fishing spots lie on the water; walk through them.
+        node.set_editor_property("blocks_movement", not name.endswith("Spot"))
         save(node)
 
 

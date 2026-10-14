@@ -95,6 +95,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visuals")
 	TObjectPtr<UAnimMontage> GatherMontage;
 
+	/** Whether the player bumps into it; off for fishing spots, which lie on the water. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visuals")
+	bool bBlocksMovement = true;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visuals")
 	TArray<FNodeMeshPart> Parts;
 
