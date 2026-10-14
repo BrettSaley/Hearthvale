@@ -1,0 +1,25 @@
+# Unreal generated folders
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Build/
+Content/Developers/
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
+
+# IDE files (regenerated from the .uproject)
+.vs/
+.vscode/
+.idea/
+*.sln
+*.slnx
+*.suo
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# Packaged builds
+*.zip
+*.exe
+*.pdb
