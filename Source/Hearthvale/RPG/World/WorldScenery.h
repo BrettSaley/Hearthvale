@@ -24,6 +24,10 @@ struct HEARTHVALE_API FSceneryLook
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scenery")
 	bool bCollides = false;
 
+	/** Only the first part blocks (a tree's trunk), so you can walk under its branches. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scenery")
+	bool bOnlyFirstPartCollides = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scenery")
 	bool bCastsShadow = true;
 

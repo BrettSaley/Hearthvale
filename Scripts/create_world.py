@@ -142,6 +142,41 @@ def add_sky(water_material):
     sea.set_actor_scale3d(V(6000, 6000, 1))
 
 
+def node_part(shape, material, location, scale):
+    """A gathering node's mesh part, from the gathering materials."""
+    p = unreal.NodeMeshPart()
+    p.set_editor_property("mesh", unreal.load_asset(f"/Engine/BasicShapes/{shape}"))
+    p.set_editor_property("material", unreal.load_asset(f"/Game/Gathering/Materials/MI_{material}"))
+    p.set_editor_property("transform", unreal.Transform(V(*location), unreal.Rotator(0, 0, 0), V(*scale)))
+    return p
+
+
+# Fuller trees than create_gathering's first placeholders (nodes have 4 parts): clumps of
+# leaves rather than one ball, a broad layered oak, ash tall and columnar. (Conifers are scenery only,
+# so a cone-shaped tree is never one you can chop.)
+TREE_LOOKS = {
+    "Tree": [("Cylinder", "Bark", (0, 0, 130), (0.32, 0.32, 2.6)),
+             ("Sphere", "Leaves", (0, 0, 340), (2.8, 2.8, 1.9)),
+             ("Sphere", "Leaves", (95, 45, 300), (1.8, 1.8, 1.4)),
+             ("Sphere", "Leaves", (-85, -55, 380), (1.9, 1.9, 1.5))],
+    "OakTree": [("Cylinder", "Bark", (0, 0, 160), (0.6, 0.6, 3.2)),
+                ("Sphere", "OakLeaves", (0, 0, 430), (3.8, 3.8, 2.4)),
+                ("Sphere", "OakLeaves", (110, 60, 540), (2.4, 2.4, 1.8)),
+                ("Sphere", "OakLeaves", (-110, -70, 390), (2.3, 2.3, 1.6))],
+    "AshTree": [("Cylinder", "AshBark", (0, 0, 280), (0.28, 0.28, 5.6)),
+                ("Sphere", "AshLeaves", (0, 0, 560), (1.7, 1.7, 2.8)),
+                ("Sphere", "AshLeaves", (45, -30, 740), (1.3, 1.3, 2.2)),
+                ("Sphere", "AshLeaves", (-45, 30, 420), (1.3, 1.3, 2.0))],
+}
+
+
+def restyle_trees():
+    for kind, parts in TREE_LOOKS.items():
+        definition = unreal.load_asset(f"/Game/Gathering/Nodes/{kind}")
+        definition.set_editor_property("parts", [node_part(*p) for p in parts])
+        save(definition)
+
+
 def place_resources():
     nodes = {}
     counts = {}
@@ -150,7 +185,7 @@ def place_resources():
         if kind not in nodes:
             nodes[kind] = unreal.load_asset(f"/Game/Gathering/Nodes/{kind}")
         node = spawn(unreal.ResourceNode, spot.location, unreal.Rotator(0, spot.lean, spot.yaw))
-        node.set_actor_scale3d(V(spot.scale, spot.scale, spot.scale))
+        node.set_actor_scale3d(V(spot.scale, spot.scale, spot.scale * spot.stretch))
         node.set_editor_property("definition", nodes[kind])
         node.set_folder_path(f"Resources/{kind}")
         counts[kind] = counts.get(kind, 0) + 1
@@ -170,6 +205,9 @@ TINTS = {
     "GullBody": (0.9, 0.9, 0.9), "GullWing": (0.5, 0.52, 0.56), "Crow": (0.02, 0.02, 0.025),
     "SongbirdBody": (0.4, 0.25, 0.12), "SongbirdWing": (0.22, 0.14, 0.07), "HawkBody": (0.32, 0.2, 0.09), "HawkWing": (0.2, 0.12, 0.05),
     "RabbitFur": (0.3, 0.22, 0.15), "DeerHide": (0.32, 0.18, 0.08), "Fish": (0.45, 0.47, 0.5), "Ripple": (0.6, 0.7, 0.75),
+    "GrassDry": (0.1, 0.1, 0.03), "TallGrass": (0.055, 0.095, 0.02), "TallGrassSeed": (0.16, 0.13, 0.06),
+    "FoxgloveFlower": (0.45, 0.08, 0.3), "Berry": (0.5, 0.02, 0.04), "ShrubLeaves": (0.02, 0.055, 0.015), "Bracken": (0.035, 0.08, 0.015),
+    "SpruceNeedles": (0.006, 0.02, 0.012), "PineNeedles": (0.01, 0.03, 0.014), "BirchBark": (0.45, 0.43, 0.4), "BirchLeaves": (0.05, 0.12, 0.03),
 }
 TINTED = {}
 LEAF_TINTS = {'Leaves': (0.03, 0.09, 0.018), 'OakLeaves': (0.02, 0.06, 0.012), 'AshLeaves': (0.045, 0.075, 0.02)}
@@ -218,12 +256,13 @@ def log(material, width, length):
             part("Cylinder", material, (length * 15, 0, width * 90), (width * 0.3, width * 0.3, 0.7), (35, 0, 0))]
 
 
-# kind: (parts, collides, casts shadow, stops drawing beyond (cm), 0 = never)
+# kind: (parts, collides, casts shadow, stops drawing beyond (cm), 0 = never[, only the first part collides])
 def scenery_kinds():
     return {
-        "Grass": ([part("Cone", "Grass", (0, 0, 22), (0.05, 0.05, 0.45)),
-                   part("Cone", "Grass", (0, 6, 19), (0.045, 0.045, 0.4), (16, 0, 0)),
-                   part("Cone", "Grass", (5, -5, 18), (0.045, 0.045, 0.38), (-12, 12, 0))], False, False, 6000),
+        "Grass": ([part("Cone", "Grass", (0, 0, 24), (0.07, 0.07, 0.48)),
+                   part("Cone", "Grass", (0, 8, 20), (0.065, 0.065, 0.42), (18, 0, 0)),
+                   part("Cone", "Grass", (7, -6, 19), (0.065, 0.065, 0.4), (-14, 14, 0)),
+                   part("Cone", "Grass", (-7, -3, 17), (0.06, 0.06, 0.36), (-6, -18, 0))], False, False, 5500),
         "FlowerRed": (flower("FlowerRed"), False, False, 7000),
         "FlowerYellow": (flower("FlowerYellow"), False, False, 7000),
         "FlowerWhite": (flower("FlowerWhite"), False, False, 7000),
@@ -247,6 +286,49 @@ def scenery_kinds():
                   part("Cylinder", "Cattail", (0, 0, 140), (0.035, 0.035, 0.18))], False, False, 10000),
         "LilyPad": ([part("Cylinder", "LilyPad", (0, 0, 1), (0.55, 0.55, 0.01))], False, False, 15000),
         "LilyFlower": ([part("Sphere", "LilyFlower", (10, 8, 4), (0.14, 0.14, 0.08))], False, False, 15000),
+        # Taller plants.
+        "GrassDry": ([part("Cone", "GrassDry", (0, 0, 24), (0.07, 0.07, 0.48)),
+                      part("Cone", "GrassDry", (0, 8, 20), (0.065, 0.065, 0.42), (18, 0, 0)),
+                      part("Cone", "GrassDry", (7, -6, 19), (0.065, 0.065, 0.4), (-14, 14, 0)),
+                      part("Cone", "GrassDry", (-7, -3, 17), (0.06, 0.06, 0.36), (-6, -18, 0))], False, False, 5500),
+        "TallGrass": ([part("Cone", "TallGrass", (0, 0, 55), (0.045, 0.045, 1.1)),
+                       part("Cone", "TallGrass", (0, 12, 48), (0.04, 0.04, 1.0), (14, 0, 0)),
+                       part("Cone", "TallGrass", (10, -8, 45), (0.04, 0.04, 0.95), (-10, 14, 0)),
+                       part("Cylinder", "TallGrassSeed", (0, 4, 112), (0.025, 0.025, 0.22), (6, 0, 0))], False, False, 7000),
+        "Foxglove": ([part("Sphere", "Fern", (0, 0, 4), (0.35, 0.35, 0.06)),
+                      part("Cylinder", "Stem", (0, 0, 55), (0.02, 0.02, 1.1)),
+                      part("Sphere", "FoxgloveFlower", (4, 0, 72), (0.1, 0.1, 0.13)),
+                      part("Sphere", "FoxgloveFlower", (-3, 3, 88), (0.085, 0.085, 0.11)),
+                      part("Sphere", "FoxgloveFlower", (2, -2, 103), (0.065, 0.065, 0.09))], False, False, 8000),
+        "Bracken": ([part("Cylinder", "Stem", (0, 0, 30), (0.03, 0.03, 0.6)),
+                     part("Sphere", "Bracken", (38, 0, 52), (1.1, 0.24, 0.05), (0, 25, 0)),
+                     part("Sphere", "Bracken", (0, 38, 56), (1.1, 0.24, 0.05), (0, 25, 90)),
+                     part("Sphere", "Bracken", (-38, 0, 50), (1.1, 0.24, 0.05), (0, 25, 180)),
+                     part("Sphere", "Bracken", (0, -38, 54), (1.1, 0.24, 0.05), (0, 25, 270))], False, False, 12000),
+        "BerryBush": ([part("Sphere", "BushLeaves", (0, 0, 35), (1.0, 1.0, 0.8)),
+                       part("Sphere", "Leaves", (30, -20, 55), (0.7, 0.7, 0.6)),
+                       part("Sphere", "Berry", (45, 12, 42), (0.08, 0.08, 0.08)),
+                       part("Sphere", "Berry", (-22, 40, 52), (0.08, 0.08, 0.08)),
+                       part("Sphere", "Berry", (12, -38, 68), (0.08, 0.08, 0.08))], False, True, 20000),
+        "Shrub": ([part("Sphere", "ShrubLeaves", (0, 0, 70), (0.9, 0.9, 1.3)),
+                   part("Sphere", "ShrubLeaves", (25, 15, 130), (0.7, 0.7, 1.0)),
+                   part("Sphere", "BushLeaves", (-20, -20, 160), (0.6, 0.6, 0.8))], False, True, 25000),
+        # Forest trees that aren't gathered: only their trunks block (last field).
+        "Spruce": ([part("Cylinder", "Bark", (0, 0, 200), (0.35, 0.35, 4.0)),
+                    part("Cone", "SpruceNeedles", (0, 0, 500), (3.6, 3.6, 4.0)),
+                    part("Cone", "SpruceNeedles", (0, 0, 800), (2.7, 2.7, 3.6)),
+                    part("Cone", "SpruceNeedles", (0, 0, 1080), (1.7, 1.7, 3.0)),
+                    part("Cone", "SpruceNeedles", (0, 0, 1280), (0.8, 0.8, 1.6))], True, True, 0, True),
+        "Birch": ([part("Cylinder", "BirchBark", (0, 0, 375), (0.16, 0.16, 7.5)),
+                   part("Sphere", "BirchLeaves", (0, 0, 640), (1.9, 1.9, 2.6)),
+                   part("Sphere", "BirchLeaves", (45, 30, 790), (1.3, 1.3, 1.8)),
+                   part("Sphere", "BirchLeaves", (-40, -35, 560), (1.2, 1.2, 1.5))], True, True, 0, True),
+        "Pine": ([part("Cylinder", "Bark", (0, 0, 450), (0.3, 0.3, 9.0)),
+                  part("Cone", "PineNeedles", (0, 0, 780), (2.6, 2.6, 2.2)),
+                  part("Cone", "PineNeedles", (0, 0, 930), (1.8, 1.8, 2.2)),
+                  part("Cone", "PineNeedles", (0, 0, 1070), (1.0, 1.0, 1.6))], True, True, 0, True),
+        "Sapling": ([part("Cylinder", "Bark", (0, 0, 80), (0.07, 0.07, 1.6)),
+                     part("Sphere", "Leaves", (0, 0, 180), (0.9, 0.9, 1.0))], False, True, 15000),
         # Landmarks: a stone circle's stones, and a ruined watchtower's wall sections (scaled down where broken).
         "StandingStone": ([part("Cube", "Stone", (0, 0, 160), (0.8, 1.4, 3.2))], True, True, 0),
         "TowerWall": ([part("Cube", "Stone", (0, 0, 300), (0.9, 2.5, 6.0)),
@@ -264,8 +346,9 @@ def scenery_kinds():
 
 def place_scenery():
     looks = []
-    for kind, (parts, collides, shadow, cull) in scenery_kinds().items():
+    for kind, (parts, collides, shadow, cull, *trunk_only) in scenery_kinds().items():
         look = unreal.SceneryLook()
+        look.set_editor_property("only_first_part_collides", bool(trunk_only and trunk_only[0]))
         look.set_editor_property("kind", kind)
         look.set_editor_property("parts", parts)
         look.set_editor_property("collides", collides)
@@ -393,6 +476,7 @@ def main():
     unreal.log_warning(f"create_world: landscape {landscape}")
     add_sky(water)
     spawn(unreal.PlayerStart, unreal.WorldGenerator.get_start_location(), label="Start")
+    restyle_trees()
     place_resources()
     create_tints()
     place_scenery()

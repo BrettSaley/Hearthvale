@@ -379,6 +379,7 @@ const TArray<FWorldResourceSpot>& UWorldGenerator::CachedResources()
 				static_cast<float>(Random.FRandRange(0.f, 360.f))});
 			Spot.Scale = Random.FRandRange(bTree ? 0.8f : 0.85f, bTree ? 1.3f : 1.25f);
 			Spot.Lean = bTree ? Random.FRandRange(0.f, 5.f) : 0.f;
+			Spot.Stretch = bTree ? Random.FRandRange(0.9f, 1.25f) : 1.f;
 			return true;
 		};
 		// A few of a kind scattered around a spot, as a grove or a vein.
@@ -674,6 +675,69 @@ TArray<FWorldScenerySpot> UWorldGenerator::PlanScenery()
 			}
 		}
 
+		// Forest that isn't gathered, so the woods can be thick: tall spruce packed into the
+		// hearts of the Deepwood groves, birch along the groves' edges and in the Meadows copses,
+		// pine up the Highland slopes, saplings coming up around them all. Only trunks block.
+		constexpr float ForestCell = 3.f;
+		for (float CY = -Half; CY < Half; CY += ForestCell)
+		{
+			for (float CX = -Half; CX < Half; CX += ForestCell)
+			{
+				const FVector2D P(CX + Random.FRandRange(0.f, ForestCell), CY + Random.FRandRange(0.f, ForestCell));
+				const float Roll = Random.FRand();
+				const float Pick = Random.FRand();
+				if (P.Size() > 900.f || P.Size() < StartClearing + 15.f)
+				{
+					continue;
+				}
+				const float Grove = 0.5f + 0.5f * Fbm(P * 0.007 + SeedOffset(6), 3);
+				const float Ring = RingDistance(P.X, P.Y);
+				float Spruce = 0.f, Birch = 0.f, Pine = 0.f;
+				if (Ring < DeepwoodStart)
+				{
+					Birch = 0.08f * FMath::SmoothStep(0.5f, 0.6f, Grove);
+				}
+				else if (Ring < HighlandsStart)
+				{
+					// Spruce everywhere, thick in the groves' hearts and thinning out into the glades,
+					// with birch where it opens up.
+					Spruce = 0.03f + 0.45f * FMath::SmoothStep(0.42f, 0.6f, Grove);
+					Birch = 0.06f * FMath::SmoothStep(0.34f, 0.44f, Grove) * (1.f - FMath::SmoothStep(0.48f, 0.58f, Grove));
+				}
+				else
+				{
+					Pine = 0.14f * FMath::SmoothStep(0.42f, 0.58f, Grove);
+				}
+				const float Sapling = 0.25f * (Spruce + Birch + Pine) + 0.002f;
+				if (Roll >= Spruce + Birch + Pine + Sapling)
+				{
+					continue;
+				}
+				const float Height = HeightMeters(P.X, P.Y);
+				if (Height < 2.4f || (Pine > 0.f && Height > 85.f) || SlopeAt(P.X, P.Y) > 0.6f)
+				{
+					continue;
+				}
+				const FName Kind = Roll < Spruce ? FName(TEXT("Spruce")) : Roll < Spruce + Birch ? FName(TEXT("Birch"))
+					: Roll < Spruce + Birch + Pine ? FName(TEXT("Pine")) : FName(TEXT("Sapling"));
+				const float Room = Kind == TEXT("Sapling") ? 1.1f : 1.5f;
+				if (!Taken.IsClear(P, Room))
+				{
+					continue;
+				}
+				Taken.Add(P, Kind == TEXT("Sapling") ? 0.6f : 1.f);
+				// Each a different height (and a little lean), sunk so slopes don't show a gap.
+				const float Size = Kind == TEXT("Sapling") ? Random.FRandRange(0.6f, 1.2f) : Random.FRandRange(0.8f, 1.35f);
+				const float Tall = Random.FRandRange(0.85f, 1.4f);
+				const FRotator Rotation(Random.FRandRange(-3.f, 3.f), Random.FRandRange(0.f, 360.f), Random.FRandRange(-3.f, 3.f));
+				Spots.Add(FWorldScenerySpot{Kind, FTransform(Rotation, FVector(P.X * 100.f, P.Y * 100.f, Height * 100.f - 10.f), FVector(Size, Size, Size * Tall))});
+			}
+		}
+
+		const FName Grasses[] = {TEXT("Grass"), TEXT("GrassDry")};
+		// Green grass in most places, drifts of drier, yellower grass between.
+		auto GrassAt = [&Grasses](FVector2D P) { return Grasses[Fbm(P * 0.012 + SeedOffset(16), 2) > 0.12f ? 1 : 0]; };
+
 		constexpr float Cell = 4.f;
 		for (float CY = -Half; CY < Half; CY += Cell)
 		{
@@ -724,7 +788,7 @@ TArray<FWorldScenerySpot> UWorldGenerator::PlanScenery()
 				{
 					if (Roll < 0.35f)
 					{
-						Patch(TEXT("Grass"), P, 4, 1.5f, 0.8f, 1.6f, 20.f);
+						Patch(TEXT("GrassDry"), P, 4, 1.5f, 0.8f, 1.6f, 20.f);
 					}
 					continue;
 				}
@@ -758,17 +822,34 @@ TArray<FWorldScenerySpot> UWorldGenerator::PlanScenery()
 					const float Grove = 0.5f + 0.5f * Fbm(P * 0.007 + SeedOffset(6), 3);
 					const float FlowerShare = 0.26f * FMath::SmoothStep(0.45f, 0.65f, Field);
 					const float BushShare = 0.008f + 0.07f * FMath::SmoothStep(0.45f, 0.62f, Grove);
+					// Drifts of tall, seeding grass, knee to waist high, through the shorter turf.
+					const float TallDrift = FMath::SmoothStep(0.55f, 0.72f, 0.5f + 0.5f * Fbm(P * 0.015 + SeedOffset(17), 2));
 					if (Rest < 0.6f)
 					{
-						Patch(TEXT("Grass"), P, 5, 2.f, 0.7f, 1.5f, 12.f);
+						if (Pick < TallDrift && !bClearing)
+						{
+							Patch(TEXT("TallGrass"), P, 5, 1.6f, 0.8f, 1.3f, 8.f);
+						}
+						else
+						{
+							Patch(GrassAt(P), P, 12, 2.2f, 0.8f, 1.7f, 12.f);
+						}
 					}
 					else if (Rest < 0.6f + FlowerShare)
 					{
-						Patch(Flowers[FMath::Clamp(FMath::FloorToInt(Field * 7.f) % 4, 0, 3)], P, Random.RandRange(6, 12), 2.f, 0.8f, 1.4f, 10.f);
+						// Foxgloves stand tall at the edges of the groves; elsewhere, low flowers.
+						if (Pick < 0.2f && Grove > 0.48f)
+						{
+							Patch(TEXT("Foxglove"), P, Random.RandRange(3, 6), 1.5f, 0.8f, 1.3f, 6.f);
+						}
+						else
+						{
+							Patch(Flowers[FMath::Clamp(FMath::FloorToInt(Field * 7.f) % 4, 0, 3)], P, Random.RandRange(6, 12), 2.f, 0.8f, 1.4f, 10.f);
+						}
 					}
 					else if (Rest < 0.6f + FlowerShare + BushShare && !bClearing && Taken.IsClear(P, 1.4f))
 					{
-						Place(TEXT("Bush"), P, Height - 0.1f, 0.5f, 1.1f, 5.f);
+						Place(Pick < 0.3f ? FName(TEXT("BerryBush")) : Pick < 0.55f ? FName(TEXT("Shrub")) : FName(TEXT("Bush")), P, Height - 0.1f, 0.6f, 1.2f, 5.f);
 					}
 					else if (Rest < 0.62f + FlowerShare + BushShare)
 					{
@@ -778,26 +859,39 @@ TArray<FWorldScenerySpot> UWorldGenerator::PlanScenery()
 				else if (Ring < HighlandsStart)
 				{
 					// Deepwood: ferns and bushes under the trees, mushrooms, fallen logs.
-					if (Rest < 0.2f)
+					if (Rest < 0.38f)
 					{
-						Patch(TEXT("Fern"), P, Random.RandRange(2, 4), 1.6f, 0.7f, 1.4f, 10.f);
+						// Waist-high bracken in the shade, low ferns elsewhere: the forest floor is thick with them.
+						if (Pick < 0.5f)
+						{
+							Patch(TEXT("Bracken"), P, Random.RandRange(2, 4), 1.8f, 0.8f, 1.3f, 10.f);
+						}
+						else
+						{
+							Patch(TEXT("Fern"), P, Random.RandRange(2, 4), 1.6f, 0.7f, 1.4f, 10.f);
+						}
 					}
-					else if (Rest < 0.27f && Taken.IsClear(P, 1.4f))
+					else if (Rest < 0.43f && Taken.IsClear(P, 1.4f))
 					{
-						Place(TEXT("Bush"), P, Height - 0.1f, 0.8f, 1.6f, 5.f);
+						Place(Pick < 0.45f ? FName(TEXT("Shrub")) : Pick < 0.65f ? FName(TEXT("BerryBush")) : FName(TEXT("Bush")), P, Height - 0.1f, 0.8f, 1.6f, 5.f);
 					}
-					else if (Rest < 0.29f)
+					else if (Rest < 0.45f)
 					{
 						Patch(TEXT("Mushroom"), P, Random.RandRange(2, 5), 0.8f, 0.7f, 1.5f, 10.f);
 					}
-					else if (Rest < 0.294f && Steep < 0.35f && Taken.IsClear(P, 2.5f))
+					else if (Rest < 0.454f && Steep < 0.35f && Taken.IsClear(P, 2.5f))
 					{
 						Taken.Add(P, 2.2f);
 						Place(TEXT("FallenLog"), P, Height + 0.15f, 0.8f, 1.2f);
 					}
-					else if (Rest < 0.55f)
+					else if (Rest < 0.47f)
 					{
-						Patch(TEXT("Grass"), P, 3, 1.8f, 0.8f, 1.5f, 12.f);
+						// Glades: foxgloves.
+						Patch(TEXT("Foxglove"), P, Random.RandRange(2, 5), 1.5f, 0.8f, 1.3f, 6.f);
+					}
+					else if (Rest < 0.7f)
+					{
+						Patch(GrassAt(P), P, 4, 1.8f, 0.8f, 1.6f, 12.f);
 					}
 				}
 				else if (Height < 80.f)
@@ -805,7 +899,7 @@ TArray<FWorldScenerySpot> UWorldGenerator::PlanScenery()
 					// Highlands: tough grass, heather, scree.
 					if (Rest < 0.16f)
 					{
-						Patch(TEXT("Grass"), P, 3, 1.5f, 0.6f, 1.1f, 15.f);
+						Patch(Pick < 0.25f ? FName(TEXT("TallGrass")) : GrassAt(P), P, 3, 1.5f, 0.6f, 1.1f, 15.f);
 					}
 					else if (Rest < 0.16f + 0.14f * FMath::SmoothStep(0.4f, 0.6f, Field))
 					{
@@ -927,6 +1021,11 @@ bool UWorldGenerator::SaveMapPreview(const FString& Filename, int32 Size, float 
 		if (Spot.Kind == TEXT("Boulder") || Spot.Kind == TEXT("FallenLog") || Spot.Kind == TEXT("StandingStone") || Spot.Kind == TEXT("TowerWall"))
 		{
 			Dot(Spot.Transform.GetLocation(), FColor(90, 85, 80), FMath::Max(0, FMath::RoundToInt(1.f / MetersPerPixel)));
+		}
+		else if (Spot.Kind == TEXT("Spruce") || Spot.Kind == TEXT("Pine") || Spot.Kind == TEXT("Birch"))
+		{
+			const FColor Forest = Spot.Kind == TEXT("Birch") ? FColor(170, 175, 120) : Spot.Kind == TEXT("Pine") ? FColor(20, 60, 30) : FColor(5, 35, 20);
+			Dot(Spot.Transform.GetLocation(), Forest, FMath::Max(0, FMath::RoundToInt(1.5f / MetersPerPixel)));
 		}
 		else if (Spot.Kind == TEXT("Bridge"))
 		{

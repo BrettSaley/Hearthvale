@@ -110,6 +110,7 @@ POOL = [part("Cylinder", "Water", (0, 0, 2), (2.2, 2.2, 0.04)),
         part("Cylinder", "Foam", (0, 0, 3), (0.9, 0.9, 0.03))]
 
 Skill, Tool = unreal.Skill, unreal.ToolType
+# The trees' parts here are first placeholders: create_world.py restyles them (TREE_LOOKS).
 NODES = {
     "Tree": dict(name="Tree", verb="Chop down", start="You swing your axe at the tree.", skill=Skill.WOODCUTTING,
                  level=1, tool=Tool.AXE, item="Logs", xp=25, interval=2.4, difficulty=0.0, deplete=1.0, respawn=8.4,

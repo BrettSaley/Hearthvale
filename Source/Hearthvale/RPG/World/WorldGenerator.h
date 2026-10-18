@@ -43,6 +43,10 @@ struct HEARTHVALE_API FWorldResourceSpot
 	UPROPERTY(BlueprintReadOnly, Category = "World")
 	float Scale = 1.f;
 
+	/** Extra height on top of Scale (trees only): some tall and slim, some short and spreading. */
+	UPROPERTY(BlueprintReadOnly, Category = "World")
+	float Stretch = 1.f;
+
 	/** Degrees the node leans over, towards its Yaw (trees only). */
 	UPROPERTY(BlueprintReadOnly, Category = "World")
 	float Lean = 0.f;
