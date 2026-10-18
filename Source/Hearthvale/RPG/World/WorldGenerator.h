@@ -38,6 +38,14 @@ struct HEARTHVALE_API FWorldResourceSpot
 
 	UPROPERTY(BlueprintReadOnly, Category = "World")
 	float Yaw = 0.f;
+
+	/** Size, so no two trees or rocks look quite alike: about 0.8 to 1.3. */
+	UPROPERTY(BlueprintReadOnly, Category = "World")
+	float Scale = 1.f;
+
+	/** Degrees the node leans over, towards its Yaw (trees only). */
+	UPROPERTY(BlueprintReadOnly, Category = "World")
+	float Lean = 0.f;
 };
 
 /** One piece of scenery (a bush, a boulder, a reed...): which kind, and where. */
@@ -95,6 +103,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "World")
 	static TArray<FWorldScenerySpot> PlanScenery();
 
+	/** Every lake and pond: X and Y of its middle, and its radius as Z, all in cm. */
+	UFUNCTION(BlueprintPure, Category = "World")
+	static TArray<FVector> GetLakes();
+
 	/** The highest ground (cm, never below sea level) within Radius cm of a point: flying things stay above it. */
 	UFUNCTION(BlueprintPure, Category = "World")
 	static float GetHighestGround(float X, float Y, float Radius);
@@ -137,6 +149,8 @@ private:
 	static float RingDistance(float X, float Y);
 	/** Steepness at a spot in metres: rise over run, 0 flat, 1 is 45 degrees. */
 	static float SlopeAt(float X, float Y);
+	/** Where the watchtower ruin stands (m): the flattest high ground near its rough spot. */
+	static FVector2D WatchtowerSite();
 	/** The resource plan, worked out on first use. */
 	static const TArray<FWorldResourceSpot>& CachedResources();
 	/** Paint weights (0-1, summing to 1) for each layer at a spot. */

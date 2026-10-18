@@ -80,6 +80,8 @@ private:
 	};
 
 	void Build();
+	/** How far off (cm) one of these birds can still be made out: a gull a few hundred metres, a butterfly a few dozen. */
+	float VisibleRange() const { return FMath::Max(4000.f, 15000.f * Size); }
 	/** Where bird Index is at time Time, relative to the actor. */
 	FVector BirdOffset(const FBird& Bird, float Time) const;
 	void Pose(float Time);

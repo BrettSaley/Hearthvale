@@ -1,6 +1,7 @@
 #include "RPG/World/WorldGenerator.h"
 #include "Math/RandomStream.h"
 #include "ImageUtils.h"
+#include "Algo/AnyOf.h"
 
 #if WITH_EDITOR
 #include "Engine/World.h"
@@ -43,6 +44,34 @@ namespace
 
 	/** Lakes and ponds are inside this many metres of the middle; water further out is the sea. */
 	constexpr float InlandWater = 700.f;
+
+	/**
+	 * Rivers, as points in metres from source to sea. They run at sea level (the
+	 * water is one plane), so each cuts a valley through whatever it crosses:
+	 * the west one from the Deepwood lakes out through the Highlands, the east
+	 * one from the meadow lake through the big east lake to the sea.
+	 */
+	const TArray<TArray<FVector2D>>& Rivers()
+	{
+		static const TArray<TArray<FVector2D>> Paths = {
+			{{-230.f, -90.f}, {-360.f, 0.f}, {-480.f, 120.f}, {-720.f, 190.f}, {-1000.f, 240.f}},
+			{{150.f, 120.f}, {300.f, 160.f}, {480.f, 190.f}, {720.f, 130.f}, {1000.f, 80.f}}};
+		return Paths;
+	}
+
+	/** Landmarks to find your way by (m): where they stand and how much room they need. */
+	struct FLandmark
+	{
+		FVector2D Center;
+		float Radius;
+	};
+	const FLandmark StoneCircle{{-150.f, -170.f}, 14.f};
+	/** Roughly where the watchtower goes; it stands on the flattest high ground near here (see WatchtowerSite). */
+	const FLandmark Watchtower{{210.f, 690.f}, 9.f};
+
+	/** Half the width of a river's bed (m), and how deep its water is. */
+	constexpr float RiverHalfWidth = 5.f;
+	constexpr float RiverBed = -1.f;
 
 	FVector2D SeedOffset(int32 Salt)
 	{
@@ -102,6 +131,22 @@ namespace
 		const double Scale = 0.9 / Lake.Radius;
 		const FVector2D Warp(Fbm(P * Scale + SeedOffset(10), 3), Fbm(P * Scale + SeedOffset(11), 3));
 		return FVector2D::Distance(P + Warp * Lake.Radius * 1.1f, Center) / Lake.Radius;
+	}
+
+	/** How far (m) a spot is from the middle of the nearest river, after a wobble so they meander. */
+	float RiverDistance(FVector2D P)
+	{
+		const FVector2D Wobbled = P + 16.f * FVector2D(Fbm(P * 0.012 + SeedOffset(14), 2), Fbm(P * 0.012 + SeedOffset(15), 2));
+		float Nearest = UE_BIG_NUMBER;
+		for (const TArray<FVector2D>& River : Rivers())
+		{
+			for (int32 Index = 0; Index + 1 < River.Num(); ++Index)
+			{
+				const FVector2D Closest = FMath::ClosestPointOnSegment2D(Wobbled, River[Index], River[Index + 1]);
+				Nearest = FMath::Min(Nearest, FVector2D::Distance(Wobbled, Closest));
+			}
+		}
+		return Nearest;
 	}
 
 	/** Points with room around them, found through a coarse grid. */
@@ -196,8 +241,20 @@ float UWorldGenerator::HeightMeters(float X, float Y)
 		}
 	}
 
+	// Rivers: a bed just under the water, in a valley that's wider the higher the land it cuts through.
+	const float FromRiver = RiverDistance(P);
+	const float RiverValley = 25.f + 0.8f * FMath::Max(Height, 0.f);
+	if (FromRiver < RiverHalfWidth + RiverValley)
+	{
+		Height = FMath::Lerp(Height, FMath::Min(Height, 2.5f), 1.f - FMath::SmoothStep(RiverHalfWidth, RiverHalfWidth + RiverValley, FromRiver));
+		Height = FMath::Lerp(Height, FMath::Min(Height, RiverBed), 1.f - FMath::SmoothStep(RiverHalfWidth * 0.6f, RiverHalfWidth * 1.4f, FromRiver));
+	}
+
 	// The coast: the land falls away into the sea. Its own, smaller wobble keeps it inside the 2 km map.
 	const float Coast = P.Size() / 1000.f + 0.07f * Fbm(P * 0.004 + SeedOffset(5), 3) + 0.015f * Fbm(P * 0.02 + SeedOffset(7), 2);
+	// Along some stretches the mountains give way to dunes and a sandy beach before the sea.
+	const float Cove = FMath::SmoothStep(0.08f, 0.35f, Fbm(P.GetSafeNormal() * 1.6 + SeedOffset(13), 2));
+	Height = FMath::Lerp(Height, FMath::Min(Height, 2.5f), Cove * FMath::SmoothStep(CoastStart - 0.1f, CoastStart, Coast));
 	return FMath::Lerp(Height, -30.f, FMath::SmoothStep(CoastStart, CoastEnd, Coast));
 }
 
@@ -263,6 +320,31 @@ float UWorldGenerator::SlopeAt(float X, float Y)
 	return Gradient.Size() * 0.5f;
 }
 
+FVector2D UWorldGenerator::WatchtowerSite()
+{
+	static const FVector2D Site = []
+	{
+		FVector2D Best = Watchtower.Center;
+		float BestScore = UE_BIG_NUMBER;
+		for (float DY = -60.f; DY <= 60.f; DY += 4.f)
+		{
+			for (float DX = -60.f; DX <= 60.f; DX += 4.f)
+			{
+				// Flat matters most, but it should still look out from up high.
+				const FVector2D P = Watchtower.Center + FVector2D(DX, DY);
+				const float Score = SlopeAt(P.X, P.Y) - 0.004f * HeightMeters(P.X, P.Y);
+				if (HeightMeters(P.X, P.Y) > 20.f && Score < BestScore)
+				{
+					BestScore = Score;
+					Best = P;
+				}
+			}
+		}
+		return Best;
+	}();
+	return Site;
+}
+
 TArray<FWorldResourceSpot> UWorldGenerator::PlanResources()
 {
 	return CachedResources();
@@ -280,7 +362,8 @@ const TArray<FWorldResourceSpot>& UWorldGenerator::CachedResources()
 		// Firm, dry, not too steep, and outside the clearing at the start.
 		auto CanStand = [](FVector2D P, float MinHeight)
 		{
-			return P.Size() >= StartClearing && HeightMeters(P.X, P.Y) >= MinHeight && SlopeAt(P.X, P.Y) <= 0.55f;
+			return P.Size() >= StartClearing && HeightMeters(P.X, P.Y) >= MinHeight && SlopeAt(P.X, P.Y) <= 0.55f
+				&& FVector2D::Distance(P, StoneCircle.Center) > StoneCircle.Radius && FVector2D::Distance(P, WatchtowerSite()) > Watchtower.Radius;
 		};
 		auto TryAdd = [&](FName Kind, FVector2D P, float MinHeight)
 		{
@@ -290,7 +373,12 @@ const TArray<FWorldResourceSpot>& UWorldGenerator::CachedResources()
 				return false;
 			}
 			Taken.Add(P, Radius);
-			Spots.Add(FWorldResourceSpot{Kind, FVector(P.X * 100.f, P.Y * 100.f, HeightMeters(P.X, P.Y) * 100.f), static_cast<float>(Random.FRandRange(0.f, 360.f))});
+			// Each one a little different: bigger or smaller, trees leaning slightly. Sunk a touch so slopes don't show a gap underneath.
+			const bool bTree = Kind.ToString().EndsWith(TEXT("Tree"));
+			FWorldResourceSpot& Spot = Spots.Add_GetRef(FWorldResourceSpot{Kind, FVector(P.X * 100.f, P.Y * 100.f, HeightMeters(P.X, P.Y) * 100.f - 8.f),
+				static_cast<float>(Random.FRandRange(0.f, 360.f))});
+			Spot.Scale = Random.FRandRange(bTree ? 0.8f : 0.85f, bTree ? 1.3f : 1.25f);
+			Spot.Lean = bTree ? Random.FRandRange(0.f, 5.f) : 0.f;
 			return true;
 		};
 		// A few of a kind scattered around a spot, as a grove or a vein.
@@ -328,7 +416,7 @@ const TArray<FWorldResourceSpot>& UWorldGenerator::CachedResources()
 				FName Ore;
 				if (Ring < DeepwoodStart)
 				{
-					Chance = 0.3f;
+					Chance = 0.45f;
 					Ore = TEXT("CopperRock");
 				}
 				else if (Ring < HighlandsStart)
@@ -338,7 +426,7 @@ const TArray<FWorldResourceSpot>& UWorldGenerator::CachedResources()
 				}
 				else
 				{
-					Chance = 0.38f;
+					Chance = 0.45f;
 					Ore = Height < 80.f && Pick < 0.3f ? TEXT("IronRock") : TEXT("SilverRock");
 				}
 				if (Roll < Chance)
@@ -499,6 +587,93 @@ TArray<FWorldScenerySpot> UWorldGenerator::PlanScenery()
 			}
 		}
 
+		// Landmarks. A ring of nine standing stones on the Meadows, leaning a little, one fallen...
+		{
+			const FVector2D Center = StoneCircle.Center;
+			for (int32 Index = 0; Index < 9; ++Index)
+			{
+				const float Angle = Index * UE_TWO_PI / 9.f;
+				const FVector2D P = Center + 9.f * FVector2D(FMath::Cos(Angle), FMath::Sin(Angle));
+				const float Yaw = FMath::RadiansToDegrees(Angle);
+				const bool bFallen = Index == 6;
+				const FRotator Rotation(bFallen ? 85.f : Random.FRandRange(-6.f, 6.f), Yaw, Random.FRandRange(-4.f, 4.f));
+				const FVector Scale(1.f, 1.f, bFallen ? 0.8f : Random.FRandRange(0.75f, 1.2f));
+				Spots.Add(FWorldScenerySpot{TEXT("StandingStone"), FTransform(Rotation, FVector(P.X * 100.f, P.Y * 100.f, HeightMeters(P.X, P.Y) * 100.f - 30.f), Scale)});
+				Taken.Add(P, bFallen ? 2.5f : 1.2f);
+			}
+		}
+		// ...and the broken ring of a watchtower's walls on a Highlands ridge, with a gap for the door.
+		{
+			const FVector2D Center = WatchtowerSite();
+			const float Ground = HeightMeters(Center.X, Center.Y);
+			for (int32 Index = 1; Index < 12; ++Index)
+			{
+				const float Angle = Index * UE_TWO_PI / 12.f;
+				const FVector2D P = Center + 4.5f * FVector2D(FMath::Cos(Angle), FMath::Sin(Angle));
+				const float Standing = Index % 4 == 2 ? 1.f : Random.FRandRange(0.2f, 0.75f);
+				Spots.Add(FWorldScenerySpot{TEXT("TowerWall"), FTransform(FRotator(0.f, FMath::RadiansToDegrees(Angle), 0.f),
+					FVector(P.X * 100.f, P.Y * 100.f, FMath::Min(Ground, HeightMeters(P.X, P.Y)) * 100.f - 50.f), FVector(1.f, 1.f, Standing))});
+				Taken.Add(P, 1.6f);
+			}
+		}
+
+		// A plank bridge halfway along each stretch of river (not in a lake or out at sea): find where
+		// the meandering channel actually is across the stretch, and span it, level with the banks.
+		for (const TArray<FVector2D>& River : Rivers())
+		{
+			for (int32 Index = 0; Index + 1 < River.Num(); ++Index)
+			{
+				const FVector2D Along = (River[Index + 1] - River[Index]).GetSafeNormal();
+				const FVector2D Across(-Along.Y, Along.X);
+				const FVector2D Middle = (River[Index] + River[Index + 1]) * 0.5f;
+				FVector2D Best = Middle;
+				for (float T = -30.f; T <= 30.f; T += 0.5f)
+				{
+					if (RiverDistance(Middle + Across * T) < RiverDistance(Best))
+					{
+						Best = Middle + Across * T;
+					}
+				}
+				const bool bInLake = Algo::AnyOf(Lakes, [&Best](const FLake& Lake) { return LakeInside(Best, Lake) < 1.4f; });
+				if (bInLake || Best.Size() > 760.f || HeightMeters(Best.X, Best.Y) > 0.f)
+				{
+					continue;
+				}
+				Taken.Add(Best, 10.f);
+				const float Yaw = FMath::RadiansToDegrees(FMath::Atan2(Across.Y, Across.X));
+				Spots.Add(FWorldScenerySpot{TEXT("Bridge"), FTransform(FRotator(0.f, Yaw, 0.f), FVector(Best.X * 100.f, Best.Y * 100.f, 220.f))});
+			}
+		}
+
+		// The rivers' banks get reeds too: a strip either side of each stretch, wide enough to
+		// catch the bank wherever the meander has moved it.
+		for (const TArray<FVector2D>& River : Rivers())
+		{
+			constexpr float BankCell = 1.5f;
+			for (int32 Index = 0; Index + 1 < River.Num(); ++Index)
+			{
+				const FVector2D Along = (River[Index + 1] - River[Index]).GetSafeNormal();
+				const FVector2D Across(-Along.Y, Along.X);
+				const float Length = FVector2D::Distance(River[Index], River[Index + 1]);
+				for (float S = 0.f; S < Length; S += BankCell)
+				{
+					for (float T = -30.f; T < 30.f; T += BankCell)
+					{
+						const FVector2D P = River[Index] + Along * (S + Random.FRandRange(0.f, BankCell)) + Across * (T + Random.FRandRange(0.f, BankCell));
+						const float Roll = Random.FRand();
+						if (Roll < 0.08f && P.Size() < InlandWater + 150.f)
+						{
+							const float Height = HeightMeters(P.X, P.Y);
+							if (Height > 0.2f && Height < 1.4f && Taken.IsClear(P, 1.f))
+							{
+								Patch(TEXT("Reed"), P, Random.RandRange(4, 8), 1.f, 0.7f, 1.3f, 8.f);
+							}
+						}
+					}
+				}
+			}
+		}
+
 		constexpr float Cell = 4.f;
 		for (float CY = -Half; CY < Half; CY += Cell)
 		{
@@ -529,18 +704,27 @@ TArray<FWorldScenerySpot> UWorldGenerator::PlanScenery()
 					{
 						continue;
 					}
-					if (Roll < 0.05f)
+					if (Roll < 0.06f)
 					{
 						Patch(TEXT("Pebble"), P, 3, 1.5f, 0.5f, 1.6f, 20.f);
 					}
-					else if (Roll < 0.07f)
+					else if (Roll < 0.14f)
 					{
-						Patch(TEXT("Shell"), P, 2, 1.f, 0.7f, 1.3f, 30.f);
+						Patch(TEXT("Shell"), P, 3, 1.5f, 0.7f, 1.3f, 30.f);
 					}
-					else if (Roll < 0.085f && Steep < 0.6f && Taken.IsClear(P, 2.f))
+					else if (Roll < 0.17f && Steep < 0.6f && Taken.IsClear(P, 2.f))
 					{
 						Taken.Add(P, 1.8f);
 						Place(TEXT("Driftwood"), P, Height + 0.1f, 0.7f, 1.2f);
+					}
+					continue;
+				}
+				// Dunes behind the sea beaches: tufts of marram grass.
+				if (!bInland && Height < 3.5f)
+				{
+					if (Roll < 0.35f)
+					{
+						Patch(TEXT("Grass"), P, 4, 1.5f, 0.8f, 1.6f, 20.f);
 					}
 					continue;
 				}
@@ -648,6 +832,16 @@ TArray<FWorldScenerySpot> UWorldGenerator::PlanScenery()
 	return Planned;
 }
 
+TArray<FVector> UWorldGenerator::GetLakes()
+{
+	TArray<FVector> Found;
+	for (const FLake& Lake : Lakes)
+	{
+		Found.Add(FVector(Lake.X, Lake.Y, Lake.Radius) * 100.f);
+	}
+	return Found;
+}
+
 float UWorldGenerator::GetHighestGround(float X, float Y, float Radius)
 {
 	float Highest = 0.f;
@@ -730,9 +924,13 @@ bool UWorldGenerator::SaveMapPreview(const FString& Filename, int32 Size, float 
 	};
 	for (const FWorldScenerySpot& Spot : PlanScenery())
 	{
-		if (Spot.Kind == TEXT("Boulder") || Spot.Kind == TEXT("FallenLog"))
+		if (Spot.Kind == TEXT("Boulder") || Spot.Kind == TEXT("FallenLog") || Spot.Kind == TEXT("StandingStone") || Spot.Kind == TEXT("TowerWall"))
 		{
 			Dot(Spot.Transform.GetLocation(), FColor(90, 85, 80), FMath::Max(0, FMath::RoundToInt(1.f / MetersPerPixel)));
+		}
+		else if (Spot.Kind == TEXT("Bridge"))
+		{
+			Dot(Spot.Transform.GetLocation(), FColor(120, 70, 20), FMath::Max(2, FMath::RoundToInt(6.f / MetersPerPixel)));
 		}
 	}
 	for (const FWorldResourceSpot& Spot : CachedResources())

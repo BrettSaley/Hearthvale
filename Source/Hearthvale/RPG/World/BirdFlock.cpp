@@ -2,6 +2,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Math/RandomStream.h"
+#include "Camera/PlayerCameraManager.h"
+#include "Kismet/GameplayStatics.h"
 #include "UObject/ConstructorHelpers.h"
 
 ABirdFlock::ABirdFlock()
@@ -35,6 +37,12 @@ void ABirdFlock::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	Clock += DeltaSeconds;
+	// Too far off to make out (small things sooner): keep the clock going but don't move anything.
+	const APlayerCameraManager* Camera = UGameplayStatics::GetPlayerCameraManager(this, 0);
+	if (Camera && FVector::Dist(Camera->GetCameraLocation(), GetActorLocation()) > VisibleRange() + Wander + Radius)
+	{
+		return;
+	}
 	Pose(Clock);
 }
 
@@ -62,6 +70,7 @@ void ABirdFlock::Build()
 		}
 		Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		Component->SetCastShadow(false);
+		Component->SetCachedMaxDrawDistance(VisibleRange());
 		Component->SetRelativeLocation(Location);
 		Component->SetRelativeScale3D(Scale);
 		Component->RegisterComponent();

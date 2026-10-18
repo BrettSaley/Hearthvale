@@ -41,7 +41,24 @@ VIEWS = [
     look("06_highlands", 120, 470, 30, 250, 650, 30),
     look("07_coast", 0, -700, 40, 160, -830, 20),
     look("08_overview", 0, -950, 350, 0, 0, 0),
+    look("09_west_river", -760, 150, 12, -600, 185, 0),
+    look("10_beach", 470, -650, 6, 560, -790, 0),
+    look("11_east_river", 300, 120, 8, 480, 190, 0),
+    look("12_rabbits", -4, -6, 1.2, 8, -18, 0.3),
 ]
+# The first bridge, seen from a little way up the bank.
+for spot in gen.plan_scenery():
+    if str(spot.kind) == "Bridge":
+        b = spot.transform.translation
+        VIEWS.append(look("13_bridge", b.x / 100 + 18, b.y / 100 + 14, 5, b.x / 100, b.y / 100, 0))
+        break
+# The landmarks, from a little way off.
+for kind, name, dx, dy, up in [("StandingStone", "14_stone_circle", 22, 16, 4), ("TowerWall", "15_watchtower", 26, -20, 8)]:
+    for spot in gen.plan_scenery():
+        if str(spot.kind) == kind:
+            t = spot.transform.translation
+            VIEWS.append(look(name, t.x / 100 + dx, t.y / 100 + dy, up, t.x / 100, t.y / 100, 2))
+            break
 
 state = {"start": time.monotonic(), "step": -1, "next": 25.0, "handle": None}
 

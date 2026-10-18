@@ -7,8 +7,11 @@ island there. This script turns them into content:
   layer, to be swapped for real textures)
 - The level (World Partition): landscape, sea, sun, sky, fog, clouds, player start
 - Resource nodes across the biomes
-- Scenery (grass, flowers, bushes, ferns, boulders, reeds, lily pads...) in one
-  instanced AWorldScenery actor, and flocks of birds (ABirdFlock)
+- Scenery (grass, flowers, bushes, ferns, boulders, reeds, lily pads, bridges,
+  the stone circle and the watchtower ruin...) in one instanced AWorldScenery
+  actor
+- Life: flocks of birds and butterflies (ABirdFlock), rabbits and deer
+  (AWildlifeHerd), fish leaping in every lake (AFishJumps)
 - A temporary camp of crafting stations and farm patches at the start, until
   players can build their own
 
@@ -146,7 +149,8 @@ def place_resources():
         kind = str(spot.kind)
         if kind not in nodes:
             nodes[kind] = unreal.load_asset(f"/Game/Gathering/Nodes/{kind}")
-        node = spawn(unreal.ResourceNode, spot.location, unreal.Rotator(0, 0, spot.yaw))
+        node = spawn(unreal.ResourceNode, spot.location, unreal.Rotator(0, spot.lean, spot.yaw))
+        node.set_actor_scale3d(V(spot.scale, spot.scale, spot.scale))
         node.set_editor_property("definition", nodes[kind])
         node.set_folder_path(f"Resources/{kind}")
         counts[kind] = counts.get(kind, 0) + 1
@@ -165,9 +169,10 @@ TINTS = {
     "Driftwood": (0.5, 0.45, 0.38), "Shell": (0.9, 0.85, 0.75), "Pebble": (0.3, 0.29, 0.27),
     "GullBody": (0.9, 0.9, 0.9), "GullWing": (0.5, 0.52, 0.56), "Crow": (0.02, 0.02, 0.025),
     "SongbirdBody": (0.4, 0.25, 0.12), "SongbirdWing": (0.22, 0.14, 0.07), "HawkBody": (0.32, 0.2, 0.09), "HawkWing": (0.2, 0.12, 0.05),
+    "RabbitFur": (0.3, 0.22, 0.15), "DeerHide": (0.32, 0.18, 0.08), "Fish": (0.45, 0.47, 0.5), "Ripple": (0.6, 0.7, 0.75),
 }
 TINTED = {}
-LEAF_TINTS = {'Leaves': (0.03, 0.09, 0.018), 'OakLeaves': (0.02, 0.06, 0.012), 'AshLeaves': (0.08, 0.11, 0.025)}
+LEAF_TINTS = {'Leaves': (0.03, 0.09, 0.018), 'OakLeaves': (0.02, 0.06, 0.012), 'AshLeaves': (0.045, 0.075, 0.02)}
 
 
 def create_tints():
@@ -242,6 +247,18 @@ def scenery_kinds():
                   part("Cylinder", "Cattail", (0, 0, 140), (0.035, 0.035, 0.18))], False, False, 10000),
         "LilyPad": ([part("Cylinder", "LilyPad", (0, 0, 1), (0.55, 0.55, 0.01))], False, False, 15000),
         "LilyFlower": ([part("Sphere", "LilyFlower", (10, 8, 4), (0.14, 0.14, 0.08))], False, False, 15000),
+        # Landmarks: a stone circle's stones, and a ruined watchtower's wall sections (scaled down where broken).
+        "StandingStone": ([part("Cube", "Stone", (0, 0, 160), (0.8, 1.4, 3.2))], True, True, 0),
+        "TowerWall": ([part("Cube", "Stone", (0, 0, 300), (0.9, 2.5, 6.0)),
+                       part("Cube", "Stone", (0, 0, 615), (1.0, 0.8, 0.3))], True, True, 0),
+        # 18 m of planks across a river, level with the banks, with rails and posts down to the bed.
+        "Bridge": ([part("Cube", "Bark", (0, 0, 0), (18, 2.4, 0.15)),
+                    part("Cube", "Bark", (0, -115, 90), (18, 0.1, 0.1)),
+                    part("Cube", "Bark", (0, 115, 90), (18, 0.1, 0.1)),
+                    part("Cylinder", "Bark", (-450, -115, -60), (0.18, 0.18, 3.2)),
+                    part("Cylinder", "Bark", (-450, 115, -60), (0.18, 0.18, 3.2)),
+                    part("Cylinder", "Bark", (450, -115, -60), (0.18, 0.18, 3.2)),
+                    part("Cylinder", "Bark", (450, 115, -60), (0.18, 0.18, 3.2))], True, True, 0),
     }
 
 
@@ -288,6 +305,46 @@ def place_birds():
             flock.set_editor_property(prop, value)
         flock.rebuild()
     place_butterflies()
+
+
+# Animals on the ground: (kind, animals per herd, roam cm, body tint, tail/antler tint, how many herds)
+WILDLIFE = {"Rabbit": (unreal.WildlifeKind.RABBIT, 4, 2000, "RabbitFur", "Shell", 12),
+            "Deer": (unreal.WildlifeKind.DEER, 3, 3500, "DeerHide", "Driftwood", 8)}
+
+
+def place_wildlife():
+    """Rabbits in the Meadows (one lot right by the start), deer in the Deepwood, on dry ground."""
+    import random
+    rng = random.Random(7)
+    spots = [(8.0, -18.0)]
+    placed = {kind: 0 for kind in WILDLIFE}
+    for _ in range(2000):
+        if len(spots) > 1 or placed["Rabbit"] > 0:
+            x, y = rng.uniform(-650, 650), rng.uniform(-650, 650)
+        else:
+            x, y = spots[0]
+        biome = unreal.WorldGenerator.get_biome(x * 100, y * 100)
+        kind = "Rabbit" if biome == unreal.Biome.MEADOWS else "Deer" if biome == unreal.Biome.DEEPWOOD else None
+        ground = unreal.WorldGenerator.get_ground_height(x * 100, y * 100)
+        if kind is None or placed[kind] >= WILDLIFE[kind][5] or ground < 100:
+            continue
+        wild_kind, count, roam, body, detail, _ = WILDLIFE[kind]
+        herd = spawn(unreal.WildlifeHerd, V(x * 100, y * 100, ground), label=f"{kind}s_{placed[kind]}", folder="Wildlife")
+        for prop, value in [("kind", wild_kind), ("count", count), ("roam", roam),
+                            ("body_material", TINTED[body]), ("detail_material", TINTED[detail])]:
+            herd.set_editor_property(prop, value)
+        herd.rebuild()
+        placed[kind] += 1
+        spots.append((x, y))
+    unreal.log_warning(f"create_world: wildlife {placed}")
+
+
+def place_fish():
+    """A fish now and then leaping in every lake and pond."""
+    for i, lake in enumerate(unreal.WorldGenerator.get_lakes()):
+        fish = spawn(unreal.FishJumps, V(lake.x, lake.y, 0), label=f"FishJumps_{i}", folder="Wildlife/Fish")
+        for prop, value in [("radius", lake.z * 0.6), ("fish_material", TINTED["Fish"]), ("ripple_material", TINTED["Ripple"])]:
+            fish.set_editor_property(prop, value)
 
 
 # Butterflies: the flock actor again, tiny and fluttery, low over some of the flower drifts.
@@ -340,6 +397,8 @@ def main():
     create_tints()
     place_scenery()
     place_birds()
+    place_wildlife()
+    place_fish()
     place_starter_camp()
     save_when_terrain_ready()
 
