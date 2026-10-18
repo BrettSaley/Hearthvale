@@ -1,4 +1,4 @@
-// Automation tests for skills and the inventory. Run them from the editor's
+// Automation tests for skills, the inventory, gathering, farming, crafting and the island's layout. Run them from the editor's
 // Session Frontend (Automation tab, filter "Hearthvale"), or headless with
 // -ExecCmds="Automation RunTests Hearthvale; Quit".
 
@@ -12,6 +12,7 @@
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
+#include "RPG/World/WorldGenerator.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -206,6 +207,58 @@ bool FCraftingTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("The axe is made"), Inventory->CountItem(IronAxe), 1);
 	TestEqual(TEXT("The bars are used"), Inventory->CountItem(IronBar), 0);
 	TestEqual(TEXT("The plank is used"), Inventory->CountItem(Plank), 0);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWorldLayoutTest, "Hearthvale.World.Layout", TestFlags)
+bool FWorldLayoutTest::RunTest(const FString& Parameters)
+{
+	const TArray<FWorldResourceSpot> Spots = UWorldGenerator::PlanResources();
+	TestTrue(TEXT("Plenty of nodes"), Spots.Num() > 1000);
+	auto IsFishing = [](const FWorldResourceSpot& Spot) { return Spot.Kind.ToString().EndsWith(TEXT("Spot")); };
+
+	TSet<FName> Kinds;
+	int32 StarterTrees = 0, StarterCopper = 0;
+	for (const FWorldResourceSpot& Spot : Spots)
+	{
+		Kinds.Add(Spot.Kind);
+		const float Ground = UWorldGenerator::GetGroundHeight(Spot.Location.X, Spot.Location.Y);
+		const float FromStart = FVector2D(Spot.Location).Size();
+		if (IsFishing(Spot))
+		{
+			TestTrue(FString::Printf(TEXT("%s at %s is on water"), *Spot.Kind.ToString(), *Spot.Location.ToString()), Ground < 0.f);
+			continue;
+		}
+		TestTrue(FString::Printf(TEXT("%s at %s is on dry land"), *Spot.Kind.ToString(), *Spot.Location.ToString()), Ground >= 180.f);
+		TestTrue(FString::Printf(TEXT("%s at %s is outside the start clearing"), *Spot.Kind.ToString(), *Spot.Location.ToString()), FromStart >= 3000.f);
+		StarterTrees += Spot.Kind == TEXT("Tree") && FromStart < 6000.f ? 1 : 0;
+		StarterCopper += Spot.Kind == TEXT("CopperRock") && FromStart < 6000.f ? 1 : 0;
+	}
+	TestTrue(TEXT("Trees to chop within 60 m of the start"), StarterTrees >= 4);
+	TestTrue(TEXT("Copper to mine within 60 m of the start"), StarterCopper >= 3);
+	for (const TCHAR* Kind : {TEXT("Tree"), TEXT("OakTree"), TEXT("AshTree"), TEXT("CopperRock"), TEXT("IronRock"), TEXT("SilverRock"),
+			 TEXT("PerchSpot"), TEXT("TroutSpot"), TEXT("PikeSpot")})
+	{
+		TestTrue(FString::Printf(TEXT("Some %s on the island"), Kind), Kinds.Contains(FName(Kind)));
+	}
+
+	// Room to walk: no two trees or rocks closer than 3 m.
+	int32 Crowded = 0;
+	for (int32 A = 0; A < Spots.Num(); ++A)
+	{
+		for (int32 B = A + 1; B < Spots.Num(); ++B)
+		{
+			if (!IsFishing(Spots[A]) && !IsFishing(Spots[B]) && FVector2D::DistSquared(FVector2D(Spots[A].Location), FVector2D(Spots[B].Location)) < FMath::Square(300.f))
+			{
+				++Crowded;
+			}
+		}
+	}
+	TestEqual(TEXT("Nodes closer than 3 m"), Crowded, 0);
+
+	// Scenery stays off the nodes and the same plan comes back each time.
+	TestTrue(TEXT("Scenery is planned"), UWorldGenerator::PlanScenery().Num() > 10000);
+	TestEqual(TEXT("The plan is the same each time"), UWorldGenerator::PlanResources().Num(), Spots.Num());
 	return true;
 }
 

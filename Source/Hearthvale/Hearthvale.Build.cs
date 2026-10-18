@@ -20,7 +20,8 @@ public class Hearthvale : ModuleRules
 			"UMG",
 			"Slate",
 			"SlateCore",
-			"Landscape"
+			"Landscape",
+			"ImageCore"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });

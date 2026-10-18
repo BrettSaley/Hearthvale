@@ -1,5 +1,6 @@
 #include "RPG/World/WorldGenerator.h"
 #include "Math/RandomStream.h"
+#include "ImageUtils.h"
 
 #if WITH_EDITOR
 #include "Engine/World.h"
@@ -32,8 +33,16 @@ namespace
 		float X, Y, Radius;
 	};
 
-	/** Lakes, in metres: two in the Meadows, two in the Deepwood, a tarn in the Highlands. */
-	const FLake Lakes[] = {{150.f, 120.f, 45.f}, {-230.f, -90.f, 60.f}, {-260.f, 420.f, 70.f}, {330.f, -420.f, 55.f}, {520.f, 460.f, 40.f}};
+	/**
+	 * Lakes, in metres: two in the Meadows, two in the Deepwood, a tarn in the
+	 * Highlands, then smaller ponds scattered through the Meadows and Deepwood, then three big lakes and a second tarn.
+	 */
+	const FLake Lakes[] = {{150.f, 120.f, 45.f}, {-230.f, -90.f, 60.f}, {-260.f, 420.f, 70.f}, {330.f, -420.f, 55.f}, {520.f, 460.f, 40.f},
+		{60.f, -160.f, 18.f}, {-120.f, 230.f, 22.f}, {280.f, 250.f, 20.f}, {-420.f, -260.f, 25.f}, {80.f, 380.f, 28.f}, {-80.f, -380.f, 24.f},
+		{420.f, -120.f, 22.f}, {-480.f, 120.f, 85.f}, {230.f, -150.f, 50.f}, {480.f, 190.f, 75.f}, {-560.f, -470.f, 35.f}};
+
+	/** Lakes and ponds are inside this many metres of the middle; water further out is the sea. */
+	constexpr float InlandWater = 700.f;
 
 	FVector2D SeedOffset(int32 Salt)
 	{
@@ -69,6 +78,82 @@ namespace
 		}
 		return Sum / Total;
 	}
+
+	/** How far past its shore a lake's valley reaches, in lake radii: at least 50 m, even for small ponds. */
+	float LakeValley(const FLake& Lake)
+	{
+		return FMath::Max(1.4f, 50.f / Lake.Radius);
+	}
+
+	/**
+	 * How far into a lake a spot is: below 1 is in it, 0 at its middle. The
+	 * spot is pushed around by noise first, so shores wind in coves and
+	 * points instead of being circles.
+	 */
+	float LakeInside(FVector2D P, const FLake& Lake)
+	{
+		const FVector2D Center(Lake.X, Lake.Y);
+		// Far enough out that neither the warp nor the valley around it reaches.
+		const float Reach = 1.f + LakeValley(Lake);
+		if (FVector2D::DistSquared(P, Center) > FMath::Square(Lake.Radius * (Reach + 0.6f)))
+		{
+			return Reach;
+		}
+		const double Scale = 0.9 / Lake.Radius;
+		const FVector2D Warp(Fbm(P * Scale + SeedOffset(10), 3), Fbm(P * Scale + SeedOffset(11), 3));
+		return FVector2D::Distance(P + Warp * Lake.Radius * 1.1f, Center) / Lake.Radius;
+	}
+
+	/** Points with room around them, found through a coarse grid. */
+	class FSpacing
+	{
+	public:
+		/** True if a thing of this radius (m) at P overlaps nothing added so far. */
+		bool IsClear(FVector2D P, float Radius) const
+		{
+			const int32 Reach = FMath::CeilToInt((Radius + Largest) / Cell);
+			const FIntPoint Key = KeyOf(P);
+			for (int32 DY = -Reach; DY <= Reach; ++DY)
+			{
+				for (int32 DX = -Reach; DX <= Reach; ++DX)
+				{
+					if (const TArray<FVector3f>* Points = Grid.Find(Key + FIntPoint(DX, DY)))
+					{
+						for (const FVector3f& Other : *Points)
+						{
+							if (FVector2D::DistSquared(P, FVector2D(Other.X, Other.Y)) < FMath::Square(Radius + Other.Z))
+							{
+								return false;
+							}
+						}
+					}
+				}
+			}
+			return true;
+		}
+
+		void Add(FVector2D P, float Radius)
+		{
+			Grid.FindOrAdd(KeyOf(P)).Add(FVector3f(P.X, P.Y, Radius));
+			Largest = FMath::Max(Largest, Radius);
+		}
+
+	private:
+		static constexpr float Cell = 8.f;
+		FIntPoint KeyOf(FVector2D P) const { return FIntPoint(FMath::FloorToInt(P.X / Cell), FMath::FloorToInt(P.Y / Cell)); }
+
+		TMap<FIntPoint, TArray<FVector3f>> Grid;
+		float Largest = 0.f;
+	};
+
+	/** How much space each kind of node needs to itself (m), so canopies and rocks don't overlap and there's room to walk. */
+	float NodeRadius(FName Kind)
+	{
+		static const TMap<FName, float> Radii = {{TEXT("Tree"), 2.8f}, {TEXT("OakTree"), 3.6f}, {TEXT("AshTree"), 2.6f},
+			{TEXT("CopperRock"), 1.6f}, {TEXT("IronRock"), 1.6f}, {TEXT("SilverRock"), 1.6f}};
+		const float* Radius = Radii.Find(Kind);
+		return Radius ? *Radius : 1.5f;
+	}
 }
 
 const TArray<FName>& UWorldGenerator::LayerNames()
@@ -97,13 +182,17 @@ float UWorldGenerator::HeightMeters(float X, float Y)
 	const float FromStart = P.Size();
 	Height = FMath::Lerp(4.f, Height, FMath::SmoothStep(StartClearing, StartClearing * 2.5f, FromStart));
 
-	// Lakes are bowls dipping below sea level.
+	// Lakes are bowls dipping below sea level; ponds are shallower. On high ground the bowl
+	// is aimed deeper, so the water still fills it where the winding shore narrows it.
 	for (const FLake& Lake : Lakes)
 	{
-		const float Inside = FVector2D::Distance(P, FVector2D(Lake.X, Lake.Y)) / Lake.Radius;
+		const float Inside = LakeInside(P, Lake);
+		// The land around eases down into a valley, so lakes on high ground aren't craters.
+		Height = FMath::Lerp(Height, FMath::Min(Height, 2.5f), 0.85f * (1.f - FMath::SmoothStep(1.f, 1.f + LakeValley(Lake), Inside)));
 		if (Inside < 1.f)
 		{
-			Height = FMath::Lerp(Height, -4.f, 1.f - FMath::SmoothStep(0.55f, 1.f, Inside));
+			const float Depth = (Lake.Radius < 30.f ? -2.5f : -4.f) - 0.25f * FMath::Max(Height, 0.f);
+			Height = FMath::Max(FMath::Lerp(Height, Depth, 1.f - FMath::SmoothStep(0.4f, 1.f, Inside)), Lake.Radius < 30.f ? -2.5f : -4.f);
 		}
 	}
 
@@ -168,103 +257,492 @@ void UWorldGenerator::PaintWeights(float X, float Y, float Height, float Slope, 
 	}
 }
 
+float UWorldGenerator::SlopeAt(float X, float Y)
+{
+	const FVector2D Gradient(HeightMeters(X + 1.f, Y) - HeightMeters(X - 1.f, Y), HeightMeters(X, Y + 1.f) - HeightMeters(X, Y - 1.f));
+	return Gradient.Size() * 0.5f;
+}
+
 TArray<FWorldResourceSpot> UWorldGenerator::PlanResources()
 {
-	TArray<FWorldResourceSpot> Spots;
-	FRandomStream Random(Seed);
-	const float Half = (Resolution - 1) * VertexSpacing / 200.f;
-	auto Slope = [](float X, float Y)
-	{
-		const FVector2D Gradient(HeightMeters(X + 1.f, Y) - HeightMeters(X - 1.f, Y), HeightMeters(X, Y + 1.f) - HeightMeters(X, Y - 1.f));
-		return Gradient.Size() * 0.5f;
-	};
-	auto Add = [&Spots, &Random](FName Kind, float X, float Y, float Z)
-	{
-		Spots.Add(FWorldResourceSpot{Kind, FVector(X * 100.f, Y * 100.f, Z * 100.f), static_cast<float>(Random.FRandRange(0.f, 360.f))});
-	};
+	return CachedResources();
+}
 
-	// Land: one roll per 13 m cell, at a random point in it. Trees grow in clumps.
-	constexpr float Cell = 13.f;
-	for (float CY = -Half; CY < Half; CY += Cell)
+const TArray<FWorldResourceSpot>& UWorldGenerator::CachedResources()
+{
+	static const TArray<FWorldResourceSpot> Planned = []
 	{
-		for (float CX = -Half; CX < Half; CX += Cell)
+		TArray<FWorldResourceSpot> Spots;
+		FRandomStream Random(Seed);
+		FSpacing Taken;
+		const float Half = (Resolution - 1) * VertexSpacing / 200.f;
+
+		// Firm, dry, not too steep, and outside the clearing at the start.
+		auto CanStand = [](FVector2D P, float MinHeight)
 		{
-			const float X = CX + Random.FRandRange(2.f, Cell - 2.f);
-			const float Y = CY + Random.FRandRange(2.f, Cell - 2.f);
-			const float Roll = Random.FRand();
-			const float Height = HeightMeters(X, Y);
-			if (Height < 2.f || Slope(X, Y) > 0.6f || FVector2D(X, Y).Size() < StartClearing)
+			return P.Size() >= StartClearing && HeightMeters(P.X, P.Y) >= MinHeight && SlopeAt(P.X, P.Y) <= 0.55f;
+		};
+		auto TryAdd = [&](FName Kind, FVector2D P, float MinHeight)
+		{
+			const float Radius = NodeRadius(Kind);
+			if (!CanStand(P, MinHeight) || !Taken.IsClear(P, Radius))
 			{
-				continue;
+				return false;
 			}
-			const float Clump = FMath::Clamp(0.5f + 0.9f * Fbm(FVector2D(X, Y) * 0.008 + SeedOffset(6), 3), 0.f, 1.f);
-			const float Ring = RingDistance(X, Y);
-			// Each biome: chances of each node kind in a cell, rolled in order.
-			TArray<TPair<FName, float>, TInlineAllocator<4>> Table;
-			if (Ring < DeepwoodStart)
+			Taken.Add(P, Radius);
+			Spots.Add(FWorldResourceSpot{Kind, FVector(P.X * 100.f, P.Y * 100.f, HeightMeters(P.X, P.Y) * 100.f), static_cast<float>(Random.FRandRange(0.f, 360.f))});
+			return true;
+		};
+		// A few of a kind scattered around a spot, as a grove or a vein.
+		auto Cluster = [&](FName Kind, FVector2D Center, int32 Count, float Spread, float MinHeight)
+		{
+			int32 Placed = 0;
+			for (int32 Attempt = 0; Attempt < Count * 6 && Placed < Count; ++Attempt)
 			{
-				Table = {{TEXT("Tree"), 0.16f * Clump}, {TEXT("CopperRock"), 0.025f}};
+				const FVector2D P = Center + FVector2D(Random.FRandRange(-Spread, Spread), Random.FRandRange(-Spread, Spread));
+				Placed += TryAdd(Kind, P, MinHeight) ? 1 : 0;
 			}
-			else if (Ring < HighlandsStart)
+		};
+
+		// The start: a little grove and a copper vein just past the clearing, so there's something to gather right away.
+		Cluster(TEXT("Tree"), FVector2D(-40.f, -30.f), 6, 9.f, 2.4f);
+		Cluster(TEXT("CopperRock"), FVector2D(32.f, 38.f), 4, 5.f, 1.8f);
+
+		// Ore comes in veins of two to four rocks. One chance of a vein per 65 m cell.
+		constexpr float VeinCell = 65.f;
+		for (float CY = -Half; CY < Half; CY += VeinCell)
+		{
+			for (float CX = -Half; CX < Half; CX += VeinCell)
 			{
-				Table = {{TEXT("OakTree"), 0.2f * Clump}, {TEXT("Tree"), 0.05f * Clump}, {TEXT("IronRock"), 0.03f}};
-			}
-			else if (Height < 80.f)
-			{
-				Table = {{TEXT("AshTree"), 0.12f * Clump}, {TEXT("SilverRock"), 0.035f}, {TEXT("IronRock"), 0.01f}};
-			}
-			else
-			{
-				Table = {{TEXT("SilverRock"), 0.04f}};
-			}
-			float Threshold = 0.f;
-			for (const TPair<FName, float>& Entry : Table)
-			{
-				Threshold += Entry.Value;
-				if (Roll < Threshold)
+				const FVector2D Center(CX + Random.FRandRange(8.f, VeinCell - 8.f), CY + Random.FRandRange(8.f, VeinCell - 8.f));
+				const float Roll = Random.FRand();
+				const float Pick = Random.FRand();
+				const int32 Count = Random.RandRange(2, 4);
+				const float Height = HeightMeters(Center.X, Center.Y);
+				if (Height < 2.f || Center.Size() < StartClearing + 20.f)
 				{
-					Add(Entry.Key, X, Y, Height);
-					break;
+					continue;
+				}
+				const float Ring = RingDistance(Center.X, Center.Y);
+				float Chance;
+				FName Ore;
+				if (Ring < DeepwoodStart)
+				{
+					Chance = 0.3f;
+					Ore = TEXT("CopperRock");
+				}
+				else if (Ring < HighlandsStart)
+				{
+					Chance = 0.34f;
+					Ore = Pick < 0.85f ? TEXT("IronRock") : TEXT("CopperRock");
+				}
+				else
+				{
+					Chance = 0.38f;
+					Ore = Height < 80.f && Pick < 0.3f ? TEXT("IronRock") : TEXT("SilverRock");
+				}
+				if (Roll < Chance)
+				{
+					Cluster(Ore, Center, Count, 6.f, 2.f);
 				}
 			}
 		}
+
+		// Trees grow in groves, thick in the Deepwood, a scatter of loners in the open. One roll per 4.5 m cell.
+		constexpr float TreeCell = 4.5f;
+		for (float CY = -Half; CY < Half; CY += TreeCell)
+		{
+			for (float CX = -Half; CX < Half; CX += TreeCell)
+			{
+				const FVector2D P(CX + Random.FRandRange(0.f, TreeCell), CY + Random.FRandRange(0.f, TreeCell));
+				const float Roll = Random.FRand();
+				const float Pick = Random.FRand();
+				if (P.Size() > 900.f)
+				{
+					continue;
+				}
+				const float Grove = 0.5f + 0.5f * Fbm(P * 0.007 + SeedOffset(6), 3);
+				const float Ring = RingDistance(P.X, P.Y);
+				float Chance;
+				FName Kind;
+				if (Ring < DeepwoodStart)
+				{
+					Chance = 0.08f * FMath::SmoothStep(0.52f, 0.68f, Grove) + 0.002f;
+					Kind = TEXT("Tree");
+				}
+				else if (Ring < HighlandsStart)
+				{
+					Chance = 0.16f * FMath::SmoothStep(0.4f, 0.58f, Grove) + 0.004f;
+					Kind = Pick < 0.75f ? TEXT("OakTree") : TEXT("Tree");
+				}
+				else
+				{
+					Chance = 0.07f * FMath::SmoothStep(0.5f, 0.64f, Grove) + 0.002f;
+					Kind = TEXT("AshTree");
+				}
+				if (Roll >= Chance)
+				{
+					continue;
+				}
+				// Ash doesn't grow on the bare peaks.
+				if (Kind == TEXT("AshTree") && HeightMeters(P.X, P.Y) > 86.f)
+				{
+					continue;
+				}
+				TryAdd(Kind, P, 2.4f);
+			}
+		}
+
+		// Water: fishing spots just off the shore (so they can be fished from land), at least 35 m apart;
+		// the fish depend on the biome.
+		TArray<FVector2D> Fishing;
+		constexpr float WaterCell = 6.f;
+		auto NearShore = [](float X, float Y)
+		{
+			for (int32 Step = 0; Step < 8; ++Step)
+			{
+				const float Angle = Step * UE_PI / 4.f;
+				if (HeightMeters(X + 2.5f * FMath::Cos(Angle), Y + 2.5f * FMath::Sin(Angle)) > 0.3f)
+				{
+					return true;
+				}
+			}
+			return false;
+		};
+		for (float CY = -Half; CY < Half; CY += WaterCell)
+		{
+			for (float CX = -Half; CX < Half; CX += WaterCell)
+			{
+				const float X = CX + Random.FRandRange(0.f, WaterCell);
+				const float Y = CY + Random.FRandRange(0.f, WaterCell);
+				const float Height = HeightMeters(X, Y);
+				if (Height > -0.3f || Height < -2.f || Random.FRand() > 0.3f || !NearShore(X, Y)
+					|| Fishing.ContainsByPredicate([X, Y](const FVector2D& Other) { return FVector2D::Distance(Other, FVector2D(X, Y)) < 35.f; }))
+				{
+					continue;
+				}
+				Fishing.Add(FVector2D(X, Y));
+				const float Ring = RingDistance(X, Y);
+				const FName Kind = Ring < DeepwoodStart - 0.05f ? FName(TEXT("PerchSpot")) : Ring < HighlandsStart ? FName(TEXT("TroutSpot")) : FName(TEXT("PikeSpot"));
+				Spots.Add(FWorldResourceSpot{Kind, FVector(X * 100.f, Y * 100.f, 0.f), static_cast<float>(Random.FRandRange(0.f, 360.f))});
+			}
+		}
+		return Spots;
+	}();
+	return Planned;
+}
+
+TArray<FWorldScenerySpot> UWorldGenerator::PlanScenery()
+{
+	static const TArray<FWorldScenerySpot> Planned = []
+	{
+		TArray<FWorldScenerySpot> Spots;
+		FRandomStream Random(Seed + 1);
+		const float Half = (Resolution - 1) * VertexSpacing / 200.f;
+
+		// Keep clear of the resource nodes, so nothing grows through a tree or a rock.
+		FSpacing Taken;
+		for (const FWorldResourceSpot& Node : CachedResources())
+		{
+			Taken.Add(FVector2D(Node.Location) / 100.f, NodeRadius(Node.Kind) * 0.8f);
+		}
+
+		auto Place = [&Spots, &Random](FName Kind, FVector2D P, float Z, float MinScale, float MaxScale, float Tilt = 0.f)
+		{
+			const FRotator Rotation(Random.FRandRange(-Tilt, Tilt), Random.FRandRange(0.f, 360.f), Random.FRandRange(-Tilt, Tilt));
+			Spots.Add(FWorldScenerySpot{Kind, FTransform(Rotation, FVector(P.X * 100.f, P.Y * 100.f, Z * 100.f), FVector(Random.FRandRange(MinScale, MaxScale)))});
+		};
+		// A patch of small things around a point, each sitting on the ground.
+		auto Patch = [&](FName Kind, FVector2D Center, int32 Count, float Spread, float MinScale, float MaxScale, float Tilt = 0.f)
+		{
+			for (int32 Index = 0; Index < Count; ++Index)
+			{
+				const FVector2D P = Center + FVector2D(Random.FRandRange(-Spread, Spread), Random.FRandRange(-Spread, Spread));
+				const float Height = HeightMeters(P.X, P.Y);
+				if (Height > 0.4f && Taken.IsClear(P, 0.4f))
+				{
+					Place(Kind, P, Height - 0.03f, MinScale, MaxScale, Tilt);
+				}
+			}
+		};
+
+		const FName Flowers[] = {TEXT("FlowerRed"), TEXT("FlowerYellow"), TEXT("FlowerWhite"), TEXT("FlowerBlue")};
+		const FName Heather[] = {TEXT("FlowerPurple"), TEXT("FlowerWhite")};
+
+		// Lake edges are only a few metres wide, so they get a finer pass of their own:
+		// beds of reeds along the shore, lily pads drifting in the shallows.
+		for (const FLake& Lake : Lakes)
+		{
+			constexpr float ShoreCell = 1.5f;
+			const float Reach = Lake.Radius * 2.f;
+			for (float Y = Lake.Y - Reach; Y < Lake.Y + Reach; Y += ShoreCell)
+			{
+				for (float X = Lake.X - Reach; X < Lake.X + Reach; X += ShoreCell)
+				{
+					const FVector2D P(X + Random.FRandRange(0.f, ShoreCell), Y + Random.FRandRange(0.f, ShoreCell));
+					const float Roll = Random.FRand();
+					const float Pick = Random.FRand();
+					const float Height = HeightMeters(P.X, P.Y);
+					if (Height < -0.3f && Height > -2.f && Roll < 0.05f)
+					{
+						Place(TEXT("LilyPad"), P, 0.02f, 0.6f, 1.4f);
+						if (Pick < 0.3f)
+						{
+							Place(TEXT("LilyFlower"), P, 0.02f, 0.8f, 1.1f);
+						}
+					}
+					else if (Height > 0.2f && Height < 1.4f && Roll < 0.1f && Taken.IsClear(P, 1.f))
+					{
+						Patch(TEXT("Reed"), P, Random.RandRange(5, 10), 1.f, 0.7f, 1.3f, 8.f);
+					}
+				}
+			}
+		}
+
+		constexpr float Cell = 4.f;
+		for (float CY = -Half; CY < Half; CY += Cell)
+		{
+			for (float CX = -Half; CX < Half; CX += Cell)
+			{
+				const FVector2D P(CX + Random.FRandRange(0.f, Cell), CY + Random.FRandRange(0.f, Cell));
+				const float Roll = Random.FRand();
+				const float Pick = Random.FRand();
+				if (P.Size() > 950.f)
+				{
+					continue;
+				}
+				const float Height = HeightMeters(P.X, P.Y);
+				const bool bInland = P.Size() < InlandWater;
+				if (Height < 0.f)
+				{
+					continue;
+				}
+
+				const float Steep = SlopeAt(P.X, P.Y);
+				const bool bClearing = P.Size() < StartClearing;
+				const float Ring = RingDistance(P.X, P.Y);
+
+				// Shores: the lakes have had theirs; the sea beaches get pebbles, shells and driftwood.
+				if (Height < 1.6f)
+				{
+					if (bInland)
+					{
+						continue;
+					}
+					if (Roll < 0.05f)
+					{
+						Patch(TEXT("Pebble"), P, 3, 1.5f, 0.5f, 1.6f, 20.f);
+					}
+					else if (Roll < 0.07f)
+					{
+						Patch(TEXT("Shell"), P, 2, 1.f, 0.7f, 1.3f, 30.f);
+					}
+					else if (Roll < 0.085f && Steep < 0.6f && Taken.IsClear(P, 2.f))
+					{
+						Taken.Add(P, 1.8f);
+						Place(TEXT("Driftwood"), P, Height + 0.1f, 0.7f, 1.2f);
+					}
+					continue;
+				}
+
+				// Boulders sit anywhere but the clearing, more of them up high and on slopes.
+				const float BoulderChance = Ring < DeepwoodStart ? 0.004f : Ring < HighlandsStart ? 0.008f : 0.03f + 0.03f * FMath::Min(Steep, 1.f);
+				if (Roll < BoulderChance)
+				{
+					const float Size = Random.FRandRange(0.7f, Ring < HighlandsStart ? 1.8f : 3.f);
+					if (!bClearing && Taken.IsClear(P, 1.6f * Size))
+					{
+						Taken.Add(P, 1.4f * Size);
+						Place(TEXT("Boulder"), P, Height - 0.35f * Size, Size, Size, 25.f);
+					}
+					continue;
+				}
+				const float Rest = (Roll - BoulderChance) / (1.f - BoulderChance);
+				if (Steep > 0.75f)
+				{
+					if (Rest < 0.05f)
+					{
+						Patch(TEXT("Pebble"), P, 3, 1.5f, 0.5f, 1.4f, 30.f);
+					}
+					continue;
+				}
+
+				const float Field = 0.5f + 0.5f * Fbm(P * 0.02 + SeedOffset(12), 2);
+				if (Ring < DeepwoodStart)
+				{
+					// Meadows: grass everywhere, drifts of flowers, bushes along the edges of the groves.
+					const float Grove = 0.5f + 0.5f * Fbm(P * 0.007 + SeedOffset(6), 3);
+					const float FlowerShare = 0.14f * FMath::SmoothStep(0.5f, 0.7f, Field);
+					const float BushShare = 0.008f + 0.07f * FMath::SmoothStep(0.45f, 0.62f, Grove);
+					if (Rest < 0.6f)
+					{
+						Patch(TEXT("Grass"), P, 5, 2.f, 0.7f, 1.5f, 12.f);
+					}
+					else if (Rest < 0.6f + FlowerShare)
+					{
+						Patch(Flowers[FMath::Clamp(FMath::FloorToInt(Field * 7.f) % 4, 0, 3)], P, Random.RandRange(4, 8), 1.8f, 0.7f, 1.2f, 10.f);
+					}
+					else if (Rest < 0.6f + FlowerShare + BushShare && !bClearing && Taken.IsClear(P, 1.4f))
+					{
+						Place(TEXT("Bush"), P, Height - 0.1f, 0.5f, 1.1f, 5.f);
+					}
+					else if (Rest < 0.62f + FlowerShare + BushShare)
+					{
+						Patch(TEXT("Pebble"), P, 2, 1.f, 0.4f, 1.f, 30.f);
+					}
+				}
+				else if (Ring < HighlandsStart)
+				{
+					// Deepwood: ferns and bushes under the trees, mushrooms, fallen logs.
+					if (Rest < 0.2f)
+					{
+						Patch(TEXT("Fern"), P, Random.RandRange(2, 4), 1.6f, 0.7f, 1.4f, 10.f);
+					}
+					else if (Rest < 0.27f && Taken.IsClear(P, 1.4f))
+					{
+						Place(TEXT("Bush"), P, Height - 0.1f, 0.8f, 1.6f, 5.f);
+					}
+					else if (Rest < 0.29f)
+					{
+						Patch(TEXT("Mushroom"), P, Random.RandRange(2, 5), 0.8f, 0.7f, 1.5f, 10.f);
+					}
+					else if (Rest < 0.294f && Steep < 0.35f && Taken.IsClear(P, 2.5f))
+					{
+						Taken.Add(P, 2.2f);
+						Place(TEXT("FallenLog"), P, Height + 0.15f, 0.8f, 1.2f);
+					}
+					else if (Rest < 0.55f)
+					{
+						Patch(TEXT("Grass"), P, 3, 1.8f, 0.8f, 1.5f, 12.f);
+					}
+				}
+				else if (Height < 80.f)
+				{
+					// Highlands: tough grass, heather, scree.
+					if (Rest < 0.16f)
+					{
+						Patch(TEXT("Grass"), P, 3, 1.5f, 0.6f, 1.1f, 15.f);
+					}
+					else if (Rest < 0.16f + 0.14f * FMath::SmoothStep(0.4f, 0.6f, Field))
+					{
+						Patch(Heather[Pick < 0.7f ? 0 : 1], P, Random.RandRange(4, 7), 1.5f, 0.5f, 0.9f, 10.f);
+					}
+					else if (Rest < 0.34f)
+					{
+						Patch(TEXT("Pebble"), P, 3, 1.5f, 0.5f, 1.4f, 30.f);
+					}
+					else if (Rest < 0.36f && Taken.IsClear(P, 1.4f))
+					{
+						Place(TEXT("Bush"), P, Height - 0.1f, 0.6f, 1.f, 5.f);
+					}
+				}
+				else if (Rest < 0.1f)
+				{
+					// The peaks: bare stone.
+					Patch(TEXT("Pebble"), P, 3, 2.f, 0.6f, 1.6f, 30.f);
+				}
+			}
+		}
+		return Spots;
+	}();
+	return Planned;
+}
+
+float UWorldGenerator::GetHighestGround(float X, float Y, float Radius)
+{
+	float Highest = 0.f;
+	const float R = Radius / 100.f;
+	for (float DY = -R; DY <= R; DY += FMath::Max(5.f, R / 12.f))
+	{
+		for (float DX = -R; DX <= R; DX += FMath::Max(5.f, R / 12.f))
+		{
+			if (DX * DX + DY * DY <= R * R)
+			{
+				Highest = FMath::Max(Highest, HeightMeters(X / 100.f + DX, Y / 100.f + DY));
+			}
+		}
+	}
+	return Highest * 100.f;
+}
+
+bool UWorldGenerator::SaveMapPreview(const FString& Filename, int32 Size, float CenterX, float CenterY, float ViewMeters)
+{
+	Size = FMath::Clamp(Size, 64, 4096);
+	const float Half = ViewMeters > 0.f ? ViewMeters * 0.5f : (Resolution - 1) * VertexSpacing / 200.f;
+	const FVector2D Origin(CenterX - Half, CenterY - Half);
+	const float MetersPerPixel = 2.f * Half / Size;
+	TArray<FColor> Pixels;
+	Pixels.SetNumUninitialized(Size * Size);
+
+	// The ground: paint colours, shaded by a light from the north-west.
+	const FLinearColor LayerColors[] = {FLinearColor(0.35f, 0.55f, 0.2f), FLinearColor(0.2f, 0.33f, 0.14f), FLinearColor(0.5f, 0.48f, 0.45f),
+		FLinearColor(0.85f, 0.78f, 0.55f), FLinearColor(0.95f, 0.96f, 1.f)};
+	TArray<float, TInlineAllocator<8>> Weights;
+	for (int32 Row = 0; Row < Size; ++Row)
+	{
+		for (int32 Column = 0; Column < Size; ++Column)
+		{
+			const float X = Origin.X + (Column + 0.5f) * MetersPerPixel;
+			const float Y = Origin.Y + (Row + 0.5f) * MetersPerPixel;
+			const float Height = HeightMeters(X, Y);
+			FLinearColor Color;
+			if (Height < 0.f)
+			{
+				Color = FMath::Lerp(FLinearColor(0.25f, 0.55f, 0.65f), FLinearColor(0.05f, 0.15f, 0.35f), FMath::Clamp(-Height / 12.f, 0.f, 1.f));
+			}
+			else
+			{
+				const float DX = HeightMeters(X + 1.f, Y) - HeightMeters(X - 1.f, Y);
+				const float DY = HeightMeters(X, Y + 1.f) - HeightMeters(X, Y - 1.f);
+				PaintWeights(X, Y, Height, FVector2D(DX, DY).Size() * 0.5f, Weights);
+				Color = FLinearColor::Black;
+				for (int32 Layer = 0; Layer < Weights.Num(); ++Layer)
+				{
+					Color += LayerColors[Layer] * Weights[Layer];
+				}
+				const float Shade = FMath::Clamp(1.f - 0.6f * (DX + DY), 0.45f, 1.4f);
+				Color *= Shade;
+			}
+			Color.A = 1.f;
+			Pixels[Row * Size + Column] = Color.ToFColor(false);
+		}
 	}
 
-	// Water: fishing spots just off the shore (so they can be fished from land), at least 35 m apart;
-	// the fish depend on the biome.
-	TArray<FVector2D> Fishing;
-	constexpr float WaterCell = 6.f;
-	auto NearShore = [](float X, float Y)
+	// The nodes, as dots coloured by kind.
+	static const TMap<FName, FColor> NodeColors = {{TEXT("Tree"), FColor(20, 90, 20)}, {TEXT("OakTree"), FColor(10, 50, 10)},
+		{TEXT("AshTree"), FColor(150, 170, 40)}, {TEXT("CopperRock"), FColor(230, 110, 30)}, {TEXT("IronRock"), FColor(150, 40, 30)},
+		{TEXT("SilverRock"), FColor(230, 230, 255)}, {TEXT("PerchSpot"), FColor(0, 255, 255)}, {TEXT("TroutSpot"), FColor(0, 200, 255)},
+		{TEXT("PikeSpot"), FColor(0, 120, 255)}};
+	auto Dot = [&Pixels, Size, Origin, MetersPerPixel](FVector Location, FColor Color, int32 Radius)
 	{
-		for (int32 Step = 0; Step < 8; ++Step)
+		const int32 CX = FMath::FloorToInt((Location.X / 100.f - Origin.X) / MetersPerPixel);
+		const int32 CY = FMath::FloorToInt((Location.Y / 100.f - Origin.Y) / MetersPerPixel);
+		for (int32 DY = -Radius; DY <= Radius; ++DY)
 		{
-			const float Angle = Step * UE_PI / 4.f;
-			if (HeightMeters(X + 2.5f * FMath::Cos(Angle), Y + 2.5f * FMath::Sin(Angle)) > 0.3f)
+			for (int32 DX = -Radius; DX <= Radius; ++DX)
 			{
-				return true;
+				if (DX * DX + DY * DY <= Radius * Radius && CX + DX >= 0 && CX + DX < Size && CY + DY >= 0 && CY + DY < Size)
+				{
+					Pixels[(CY + DY) * Size + CX + DX] = Color;
+				}
 			}
 		}
-		return false;
 	};
-	for (float CY = -Half; CY < Half; CY += WaterCell)
+	for (const FWorldScenerySpot& Spot : PlanScenery())
 	{
-		for (float CX = -Half; CX < Half; CX += WaterCell)
+		if (Spot.Kind == TEXT("Boulder") || Spot.Kind == TEXT("FallenLog"))
 		{
-			const float X = CX + Random.FRandRange(0.f, WaterCell);
-			const float Y = CY + Random.FRandRange(0.f, WaterCell);
-			const float Height = HeightMeters(X, Y);
-			if (Height > -0.3f || Height < -2.f || Random.FRand() > 0.3f || !NearShore(X, Y)
-				|| Fishing.ContainsByPredicate([X, Y](const FVector2D& Other) { return FVector2D::Distance(Other, FVector2D(X, Y)) < 35.f; }))
-			{
-				continue;
-			}
-			Fishing.Add(FVector2D(X, Y));
-			const float Ring = RingDistance(X, Y);
-			Add(Ring < DeepwoodStart - 0.05f ? FName(TEXT("PerchSpot")) : Ring < HighlandsStart ? FName(TEXT("TroutSpot")) : FName(TEXT("PikeSpot")),
-				X, Y, 0.f);
+			Dot(Spot.Transform.GetLocation(), FColor(90, 85, 80), FMath::Max(0, FMath::RoundToInt(1.f / MetersPerPixel)));
 		}
 	}
-	return Spots;
+	for (const FWorldResourceSpot& Spot : CachedResources())
+	{
+		const FColor* Color = NodeColors.Find(Spot.Kind);
+		Dot(Spot.Location, Color ? *Color : FColor::Magenta, FMath::Max(1, FMath::RoundToInt(NodeRadius(Spot.Kind) * 0.6f / MetersPerPixel)));
+	}
+	Dot(GetStartLocation(), FColor::Red, 3);
+
+	return FImageUtils::SaveImageByExtension(*Filename, FImageView(Pixels.GetData(), Size, Size));
 }
 
 #if WITH_EDITOR

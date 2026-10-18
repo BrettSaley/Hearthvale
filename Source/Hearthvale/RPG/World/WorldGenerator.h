@@ -40,6 +40,21 @@ struct HEARTHVALE_API FWorldResourceSpot
 	float Yaw = 0.f;
 };
 
+/** One piece of scenery (a bush, a boulder, a reed...): which kind, and where. */
+USTRUCT(BlueprintType)
+struct HEARTHVALE_API FWorldScenerySpot
+{
+	GENERATED_BODY()
+
+	/** Matches an FSceneryLook's Kind on the AWorldScenery actor (Bush, Boulder, Reed...). */
+	UPROPERTY(BlueprintReadOnly, Category = "World")
+	FName Kind;
+
+	/** World transform, in cm, standing on the ground (or floating on the water). */
+	UPROPERTY(BlueprintReadOnly, Category = "World")
+	FTransform Transform;
+};
+
 /**
  * The island: one set of noise functions gives the ground height, the biome
  * and the ground paint everywhere, and plans where resources go, so they all
@@ -68,9 +83,30 @@ public:
 	UFUNCTION(BlueprintPure, Category = "World")
 	static EBiome GetBiome(float X, float Y);
 
-	/** Every resource node to place, by biome. */
+	/**
+	 * Every resource node to place: trees in groves, rocks in small veins, all
+	 * with room to walk between them, plus a starter grove and mine by the
+	 * clearing. Worked out once and remembered.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "World")
 	static TArray<FWorldResourceSpot> PlanResources();
+
+	/** Decoration that isn't gathered: grass, flowers, bushes, ferns, boulders, reeds, lily pads... Kept clear of the resource nodes. */
+	UFUNCTION(BlueprintCallable, Category = "World")
+	static TArray<FWorldScenerySpot> PlanScenery();
+
+	/** The highest ground (cm, never below sea level) within Radius cm of a point: flying things stay above it. */
+	UFUNCTION(BlueprintPure, Category = "World")
+	static float GetHighestGround(float X, float Y, float Radius);
+
+	/**
+	 * Draws the island from above to an image file (.png): shaded ground,
+	 * water, and every resource node as a dot. For checking the layout
+	 * without opening the level. Give ViewMeters (and a centre, in metres)
+	 * to zoom in on part of it; 0 shows the whole island.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "World")
+	static bool SaveMapPreview(const FString& Filename, int32 Size = 1024, float CenterX = 0.f, float CenterY = 0.f, float ViewMeters = 0.f);
 
 	/** Where the player starts (cm), on the ground in the middle of the Meadows. */
 	UFUNCTION(BlueprintPure, Category = "World")
@@ -99,6 +135,10 @@ private:
 	static float HeightMeters(float X, float Y);
 	/** How far out towards the coast, 0 at the middle to about 1 at the shore, wobbled by noise. */
 	static float RingDistance(float X, float Y);
+	/** Steepness at a spot in metres: rise over run, 0 flat, 1 is 45 degrees. */
+	static float SlopeAt(float X, float Y);
+	/** The resource plan, worked out on first use. */
+	static const TArray<FWorldResourceSpot>& CachedResources();
 	/** Paint weights (0-1, summing to 1) for each layer at a spot. */
 	static void PaintWeights(float X, float Y, float Height, float Slope, TArray<float, TInlineAllocator<8>>& OutWeights);
 };

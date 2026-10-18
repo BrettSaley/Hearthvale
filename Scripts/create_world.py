@@ -7,6 +7,8 @@ island there. This script turns them into content:
   layer, to be swapped for real textures)
 - The level (World Partition): landscape, sea, sun, sky, fog, clouds, player start
 - Resource nodes across the biomes
+- Scenery (grass, flowers, bushes, ferns, boulders, reeds, lily pads...) in one
+  instanced AWorldScenery actor, and flocks of birds (ABirdFlock)
 - A temporary camp of crafting stations and farm patches at the start, until
   players can build their own
 
@@ -16,7 +18,9 @@ It needs the full editor, not the headless commandlet: the landscape's heights a
 turned into terrain on the GPU, so the script waits a few seconds before saving.
 
 To rebuild the island after changing the generator, delete Content/World and
-run this again.
+the level's actors (Content/__ExternalActors__/World and
+Content/__ExternalObjects__/World) and run this again. Scripts/preview_world.py
+draws the generator's plan to an image first, without the editor.
 """
 
 import time
@@ -30,7 +34,7 @@ V = unreal.Vector
 LEVEL = "/Game/World/Lvl_World"
 
 # Dark on purpose: auto exposure brightens everything a lot.
-LAYER_COLORS = {"Grass": (0.03, 0.055, 0.014), "Forest": (0.022, 0.017, 0.009), "Rock": (0.06, 0.056, 0.05),
+LAYER_COLORS = {"Grass": (0.03, 0.055, 0.014), "Forest": (0.02, 0.028, 0.01), "Rock": (0.06, 0.056, 0.05),
                 "Sand": (0.2, 0.17, 0.11), "Snow": (0.55, 0.57, 0.6)}
 
 
@@ -86,9 +90,10 @@ def create_landscape_material():
 def create_water_material():
     material, made = create("M_Water", "/Game/World/Materials", unreal.Material, unreal.MaterialFactoryNew())
     if made:
-        mel.connect_material_property(constant_color(material, (0.01, 0.05, 0.08), -400, 0), "", unreal.MaterialProperty.MP_BASE_COLOR)
+        mel.connect_material_property(constant_color(material, (0.015, 0.06, 0.1), -400, 0), "", unreal.MaterialProperty.MP_BASE_COLOR)
         rough = mel.create_material_expression(material, unreal.MaterialExpressionConstant, -400, 200)
-        rough.set_editor_property("r", 0.05)
+        # Not too glossy: a mirror at low angles shows the far bank and reads as a dry pit.
+        rough.set_editor_property("r", 0.25)
         mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
         mel.recompile_material(material)
         save(material)
@@ -148,6 +153,159 @@ def place_resources():
     unreal.log_warning(f"create_world: resources {counts}")
 
 
+# --- Scenery and birds ---
+
+# Tints of the engine's basic-shape material, like the gathering nodes'. (r, g, b)
+TINTS = {
+    "Grass": (0.03, 0.09, 0.015), "Stem": (0.03, 0.08, 0.015), "BushLeaves": (0.025, 0.07, 0.015), "Fern": (0.02, 0.07, 0.014),
+    "FlowerRed": (0.7, 0.05, 0.04), "FlowerYellow": (0.85, 0.62, 0.05), "FlowerWhite": (0.85, 0.85, 0.8),
+    "FlowerBlue": (0.12, 0.22, 0.75), "FlowerPurple": (0.38, 0.1, 0.5),
+    "MushroomCap": (0.6, 0.06, 0.04), "MushroomStem": (0.75, 0.7, 0.6),
+    "Reed": (0.25, 0.32, 0.1), "Cattail": (0.2, 0.1, 0.04), "LilyPad": (0.06, 0.25, 0.06), "LilyFlower": (0.9, 0.72, 0.8),
+    "Driftwood": (0.5, 0.45, 0.38), "Shell": (0.9, 0.85, 0.75), "Pebble": (0.3, 0.29, 0.27),
+    "GullBody": (0.9, 0.9, 0.9), "GullWing": (0.5, 0.52, 0.56), "Crow": (0.02, 0.02, 0.025),
+    "SongbirdBody": (0.4, 0.25, 0.12), "SongbirdWing": (0.22, 0.14, 0.07), "HawkBody": (0.32, 0.2, 0.09), "HawkWing": (0.2, 0.12, 0.05),
+}
+TINTED = {}
+LEAF_TINTS = {'Leaves': (0.03, 0.09, 0.018), 'OakLeaves': (0.02, 0.06, 0.012), 'AshLeaves': (0.08, 0.11, 0.025)}
+
+
+def create_tints():
+    parent = unreal.load_asset("/Engine/BasicShapes/BasicShapeMaterial")
+    for name, rgb in TINTS.items():
+        mi, made = create(f"MI_{name}", "/Game/World/Materials", unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+        if made:
+            mel.set_material_instance_parent(mi, parent)
+            mel.set_material_instance_vector_parameter_value(mi, "Color", unreal.LinearColor(*rgb, 1.0))
+            save(mi)
+        TINTED[name] = mi
+    # The gathering nodes' bark, leaves and stone, so scenery matches the trees and rocks.
+    for name in ["Bark", "Leaves", "Stone"]:
+        TINTED[name] = unreal.load_asset(f"/Game/Gathering/Materials/MI_{name}")
+    # Deeper greens for the trees than create_gathering first made (it has these now too): the
+    # bright ones read as lime under auto exposure.
+    for name, rgb in LEAF_TINTS.items():
+        mi = unreal.load_asset(f"/Game/Gathering/Materials/MI_{name}")
+        mel.set_material_instance_vector_parameter_value(mi, "Color", unreal.LinearColor(*rgb, 1.0))
+        save(mi)
+
+
+SHAPES = {}
+
+
+def part(shape, material, location, scale, rotation=(0, 0, 0)):
+    """Basic shapes are 100 cm across, centred on their origin. rotation is (roll, pitch, yaw)."""
+    if shape not in SHAPES:
+        SHAPES[shape] = unreal.load_asset(f"/Engine/BasicShapes/{shape}")
+    p = unreal.NodeMeshPart()
+    p.set_editor_property("mesh", SHAPES[shape])
+    p.set_editor_property("material", TINTED[material])
+    p.set_editor_property("transform", unreal.Transform(V(*location), unreal.Rotator(*rotation), V(*scale)))
+    return p
+
+
+def flower(color):
+    return [part("Cylinder", "Stem", (0, 0, 15), (0.012, 0.012, 0.3)), part("Sphere", color, (0, 0, 31), (0.08, 0.08, 0.05))]
+
+
+def log(material, width, length):
+    return [part("Cylinder", material, (0, 0, width * 45), (width, width, length), (0, 90, 0)),
+            part("Cylinder", material, (length * 15, 0, width * 90), (width * 0.3, width * 0.3, 0.7), (35, 0, 0))]
+
+
+# kind: (parts, collides, casts shadow, stops drawing beyond (cm), 0 = never)
+def scenery_kinds():
+    return {
+        "Grass": ([part("Cone", "Grass", (0, 0, 22), (0.05, 0.05, 0.45)),
+                   part("Cone", "Grass", (0, 6, 19), (0.045, 0.045, 0.4), (16, 0, 0)),
+                   part("Cone", "Grass", (5, -5, 18), (0.045, 0.045, 0.38), (-12, 12, 0))], False, False, 6000),
+        "FlowerRed": (flower("FlowerRed"), False, False, 7000),
+        "FlowerYellow": (flower("FlowerYellow"), False, False, 7000),
+        "FlowerWhite": (flower("FlowerWhite"), False, False, 7000),
+        "FlowerBlue": (flower("FlowerBlue"), False, False, 7000),
+        "FlowerPurple": (flower("FlowerPurple"), False, False, 7000),
+        "Bush": ([part("Sphere", "BushLeaves", (0, 0, 35), (1.2, 1.2, 0.85)),
+                  part("Sphere", "Leaves", (35, 20, 55), (0.75, 0.75, 0.6))], False, True, 25000),
+        # Fronds are flattened spheres: flat boxes catch the sky and read as white.
+        "Fern": ([part("Sphere", "Fern", (0, 0, 10), (0.8, 0.14, 0.05), (0, -15, 0)),
+                  part("Sphere", "Fern", (0, 0, 10), (0.8, 0.14, 0.05), (0, 15, 60)),
+                  part("Sphere", "Fern", (0, 0, 10), (0.8, 0.14, 0.05), (12, 0, 120))], False, False, 9000),
+        "Mushroom": ([part("Cylinder", "MushroomStem", (0, 0, 5), (0.04, 0.04, 0.1)),
+                      part("Sphere", "MushroomCap", (0, 0, 11), (0.13, 0.13, 0.07))], False, False, 5000),
+        "Boulder": ([part("Sphere", "Stone", (0, 0, 30), (1.0, 0.85, 0.7)),
+                     part("Sphere", "Stone", (40, -25, 18), (0.6, 0.55, 0.5))], True, True, 0),
+        "Pebble": ([part("Sphere", "Pebble", (0, 0, 3), (0.22, 0.18, 0.1))], False, False, 5000),
+        "Shell": ([part("Sphere", "Shell", (0, 0, 1), (0.08, 0.06, 0.03))], False, False, 3000),
+        "FallenLog": (log("Bark", 0.4, 3.6), True, True, 30000),
+        "Driftwood": (log("Driftwood", 0.22, 2.4), True, True, 20000),
+        "Reed": ([part("Cylinder", "Reed", (0, 0, 75), (0.015, 0.015, 1.5)),
+                  part("Cylinder", "Cattail", (0, 0, 140), (0.035, 0.035, 0.18))], False, False, 10000),
+        "LilyPad": ([part("Cylinder", "LilyPad", (0, 0, 1), (0.55, 0.55, 0.01))], False, False, 15000),
+        "LilyFlower": ([part("Sphere", "LilyFlower", (10, 8, 4), (0.14, 0.14, 0.08))], False, False, 15000),
+    }
+
+
+def place_scenery():
+    looks = []
+    for kind, (parts, collides, shadow, cull) in scenery_kinds().items():
+        look = unreal.SceneryLook()
+        look.set_editor_property("kind", kind)
+        look.set_editor_property("parts", parts)
+        look.set_editor_property("collides", collides)
+        look.set_editor_property("casts_shadow", shadow)
+        look.set_editor_property("cull_distance", cull)
+        looks.append(look)
+    scenery = spawn(unreal.WorldScenery, V(0, 0, 0), label="Scenery", folder="Scenery")
+    scenery.set_editor_property("looks", looks)
+    scenery.rebuild()
+    unreal.log_warning(f"create_world: scenery {scenery.get_instance_count()} instances")
+
+
+# kind: (count, loop radius cm, wander cm, speed cm/s, size, wingbeats/s, glide share, height above the ground cm, body, wings)
+BIRDS = {
+    "Gulls": (7, 3000, 4000, 900, 2.2, 2.2, 0.65, 1500, "GullBody", "GullWing"),
+    "Crows": (9, 2000, 4000, 1000, 1.5, 4.0, 0.3, 2000, "Crow", "Crow"),
+    "Songbirds": (12, 900, 3000, 1300, 0.8, 8.0, 0.2, 1000, "SongbirdBody", "SongbirdWing"),
+    "Hawk": (1, 5000, 3000, 1100, 3.5, 1.6, 0.85, 3500, "HawkBody", "HawkWing"),
+}
+# Where each flock circles, in metres: gulls round the coast, crows over the Deepwood,
+# songbirds over the Meadows (one right by the start), hawks over the Highlands.
+FLOCKS = [("Gulls", 860, 140), ("Gulls", -150, 860), ("Gulls", -860, -150), ("Gulls", 160, -860),
+          ("Crows", -450, -150), ("Crows", 420, 280), ("Crows", 150, -480),
+          ("Songbirds", 60, 40), ("Songbirds", -180, 180), ("Songbirds", 200, -60), ("Songbirds", -100, -220),
+          ("Hawk", 250, 650), ("Hawk", -650, 250), ("Hawk", -200, -700), ("Hawk", 600, -380)]
+
+
+def place_birds():
+    for i, (kind, x, y) in enumerate(FLOCKS):
+        count, radius, wander, speed, size, flap, glide, height, body, wings = BIRDS[kind]
+        x, y = x * 100, y * 100
+        z = unreal.WorldGenerator.get_highest_ground(x, y, radius + wander) + height
+        flock = spawn(unreal.BirdFlock, V(x, y, z), label=f"{kind}_{i}", folder="Birds")
+        for prop, value in [("count", count), ("radius", radius), ("wander", wander), ("speed", speed), ("size", size),
+                            ("flap_rate", flap), ("glide_share", glide),
+                            ("body_material", TINTED[body]), ("wing_material", TINTED[wings])]:
+            flock.set_editor_property(prop, value)
+        flock.rebuild()
+    place_butterflies()
+
+
+# Butterflies: the flock actor again, tiny and fluttery, low over some of the flower drifts.
+BUTTERFLY_WINGS = ["FlowerYellow", "FlowerWhite", "FlowerBlue", "FlowerRed"]
+
+
+def place_butterflies(most=40, every=120):
+    flowers = [s for s in unreal.WorldGenerator.plan_scenery() if str(s.kind).startswith("Flower")]
+    for i, spot in enumerate(flowers[::every][:most]):
+        loc = spot.transform.translation
+        flock = spawn(unreal.BirdFlock, V(loc.x, loc.y, loc.z + 70), label=f"Butterflies_{i}", folder="Birds/Butterflies")
+        for prop, value in [("count", 3), ("radius", 150), ("wander", 400), ("speed", 120), ("size", 0.12),
+                            ("flap_rate", 9.0), ("glide_share", 0.1),
+                            ("body_material", TINTED["Crow"]), ("wing_material", TINTED[BUTTERFLY_WINGS[i % len(BUTTERFLY_WINGS)]])]:
+            flock.set_editor_property(prop, value)
+        flock.rebuild()
+
+
 def place_starter_camp():
     """Stations and patches by the start until players can build their own."""
     def ground(x, y):
@@ -179,6 +337,9 @@ def main():
     add_sky(water)
     spawn(unreal.PlayerStart, unreal.WorldGenerator.get_start_location(), label="Start")
     place_resources()
+    create_tints()
+    place_scenery()
+    place_birds()
     place_starter_camp()
     save_when_terrain_ready()
 
