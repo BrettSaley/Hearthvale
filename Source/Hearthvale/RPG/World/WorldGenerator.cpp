@@ -584,6 +584,11 @@ TArray<FWorldScenerySpot> UWorldGenerator::PlanScenery()
 					{
 						Patch(TEXT("Reed"), P, Random.RandRange(5, 10), 1.f, 0.7f, 1.3f, 8.f);
 					}
+					else if (Height >= 1.4f && Height < 3.f && Roll < 0.06f && Taken.IsClear(P, 1.f))
+					{
+						// Behind the reeds, a fringe of tall grass.
+						Patch(TEXT("TallGrass"), P, Random.RandRange(3, 6), 1.5f, 0.8f, 1.3f, 8.f);
+					}
 				}
 			}
 		}
@@ -728,7 +733,8 @@ TArray<FWorldScenerySpot> UWorldGenerator::PlanScenery()
 				Taken.Add(P, Kind == TEXT("Sapling") ? 0.6f : 1.f);
 				// Each a different height (and a little lean), sunk so slopes don't show a gap.
 				const float Size = Kind == TEXT("Sapling") ? Random.FRandRange(0.6f, 1.2f) : Random.FRandRange(0.8f, 1.35f);
-				const float Tall = Random.FRandRange(0.85f, 1.4f);
+				// Spruce and pine vary a lot in height; birch only a little, or its crown turns into a lollipop.
+				const float Tall = Kind == TEXT("Birch") ? Random.FRandRange(0.9f, 1.1f) : Random.FRandRange(0.85f, 1.4f);
 				const FRotator Rotation(Random.FRandRange(-3.f, 3.f), Random.FRandRange(0.f, 360.f), Random.FRandRange(-3.f, 3.f));
 				Spots.Add(FWorldScenerySpot{Kind, FTransform(Rotation, FVector(P.X * 100.f, P.Y * 100.f, Height * 100.f - 10.f), FVector(Size, Size, Size * Tall))});
 			}
