@@ -756,7 +756,7 @@ TArray<FWorldScenerySpot> UWorldGenerator::PlanScenery()
 				{
 					// Meadows: grass everywhere, drifts of flowers, bushes along the edges of the groves.
 					const float Grove = 0.5f + 0.5f * Fbm(P * 0.007 + SeedOffset(6), 3);
-					const float FlowerShare = 0.14f * FMath::SmoothStep(0.5f, 0.7f, Field);
+					const float FlowerShare = 0.26f * FMath::SmoothStep(0.45f, 0.65f, Field);
 					const float BushShare = 0.008f + 0.07f * FMath::SmoothStep(0.45f, 0.62f, Grove);
 					if (Rest < 0.6f)
 					{
@@ -764,7 +764,7 @@ TArray<FWorldScenerySpot> UWorldGenerator::PlanScenery()
 					}
 					else if (Rest < 0.6f + FlowerShare)
 					{
-						Patch(Flowers[FMath::Clamp(FMath::FloorToInt(Field * 7.f) % 4, 0, 3)], P, Random.RandRange(4, 8), 1.8f, 0.7f, 1.2f, 10.f);
+						Patch(Flowers[FMath::Clamp(FMath::FloorToInt(Field * 7.f) % 4, 0, 3)], P, Random.RandRange(6, 12), 2.f, 0.8f, 1.4f, 10.f);
 					}
 					else if (Rest < 0.6f + FlowerShare + BushShare && !bClearing && Taken.IsClear(P, 1.4f))
 					{
