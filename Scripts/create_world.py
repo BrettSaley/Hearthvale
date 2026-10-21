@@ -357,6 +357,10 @@ def scenery_kinds():
         "LilyPad": ([part("Cylinder", "LilyPad", (0, 0, 1), (0.55, 0.55, 0.01))], False, False, 15000),
         "LilyFlower": ([part("Sphere", "LilyFlower", (10, 8, 4), (0.14, 0.14, 0.08))], False, False, 15000),
         # Taller plants.
+        # Drifts of tall seeding grass and wildflower patches the generator plans across the Meadows.
+        "TallGrass": ([mesh_part("/Game/PN_GrassLibrary/Meshes/grassMesh/grass_03_06_mesh", (0, 0, 0), (1.0, 1.0, 1.1), collides=False)], False, False, 9000),
+        **{f"Flower{c}": ([mesh_part(f"/Game/PN_MeadowFlowers/Meshes/flowerMesh/{m}", (0, 0, 0), (1.1, 1.1, 1.1), collides=False)], False, False, 9000)
+           for c, m in [("Red", "flower_02_04"), ("Yellow", "flower_04_04"), ("White", "flower_08_04"), ("Blue", "flower_12_04"), ("Purple", "flower_05_05")]},
         "Foxglove": ([mesh_part("/Game/PN_MeadowFlowers/Meshes/flowerMesh/flower_10_04", (0, 0, 0), (1.0, 1.0, 1.0), collides=False)], False, False, 8000),
         "Bracken": ([mesh_part("/Game/PN_GroundFoliage/Meshes/groundPlantMesh/ground_06_08", (0, 0, 0), (1.6, 1.6, 1.6), collides=False)], False, False, 12000),
         "BerryBush": ([mesh_part(f"{SHRUBS}/Shrub_B/GV_Vol7_Shrub_B_full_type1", (0, 0, 0), (0.4, 0.4, 0.4), collides=False)], False, True, 30000),
