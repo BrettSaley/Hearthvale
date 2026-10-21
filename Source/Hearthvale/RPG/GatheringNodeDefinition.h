@@ -26,6 +26,14 @@ struct HEARTHVALE_API FNodeMeshPart
 	/** Replaces the mesh's own materials, if set. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Mesh")
 	TObjectPtr<UMaterialInterface> Material = nullptr;
+
+	/** Off for a detailed mesh you shouldn't bump into (a tree's leaves): pair it with an invisible part that collides. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Mesh")
+	bool bCollides = true;
+
+	/** Off for a part that's only there to collide (a cylinder around a detailed tree's trunk). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Mesh")
+	bool bVisible = true;
 };
 
 /**

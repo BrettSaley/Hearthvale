@@ -23,3 +23,24 @@ Plugins/*/Intermediate/
 *.zip
 *.exe
 *.pdb
+
+# Third-party asset packs from Fab: added to the project through the Epic launcher
+# or the editor's Fab panel, under Fab's licence. Kept out of the repository
+# (large, and not ours to redistribute); add them to a fresh checkout the same way.
+/Content/ARTEMUS_DesertCliffs/
+/Content/EuropeanBeech/
+/Content/GV_FreeShrubsPack/
+/Content/Maxtree/
+/Content/MSPresets/
+/Content/Namaqualand/
+/Content/Nanite_Plants_Sample_Collection/
+/Content/NeonGrid/
+/Content/Pack_Bonus/
+/Content/PN_*/
+/Content/RockEnv_Pack/
+/Content/Rocks_and_combined/
+/Content/SimpleRocks/
+/Content/StyleHex_Studio/
+# Preview images some packs drop in the project root
+/PN_OpenWorldFoliage.png
+/Graminea01.png

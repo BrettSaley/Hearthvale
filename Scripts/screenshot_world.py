@@ -62,7 +62,18 @@ for kind, name, dx, dy, up in [("StandingStone", "14_stone_circle", 22, 16, 4), 
             VIEWS.append(look(name, t.x / 100 + dx, t.y / 100 + dy, up, t.x / 100, t.y / 100, 2))
             break
 
-state = {"start": time.monotonic(), "step": -1, "next": 25.0, "handle": None}
+# -Shots=01_start,04_deepwood takes just those views.
+for arg in unreal.SystemLibrary.get_command_line().split():
+    if arg.lower().startswith("-shots="):
+        wanted = arg.split("=", 1)[1].split(",")
+        VIEWS = [v for v in VIEWS if v[0] in wanted]
+
+# A long first wait: new materials compile their shaders the first time they are drawn.
+first_wait = 60.0
+for arg in unreal.SystemLibrary.get_command_line().split():
+    if arg.lower().startswith("-shotdelay="):
+        first_wait = float(arg.split("=", 1)[1])
+state = {"start": time.monotonic(), "step": -1, "next": first_wait, "handle": None}
 
 
 def tick(dt):
@@ -76,7 +87,7 @@ def tick(dt):
         name, eye, rotation = VIEWS[step // 2]
         if step % 2 == 0:
             unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).set_level_viewport_camera_info(eye, rotation)
-            state["next"] = now + 4.0
+            state["next"] = now + 6.0
         else:
             unreal.SystemLibrary.execute_console_command(None, f"HighResShot 1600x900 filename={name}")
             unreal.log_warning(f"screenshot_world: {name}")

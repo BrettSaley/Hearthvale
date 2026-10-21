@@ -122,14 +122,18 @@ void AResourceNode::ApplyParts(const TArray<FNodeMeshPart>& Parts)
 	{
 		UStaticMeshComponent* Mesh = PartMeshes[Index];
 		const bool bUsed = Parts.IsValidIndex(Index) && Parts[Index].Mesh;
+		const bool bCollides = bUsed && Parts[Index].bCollides;
 		Mesh->SetStaticMesh(bUsed ? Parts[Index].Mesh.Get() : nullptr);
-		Mesh->SetVisibility(bUsed);
-		Mesh->SetCollisionEnabled(bUsed ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
+		Mesh->SetVisibility(bUsed && Parts[Index].bVisible);
+		Mesh->SetCollisionEnabled(bCollides ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
 		if (!bUsed)
 		{
 			continue;
 		}
-		Mesh->SetCollisionProfileName(!Definition || Definition->bBlocksMovement ? UCollisionProfile::BlockAll_ProfileName : FName(TEXT("OverlapAllDynamic")));
+		if (bCollides)
+		{
+			Mesh->SetCollisionProfileName(!Definition || Definition->bBlocksMovement ? UCollisionProfile::BlockAll_ProfileName : FName(TEXT("OverlapAllDynamic")));
+		}
 		Mesh->SetRelativeTransform(Parts[Index].Transform);
 		Mesh->EmptyOverrideMaterials();
 		if (UMaterialInterface* Material = Parts[Index].Material)

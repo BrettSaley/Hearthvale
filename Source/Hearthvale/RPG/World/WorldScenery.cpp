@@ -64,7 +64,7 @@ void AWorldScenery::Build()
 		for (int32 PartIndex = 0; PartIndex < Look.Parts.Num(); ++PartIndex)
 		{
 			const FNodeMeshPart& Part = Look.Parts[PartIndex];
-			const bool bCollides = Look.bCollides && (!Look.bOnlyFirstPartCollides || PartIndex == 0);
+			const bool bCollides = Look.bCollides && Part.bCollides && (!Look.bOnlyFirstPartCollides || PartIndex == 0);
 			if (!Part.Mesh)
 			{
 				continue;
@@ -82,7 +82,8 @@ void AWorldScenery::Build()
 			}
 			Component->SetCollisionProfileName(bCollides ? UCollisionProfile::BlockAll_ProfileName : UCollisionProfile::NoCollision_ProfileName);
 			Component->SetCanEverAffectNavigation(bCollides);
-			Component->SetCastShadow(Look.bCastsShadow);
+			Component->SetCastShadow(Look.bCastsShadow && Part.bVisible);
+			Component->SetVisibility(Part.bVisible);
 			if (Look.CullDistance > 0.f)
 			{
 				Component->SetCullDistances(Look.CullDistance * 0.8f, Look.CullDistance);
