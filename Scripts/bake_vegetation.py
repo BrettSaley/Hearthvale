@@ -76,3 +76,33 @@ def bake(name, source_path):
 
 for name, source_path in PLANTS.items():
     bake(name, source_path)
+
+
+def evergreen(mesh_name, foliage_path):
+    """The plugin's foliage material shades leaves by season (its defaults read as autumn: brown
+    needles, orange maples). Give the baked mesh a copy with seasons off, so it stays green."""
+    mesh = unreal.load_asset(f"{TARGET}/{mesh_name}")
+    parent = unreal.load_asset(foliage_path)
+    if not mesh or not parent:
+        return
+    name = parent.get_name() + "_Evergreen"
+    path = f"{TARGET}/{name}"
+    mi = unreal.load_asset(path) if assets.does_asset_exist(path) else unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+        name, TARGET, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+    mel = unreal.MaterialEditingLibrary
+    mel.set_material_instance_parent(mi, parent)
+    mel.set_material_instance_static_switch_parameter_value(mi, "Seasons", False)
+    mel.update_material_instance(mi)
+    assets.save_loaded_asset(mi, only_if_is_dirty=False)
+    slots = mesh.static_materials
+    for slot in slots:
+        if slot.material_interface == parent:
+            slot.set_editor_property("material_interface", mi)
+    mesh.set_editor_property("static_materials", slots)
+    assets.save_loaded_asset(mesh, only_if_is_dirty=False)
+    unreal.log_warning(f"bake_vegetation: {mesh_name} foliage is evergreen ({name})")
+
+
+evergreen("SM_PV_Conifer", f"{SOURCE}/ConiferTree_01/Materials/MI_Conifer_Foliage_01")
+evergreen("SM_PV_BroadleafTree", f"{SOURCE}/DeciduousTree_01/Materials/MI_LeafTree_01_Foliage")
+evergreen("SM_PV_Shrub", f"{SOURCE}/DeciduousTree_01/Materials/MI_LeafTree_01_Foliage")
