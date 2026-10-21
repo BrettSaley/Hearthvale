@@ -292,8 +292,8 @@ def scenery_kinds():
     return {
         "Bush": ([mesh_part(f"{SHRUBS}/Shrub_A/GV_Vol7_Shrub_A_full_type1", (0, 0, 0), (0.5, 0.5, 0.5), collides=False)], False, True, 30000),
         # Fronds are flattened spheres: flat boxes catch the sky and read as white.
-        "Mushroom": ([part("Cylinder", "MushroomStem", (0, 0, 5), (0.04, 0.04, 0.1)),
-                      part("Sphere", "MushroomCap", (0, 0, 11), (0.13, 0.13, 0.07))], False, False, 5000),
+        # Forest-floor debris: fallen twigs and small branches.
+        "Mushroom": ([mesh_part("/Game/PN_coniferBushes_I/Meshes/Props/Larch_GroundTwig_04", (0, 0, 0), (1.2, 1.2, 1.2), collides=False)], False, False, 5000),
         # Boulders: real rocks (SimpleRocks pack, about 4 m as they come), six shapes.
         **{f"Boulder{i + 1}": ([mesh_part(f"{ROCKS}/SM_SimpleRock_{n}", (0, 0, 0), (0.25, 0.25, 0.25))], True, True, 0)
            for i, n in enumerate(["01A", "03A", "05A", "09A", "13A", "16A"])},
@@ -302,14 +302,15 @@ def scenery_kinds():
            for i, n in enumerate([1, 2, 5, 8])},
         "Pebble": ([mesh_part(f"{ROCKS}/SM_SimpleRock_16A", (0, 0, 0), (0.05, 0.05, 0.04))], False, False, 5000),
         "Shell": ([part("Sphere", "Shell", (0, 0, 1), (0.08, 0.06, 0.03))], False, False, 3000),
-        "FallenLog": (log("Bark", 0.4, 3.6), True, True, 30000),
-        "Driftwood": (log("Driftwood", 0.22, 2.4), True, True, 20000),
+        # Fallen trunks and driftwood: a dead trunk (2 m tall as it comes) laid on its side.
+        "FallenLog": ([mesh_part("/Game/Namaqualand/Meshes/General/NN/SM_dead_quiver_trunk_NN", (0, 0, 15), (1.8, 1.8, 1.8), (0, 90, 0))], True, True, 30000),
+        "Driftwood": ([mesh_part("/Game/Namaqualand/Meshes/General/NN/SM_dead_quiver_trunk_NN", (0, 0, 10), (1.1, 1.1, 1.1), (0, 90, 0))], True, True, 20000),
         "Reed": ([mesh_part("/Game/PN_GrassLibrary/Meshes/grassMesh/grass_03_06_mesh", (0, 0, 0), (1.0, 1.0, 1.5), collides=False)], False, False, 10000),
         "LilyPad": ([part("Cylinder", "LilyPad", (0, 0, 1), (0.55, 0.55, 0.01))], False, False, 15000),
         "LilyFlower": ([part("Sphere", "LilyFlower", (10, 8, 4), (0.14, 0.14, 0.08))], False, False, 15000),
         # Taller plants.
         "Foxglove": ([mesh_part("/Game/PN_MeadowFlowers/Meshes/flowerMesh/flower_10_04", (0, 0, 0), (1.0, 1.0, 1.0), collides=False)], False, False, 8000),
-        "Bracken": ([mesh_part("SM_PV_Plant", (0, 0, 0), (2.2, 2.2, 2.2), (0, 0, a), collides=False) for a in (0, 70, 140, 210, 280)], False, False, 12000),
+        "Bracken": ([mesh_part("/Game/PN_GroundFoliage/Meshes/groundPlantMesh/ground_06_08", (0, 0, 0), (1.6, 1.6, 1.6), collides=False)], False, False, 12000),
         "BerryBush": ([mesh_part(f"{SHRUBS}/Shrub_B/GV_Vol7_Shrub_B_full_type1", (0, 0, 0), (0.4, 0.4, 0.4), collides=False)], False, True, 30000),
         "Shrub": ([mesh_part(f"{SHRUBS}/Shrub_D/GV_Vol7_Shrub_D_full_type1", (0, 0, 0), (0.4, 0.4, 0.45), collides=False)], False, True, 40000),
         # Forest trees that aren't gathered, from the baked plants: only their (invisible) trunk colliders block.
