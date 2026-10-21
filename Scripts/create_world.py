@@ -26,6 +26,7 @@ Content/__ExternalObjects__/World) and run this again. Scripts/preview_world.py
 draws the generator's plan to an image first, without the editor.
 """
 
+import os
 import time
 
 import unreal
@@ -91,15 +92,58 @@ def create_landscape_material():
 
 
 def create_water_material():
+    """Deep blue-green water with ripples: SourceArt/Water/T_Water_Ripples_N.png (made by
+    Scripts/make_water_normal.ps1) panned twice, at different sizes and speeds, in world space."""
     material, made = create("M_Water", "/Game/World/Materials", unreal.Material, unreal.MaterialFactoryNew())
-    if made:
-        mel.connect_material_property(constant_color(material, (0.015, 0.06, 0.1), -400, 0), "", unreal.MaterialProperty.MP_BASE_COLOR)
-        rough = mel.create_material_expression(material, unreal.MaterialExpressionConstant, -400, 200)
-        # Not too glossy: a mirror at low angles shows the far bank and reads as a dry pit.
-        rough.set_editor_property("r", 0.25)
-        mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
-        mel.recompile_material(material)
-        save(material)
+    if not made:
+        return material
+    path = "/Game/World/Materials/T_Water_Ripples_N"
+    if not assets.does_asset_exist(path):
+        task = unreal.AssetImportTask()
+        task.set_editor_property("filename", os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()),
+                                                          "SourceArt", "Water", "T_Water_Ripples_N.png"))
+        task.set_editor_property("destination_path", "/Game/World/Materials")
+        task.set_editor_property("automated", True)
+        task.set_editor_property("replace_existing", True)
+        asset_tools.import_asset_tasks([task])
+    ripples = unreal.load_asset(path)
+    ripples.set_editor_property("srgb", False)
+    ripples.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_NORMALMAP)
+    save(ripples)
+
+    world = mel.create_material_expression(material, unreal.MaterialExpressionWorldPosition, -1400, 300)
+    xy = mel.create_material_expression(material, unreal.MaterialExpressionComponentMask, -1250, 300)
+    xy.set_editor_property("r", True)
+    xy.set_editor_property("g", True)
+    mel.connect_material_expressions(world, "", xy, "")
+    normals = []
+    for i, (tile, speed_x, speed_y) in enumerate([(900.0, 0.012, 0.007), (2600.0, -0.005, 0.009)]):
+        scale = mel.create_material_expression(material, unreal.MaterialExpressionDivide, -1100, 200 + i * 250)
+        scale.set_editor_property("const_b", tile)
+        mel.connect_material_expressions(xy, "", scale, "A")
+        pan = mel.create_material_expression(material, unreal.MaterialExpressionPanner, -950, 200 + i * 250)
+        pan.set_editor_property("speed_x", speed_x)
+        pan.set_editor_property("speed_y", speed_y)
+        mel.connect_material_expressions(scale, "", pan, "Coordinate")
+        sample = mel.create_material_expression(material, unreal.MaterialExpressionTextureSample, -750, 200 + i * 250)
+        sample.set_editor_property("texture", ripples)
+        sample.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
+        mel.connect_material_expressions(pan, "", sample, "UVs")
+        normals.append(sample)
+    both = mel.create_material_expression(material, unreal.MaterialExpressionAdd, -500, 300)
+    mel.connect_material_expressions(normals[0], "RGB", both, "A")
+    mel.connect_material_expressions(normals[1], "RGB", both, "B")
+    flat = mel.create_material_expression(material, unreal.MaterialExpressionNormalize, -350, 300)
+    mel.connect_material_expressions(both, "", flat, "")
+    mel.connect_material_property(flat, "", unreal.MaterialProperty.MP_NORMAL)
+
+    mel.connect_material_property(constant_color(material, (0.012, 0.05, 0.07), -400, 0), "", unreal.MaterialProperty.MP_BASE_COLOR)
+    rough = mel.create_material_expression(material, unreal.MaterialExpressionConstant, -400, 150)
+    # The ripples break up reflections, so the water can be glossy without mirroring the far bank.
+    rough.set_editor_property("r", 0.08)
+    mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mel.recompile_material(material)
+    save(material)
     return material
 
 
