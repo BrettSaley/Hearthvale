@@ -183,7 +183,8 @@ def add_sky(water_material):
     mesh.set_static_mesh(unreal.load_asset("/Engine/BasicShapes/Plane"))
     mesh.set_material(0, water_material)
     mesh.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
-    sea.set_actor_scale3d(V(6000, 6000, 1))
+    # 60 km across, so its edge is never in view (it was 6 km and showed as a line from the hills).
+    sea.set_actor_scale3d(V(60000, 60000, 1))
 
 
 VEGETATION = "/Game/Vegetation"  # baked from the Procedural Vegetation Editor's samples by bake_vegetation.py
