@@ -320,9 +320,9 @@ def scenery_kinds():
         "Pine": (tree("SM_PV_Conifer", (0.5, 0.5, 0.42), 0.3, 4.0), True, True, 0, True),
         "Sapling": ([mesh_part(f"{BEECH}/SM_EuropeanBeech_Sapling_01", (0, 0, 0), (0.8, 0.8, 0.8), collides=False)], False, True, 20000),
         # Landmarks: a stone circle's stones, and a ruined watchtower's wall sections (scaled down where broken).
-        "StandingStone": ([part("Cube", "Stone", (0, 0, 160), (0.8, 1.4, 3.2))], True, True, 0),
-        "TowerWall": ([part("Cube", "Stone", (0, 0, 300), (0.9, 2.5, 6.0)),
-                       part("Cube", "Stone", (0, 0, 615), (1.0, 0.8, 0.3))], True, True, 0),
+        "StandingStone": ([mesh_part(f"{ROCKS}/SM_SimpleRock_04A", (0, 0, 150), (0.28, 0.42, 0.9))], True, True, 0),
+        "TowerWall": ([mesh_part("/Engine/BasicShapes/Cube", (0, 0, 300), (0.9, 2.5, 6.0), material=unreal.load_asset("/Game/Pack_Bonus/Materials/M_Pack_Bonus_Stone_1")),
+                       mesh_part("/Engine/BasicShapes/Cube", (0, 0, 615), (1.0, 0.8, 0.3), material=unreal.load_asset("/Game/Pack_Bonus/Materials/M_Pack_Bonus_Stone_2"))], True, True, 0),
         # 18 m of planks across a river, level with the banks, with rails and posts down to the bed.
         "Bridge": ([part("Cube", "Bark", (0, 0, 0), (18, 2.4, 0.15)),
                     part("Cube", "Bark", (0, -115, 90), (18, 0.1, 0.1)),
