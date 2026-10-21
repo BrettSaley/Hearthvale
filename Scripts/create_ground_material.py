@@ -170,7 +170,10 @@ GRASS = {
                (f"{GROUND}/ground_06_08", 10, (0.8, 1.3), (40, 60), False),
                (f"{GROUND}/ground_09_05", 10, (0.8, 1.2), (35, 50), False),
                (f"{GROUND}/ground_12_03", 8, (0.8, 1.2), (35, 50), False),
-               (f"{GRASS_LIB}/grass_08_04_mesh", 25, (0.8, 1.2), (30, 45), False)],
+               (f"{GRASS_LIB}/grass_08_04_mesh", 25, (0.8, 1.2), (30, 45), False),
+               # Beech seedlings coming up under the canopy (EuropeanBeech pack).
+               ("/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Seedling_01", 3, (0.7, 1.2), (40, 60), False),
+               ("/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Seedling_03", 3, (0.7, 1.2), (40, 60), False)],
     # Dunes: thin tall grass.
     "Sand": [(f"{GRASS_LIB}/grass_12_10_mesh", 8, (0.8, 1.3), (40, 60), False),
              (f"{GRASS_LIB}/grass_12_11_mesh", 6, (0.8, 1.3), (40, 60), False)],
