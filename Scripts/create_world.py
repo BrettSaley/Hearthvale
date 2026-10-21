@@ -143,12 +143,19 @@ def add_sky(water_material):
 
 
 VEGETATION = "/Game/Vegetation"  # baked from the Procedural Vegetation Editor's samples by bake_vegetation.py
+# Fab packs (added to the project, not in git; see .gitignore).
+ROCKS = "/Game/SimpleRocks/3D_Assets/Meshes/Rocks"
+SHRUBS = "/Game/GV_FreeShrubsPack/Meshes/Shrubs/Wind"
+BEECH = "/Game/EuropeanBeech/Geometry/SimpleWind"
+MAXTREE = "/Game/Maxtree/MT_PM_V060"
 
 
 def mesh_part(mesh, location, scale, rotation=(0, 0, 0), collides=True, visible=True):
-    """A part showing one of the baked plants (its own materials), or an invisible collider ("Collider")."""
+    """A part showing a mesh with its own materials: one of the baked plants by name, any mesh by full path,
+    or an invisible collider ("Collider")."""
     p = unreal.NodeMeshPart()
-    p.set_editor_property("mesh", unreal.load_asset("/Engine/BasicShapes/Cylinder" if mesh == "Collider" else f"{VEGETATION}/{mesh}"))
+    path = "/Engine/BasicShapes/Cylinder" if mesh == "Collider" else mesh if mesh.startswith("/") else f"{VEGETATION}/{mesh}"
+    p.set_editor_property("mesh", unreal.load_asset(path))
     p.set_editor_property("transform", unreal.Transform(V(*location), unreal.Rotator(*rotation), V(*scale)))
     p.set_editor_property("collides", collides)
     p.set_editor_property("visible", visible)
@@ -162,13 +169,14 @@ def tree(mesh, scale, trunk_width, trunk_height):
             mesh_part(mesh, (0, 0, 0), scale, collides=False)]
 
 
-# The trees you chop, from the baked broadleaf tree (11 m tall as it comes): a smaller tree, a broad
-# oak, a tall narrow ash. (Conifers are scenery only, so a conifer is never one you can chop.)
+# The trees you chop: a young beech (7.6 m as it comes), a broad beech for the oak, an alder for the ash.
+# (Conifers are scenery only, so a conifer is never one you can chop.)
 TREE_LOOKS = {
-    "Tree": tree("SM_PV_BroadleafTree", (0.6, 0.6, 0.6), 0.35, 3.0),
-    "OakTree": tree("SM_PV_BroadleafTree", (0.85, 0.85, 0.72), 0.6, 3.0),
-    "AshTree": tree("SM_PV_BroadleafTree", (0.5, 0.5, 0.85), 0.3, 4.0),
+    "Tree": tree(f"{BEECH}/SM_EuropeanBeech_Forest_08", (1.0, 1.0, 1.0), 0.35, 3.0),
+    "OakTree": tree(f"{BEECH}/SM_EuropeanBeech_Forest_07", (0.65, 0.65, 0.65), 0.55, 3.0),
+    "AshTree": tree(f"{MAXTREE}/SM_MT_PM_V60_Alnus_cremastogyne_01_05", (0.75, 0.75, 0.75), 0.35, 4.0),
 }
+
 
 def restyle_trees():
     for kind, parts in TREE_LOOKS.items():
@@ -259,23 +267,14 @@ def log(material, width, length):
 # kind: (parts, collides, casts shadow, stops drawing beyond (cm), 0 = never[, only the first part collides])
 def scenery_kinds():
     return {
-        "Grass": ([part("Cone", "Grass", (0, 0, 24), (0.07, 0.07, 0.48)),
-                   part("Cone", "Grass", (0, 8, 20), (0.065, 0.065, 0.42), (18, 0, 0)),
-                   part("Cone", "Grass", (7, -6, 19), (0.065, 0.065, 0.4), (-14, 14, 0)),
-                   part("Cone", "Grass", (-7, -3, 17), (0.06, 0.06, 0.36), (-6, -18, 0))], False, False, 5500),
-        "FlowerRed": (flower("FlowerRed"), False, False, 7000),
-        "FlowerYellow": (flower("FlowerYellow"), False, False, 7000),
-        "FlowerWhite": (flower("FlowerWhite"), False, False, 7000),
-        "FlowerBlue": (flower("FlowerBlue"), False, False, 7000),
-        "FlowerPurple": (flower("FlowerPurple"), False, False, 7000),
-        "Bush": ([mesh_part("SM_PV_Shrub", (0, 0, 0), (0.4, 0.4, 0.4), collides=False)], False, True, 25000),
+        "Bush": ([mesh_part(f"{SHRUBS}/Shrub_A/GV_Vol7_Shrub_A_full_type1", (0, 0, 0), (0.5, 0.5, 0.5), collides=False)], False, True, 30000),
         # Fronds are flattened spheres: flat boxes catch the sky and read as white.
-        "Fern": ([mesh_part("SM_PV_Plant", (0, 0, 0), (1.2, 1.2, 1.2), (0, 0, a), collides=False) for a in (0, 120, 240)], False, False, 9000),
         "Mushroom": ([part("Cylinder", "MushroomStem", (0, 0, 5), (0.04, 0.04, 0.1)),
                       part("Sphere", "MushroomCap", (0, 0, 11), (0.13, 0.13, 0.07))], False, False, 5000),
-        "Boulder": ([part("Sphere", "Stone", (0, 0, 30), (1.0, 0.85, 0.7)),
-                     part("Sphere", "Stone", (40, -25, 18), (0.6, 0.55, 0.5))], True, True, 0),
-        "Pebble": ([part("Sphere", "Pebble", (0, 0, 3), (0.22, 0.18, 0.1))], False, False, 5000),
+        # Boulders: real rocks (SimpleRocks pack, about 4 m as they come), six shapes.
+        **{f"Boulder{i + 1}": ([mesh_part(f"{ROCKS}/SM_SimpleRock_{n}", (0, 0, 0), (0.25, 0.25, 0.25))], True, True, 0)
+           for i, n in enumerate(["01A", "03A", "05A", "09A", "13A", "16A"])},
+        "Pebble": ([mesh_part(f"{ROCKS}/SM_SimpleRock_16A", (0, 0, 0), (0.05, 0.05, 0.04))], False, False, 5000),
         "Shell": ([part("Sphere", "Shell", (0, 0, 1), (0.08, 0.06, 0.03))], False, False, 3000),
         "FallenLog": (log("Bark", 0.4, 3.6), True, True, 30000),
         "Driftwood": (log("Driftwood", 0.22, 2.4), True, True, 20000),
@@ -284,27 +283,16 @@ def scenery_kinds():
         "LilyPad": ([part("Cylinder", "LilyPad", (0, 0, 1), (0.55, 0.55, 0.01))], False, False, 15000),
         "LilyFlower": ([part("Sphere", "LilyFlower", (10, 8, 4), (0.14, 0.14, 0.08))], False, False, 15000),
         # Taller plants.
-        "GrassDry": ([part("Cone", "GrassDry", (0, 0, 24), (0.07, 0.07, 0.48)),
-                      part("Cone", "GrassDry", (0, 8, 20), (0.065, 0.065, 0.42), (18, 0, 0)),
-                      part("Cone", "GrassDry", (7, -6, 19), (0.065, 0.065, 0.4), (-14, 14, 0)),
-                      part("Cone", "GrassDry", (-7, -3, 17), (0.06, 0.06, 0.36), (-6, -18, 0))], False, False, 5500),
-        "TallGrass": ([part("Cone", "TallGrass", (0, 0, 55), (0.045, 0.045, 1.1)),
-                       part("Cone", "TallGrass", (0, 12, 48), (0.04, 0.04, 1.0), (14, 0, 0)),
-                       part("Cone", "TallGrass", (10, -8, 45), (0.04, 0.04, 0.95), (-10, 14, 0)),
-                       part("Cylinder", "TallGrassSeed", (0, 4, 112), (0.025, 0.025, 0.22), (6, 0, 0))], False, False, 7000),
-        "Foxglove": ([part("Sphere", "Fern", (0, 0, 4), (0.35, 0.35, 0.06)),
-                      part("Cylinder", "Stem", (0, 0, 55), (0.02, 0.02, 1.1)),
-                      part("Sphere", "FoxgloveFlower", (4, 0, 72), (0.1, 0.1, 0.13)),
-                      part("Sphere", "FoxgloveFlower", (-3, 3, 88), (0.085, 0.085, 0.11)),
-                      part("Sphere", "FoxgloveFlower", (2, -2, 103), (0.065, 0.065, 0.09))], False, False, 8000),
+        "Foxglove": ([mesh_part("/Game/PN_MeadowFlowers/Meshes/flowerMesh/flower_10_04", (0, 0, 0), (1.0, 1.0, 1.0), collides=False)], False, False, 8000),
         "Bracken": ([mesh_part("SM_PV_Plant", (0, 0, 0), (2.2, 2.2, 2.2), (0, 0, a), collides=False) for a in (0, 70, 140, 210, 280)], False, False, 12000),
-        "BerryBush": ([mesh_part("SM_PV_Shrub", (0, 0, 0), (0.5, 0.5, 0.45), (0, 0, 40), collides=False)], False, True, 25000),
-        "Shrub": ([mesh_part("SM_PV_Shrub", (0, 0, 0), (0.6, 0.6, 0.75), collides=False)], False, True, 30000),
+        "BerryBush": ([mesh_part(f"{SHRUBS}/Shrub_B/GV_Vol7_Shrub_B_full_type1", (0, 0, 0), (0.4, 0.4, 0.4), collides=False)], False, True, 30000),
+        "Shrub": ([mesh_part(f"{SHRUBS}/Shrub_D/GV_Vol7_Shrub_D_full_type1", (0, 0, 0), (0.4, 0.4, 0.45), collides=False)], False, True, 40000),
         # Forest trees that aren't gathered, from the baked plants: only their (invisible) trunk colliders block.
-        "Spruce": (tree("SM_PV_Conifer", (0.55, 0.55, 0.55), 0.35, 4.0), True, True, 0, True),
-        "Birch": (tree("SM_PV_BroadleafTree", (0.42, 0.42, 0.75), 0.2, 4.0), True, True, 0, True),
+        # The Deepwood is a beech forest: tall forest beeches (31 m as they come).
+        "Spruce": (tree(f"{BEECH}/SM_EuropeanBeech_Forest_04", (0.5, 0.5, 0.5), 0.45, 4.0), True, True, 0, True),
+        "Birch": (tree(f"{MAXTREE}/SM_MT_PM_V60_Acer_buergerianum_01_04", (0.75, 0.75, 0.75), 0.3, 4.0), True, True, 0, True),
         "Pine": (tree("SM_PV_Conifer", (0.5, 0.5, 0.42), 0.3, 4.0), True, True, 0, True),
-        "Sapling": ([mesh_part("SM_PV_BroadleafTree", (0, 0, 0), (0.16, 0.16, 0.16), collides=False)], False, True, 15000),
+        "Sapling": ([mesh_part(f"{BEECH}/SM_EuropeanBeech_Sapling_01", (0, 0, 0), (0.8, 0.8, 0.8), collides=False)], False, True, 20000),
         # Landmarks: a stone circle's stones, and a ruined watchtower's wall sections (scaled down where broken).
         "StandingStone": ([part("Cube", "Stone", (0, 0, 160), (0.8, 1.4, 3.2))], True, True, 0),
         "TowerWall": ([part("Cube", "Stone", (0, 0, 300), (0.9, 2.5, 6.0)),

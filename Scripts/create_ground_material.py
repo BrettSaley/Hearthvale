@@ -75,11 +75,11 @@ def blend(material, x, y):
     return node(material, unreal.MaterialExpressionLandscapeLayerBlend, x, y, layers=layers)
 
 
-def sample(material, texture, coords, x, y, normal=False):
+def sample(material, texture, coords, x, y, sampler=unreal.MaterialSamplerType.SAMPLERTYPE_COLOR):
     # Shared samplers: 5 layers x 4 samples is more than a material's 16 own samplers.
     s = node(material, unreal.MaterialExpressionTextureSample, x, y, texture=texture,
              sampler_source=unreal.SamplerSourceMode.SSM_WRAP_WORLD_GROUP_SETTINGS,
-             sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL if normal else unreal.MaterialSamplerType.SAMPLERTYPE_COLOR)
+             sampler_type=sampler)
     mel.connect_material_expressions(coords, "", s, "UVs")
     return s
 
@@ -114,9 +114,10 @@ def build_material(textures):
         mel.connect_material_expressions(color_far, "RGB", mix, "B")
         mel.connect_material_expressions(fade, "", mix, "Alpha")
         mel.connect_material_expressions(mix, "", colors, f"Layer {layer}")
-        normal = sample(material, textures[(layer, "NormalDX")], near, -1100, y + 130, normal=True)
+        normal = sample(material, textures[(layer, "NormalDX")], near, -1100, y + 130, unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
         mel.connect_material_expressions(normal, "RGB", normals, f"Layer {layer}")
-        roughness = sample(material, textures[(layer, "Roughness")], near, -1100, y + 260)
+        # Greyscale, non-sRGB textures must be sampled as such or the material fails to compile.
+        roughness = sample(material, textures[(layer, "Roughness")], near, -1100, y + 260, unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE)
         mel.connect_material_expressions(roughness, "R", rough, f"Layer {layer}")
 
     # Broad light and dark patches across the island, so even the far tiles don't repeat.
@@ -127,9 +128,99 @@ def build_material(textures):
     mel.connect_material_property(shade, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(normals, "", unreal.MaterialProperty.MP_NORMAL)
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    add_grass_output(material)
     mel.recompile_material(material)
     assets.save_loaded_asset(material, only_if_is_dirty=False)
     unreal.log_warning("create_ground_material: built M_Ground")
+
+
+# --- Grass: plants the engine scatters itself around the camera, by paint layer ---
+
+# layer: [(mesh, density, scale range, (start, end) of the fade-out in m, casts shadow)]
+# Density is Unreal's: instances per 10 m x  10 m patch, so 400 is 4 a square metre.
+GRASS_LIB = "/Game/PN_GrassLibrary/Meshes/grassMesh"
+FLOWERS = "/Game/PN_MeadowFlowers/Meshes/flowerMesh"
+GROUND = "/Game/PN_GroundFoliage/Meshes/groundPlantMesh"
+GRASS = {
+    # Meadows and open Highlands: dense short turf, clumps of medium grass, tall seeding grass and flowers here and there.
+    "Grass": [(f"{GRASS_LIB}/grass_01_04_mesh", 120, (0.8, 1.3), (30, 45), False),
+              (f"{GRASS_LIB}/grass_01_07_mesh", 120, (0.8, 1.3), (30, 45), False),
+              (f"{GRASS_LIB}/grass_01_05_mesh", 80, (0.8, 1.2), (30, 45), False),
+              (f"{GRASS_LIB}/grass_02_04_mesh", 50, (0.8, 1.2), (35, 55), False),
+              (f"{GRASS_LIB}/grass_02_07_mesh", 50, (0.8, 1.2), (35, 55), False),
+              (f"{GRASS_LIB}/grass_05_02_mesh", 15, (0.8, 1.2), (45, 70), False),
+              (f"{GRASS_LIB}/grass_09_02_mesh", 15, (0.8, 1.2), (45, 70), False),
+              (f"{GRASS_LIB}/lowGrass_04_02_SM", 10, (0.8, 1.3), (40, 60), False),
+              (f"{FLOWERS}/flower_05_04", 6, (0.8, 1.2), (40, 60), False),
+              (f"{FLOWERS}/flower_04_01", 5, (0.8, 1.2), (40, 60), False),
+              (f"{FLOWERS}/flower_12_03", 5, (0.8, 1.2), (40, 60), False),
+              (f"{FLOWERS}/flower_06_03", 6, (0.8, 1.2), (35, 50), False),
+              (f"{FLOWERS}/flower_10_03", 2, (0.8, 1.1), (50, 75), False)],
+    # The forest floor: leaf litter and small plants in the shade, a little grass.
+    "Forest": [(f"{GROUND}/ground_02_05", 60, (0.8, 1.4), (30, 45), False),
+               (f"{GROUND}/ground_04_04", 40, (0.8, 1.4), (30, 45), False),
+               (f"{GROUND}/ground_05_02", 12, (0.8, 1.3), (40, 60), False),
+               (f"{GROUND}/ground_06_08", 10, (0.8, 1.3), (40, 60), False),
+               (f"{GROUND}/ground_09_05", 10, (0.8, 1.2), (35, 50), False),
+               (f"{GROUND}/ground_12_03", 8, (0.8, 1.2), (35, 50), False),
+               (f"{GRASS_LIB}/grass_08_04_mesh", 25, (0.8, 1.2), (30, 45), False)],
+    # Dunes: thin tall grass.
+    "Sand": [(f"{GRASS_LIB}/grass_12_10_mesh", 8, (0.8, 1.3), (40, 60), False),
+             (f"{GRASS_LIB}/grass_12_11_mesh", 6, (0.8, 1.3), (40, 60), False)],
+    # Tough grass in the cracks of the rock.
+    "Rock": [(f"{GRASS_LIB}/grass_10_04_mesh", 6, (0.7, 1.1), (30, 45), False)],
+}
+
+def grass_type(layer, varieties):
+    """A LandscapeGrassType for one paint layer: each variety a mesh with its density, size and fade distance."""
+    name = f"LGT_{layer}"
+    path = f"{FOLDER}/GrassTypes/{name}"
+    grass = unreal.load_asset(path) if assets.does_asset_exist(path) else unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+        name, f"{FOLDER}/GrassTypes", unreal.LandscapeGrassType, None)
+    entries = []
+    for mesh_path, density, scale, (start, end), shadow in varieties:
+        mesh = unreal.load_asset(mesh_path)
+        if not mesh:
+            unreal.log_warning(f"create_ground_material: no mesh {mesh_path}")
+            continue
+        v = unreal.GrassVariety()
+        v.set_editor_property("grass_mesh", mesh)
+        d = unreal.PerPlatformFloat()
+        d.set_editor_property("default", density)
+        v.set_editor_property("grass_density", d)
+        s, e = unreal.PerPlatformInt(), unreal.PerPlatformInt()
+        s.set_editor_property("default", int(start * 100))
+        e.set_editor_property("default", int(end * 100))
+        v.set_editor_property("start_cull_distance", s)
+        v.set_editor_property("end_cull_distance", e)
+        v.set_editor_property("scaling", unreal.GrassScaling.UNIFORM)
+        v.set_editor_property("scale_x", unreal.FloatInterval(*scale))
+        v.set_editor_property("random_rotation", True)
+        v.set_editor_property("align_to_surface", True)
+        v.set_editor_property("use_grid", False)
+        v.set_editor_property("cast_dynamic_shadow", shadow)
+        v.set_editor_property("cast_contact_shadow", shadow)
+        entries.append(v)
+    grass.set_editor_property("grass_varieties", entries)
+    assets.save_loaded_asset(grass, only_if_is_dirty=False)
+    return grass
+
+
+def add_grass_output(material):
+    """Feeds each paint layer's weight to its grass type, so plants grow where the layer is painted."""
+    if not GRASS:
+        return
+    out = node(material, unreal.MaterialExpressionLandscapeGrassOutput, 200, 900)
+    inputs = []
+    for layer in GRASS:
+        entry = unreal.GrassInput()
+        entry.set_editor_property("name", layer)
+        entry.set_editor_property("grass_type", grass_type(layer, GRASS[layer]))
+        inputs.append(entry)
+    out.set_editor_property("grass_types", inputs)
+    for i, layer in enumerate(GRASS):
+        weight = node(material, unreal.MaterialExpressionLandscapeLayerSample, -200, 900 + i * 120, parameter_name=layer)
+        mel.connect_material_expressions(weight, "", out, layer)
 
 
 build_material(import_textures())

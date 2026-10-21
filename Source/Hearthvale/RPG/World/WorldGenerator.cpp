@@ -807,7 +807,8 @@ TArray<FWorldScenerySpot> UWorldGenerator::PlanScenery()
 					if (!bClearing && Taken.IsClear(P, 1.6f * Size))
 					{
 						Taken.Add(P, 1.4f * Size);
-						Place(TEXT("Boulder"), P, Height - 0.35f * Size, Size, Size, 25.f);
+						// One of several boulder shapes (Boulder1..Boulder6), so they don't all look alike.
+						Place(FName(*FString::Printf(TEXT("Boulder%d"), Random.RandRange(1, 6))), P, Height - 0.35f * Size, Size, Size, 25.f);
 					}
 					continue;
 				}
@@ -1024,7 +1025,7 @@ bool UWorldGenerator::SaveMapPreview(const FString& Filename, int32 Size, float 
 	};
 	for (const FWorldScenerySpot& Spot : PlanScenery())
 	{
-		if (Spot.Kind == TEXT("Boulder") || Spot.Kind == TEXT("FallenLog") || Spot.Kind == TEXT("StandingStone") || Spot.Kind == TEXT("TowerWall"))
+		if (Spot.Kind.ToString().StartsWith(TEXT("Boulder")) || Spot.Kind == TEXT("FallenLog") || Spot.Kind == TEXT("StandingStone") || Spot.Kind == TEXT("TowerWall"))
 		{
 			Dot(Spot.Transform.GetLocation(), FColor(90, 85, 80), FMath::Max(0, FMath::RoundToInt(1.f / MetersPerPixel)));
 		}
