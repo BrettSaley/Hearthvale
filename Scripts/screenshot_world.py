@@ -48,6 +48,7 @@ VIEWS = [
     look("16_forest_floor", -527, -17, 1.8, -500, 12, 3),
     look("17_forest_canopy", -600, -90, 40, -470, 60, 0),
     look("18_copper_vein", 22, 28, 2.0, 32, 38, 0.5),
+    look("19_highland_slope", 300, 560, 15, 420, 700, 20),
 ]
 # The first bridge, seen from a little way up the bank.
 for spot in gen.plan_scenery():

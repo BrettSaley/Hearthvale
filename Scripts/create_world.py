@@ -297,6 +297,9 @@ def scenery_kinds():
         # Boulders: real rocks (SimpleRocks pack, about 4 m as they come), six shapes.
         **{f"Boulder{i + 1}": ([mesh_part(f"{ROCKS}/SM_SimpleRock_{n}", (0, 0, 0), (0.25, 0.25, 0.25))], True, True, 0)
            for i, n in enumerate(["01A", "03A", "05A", "09A", "13A", "16A"])},
+        # Outcrops on steep Highland faces: cliff rocks from RockEnv_Pack (8-15 m as they come).
+        **{f"Outcrop{i + 1}": ([mesh_part(f"/Game/RockEnv_Pack/Meshes/Cliff_Rocks/SM_Cliff_Rock_{n}", (0, 0, 0), (0.6, 0.6, 0.6))], True, True, 0)
+           for i, n in enumerate([1, 2, 5, 8])},
         "Pebble": ([mesh_part(f"{ROCKS}/SM_SimpleRock_16A", (0, 0, 0), (0.05, 0.05, 0.04))], False, False, 5000),
         "Shell": ([part("Sphere", "Shell", (0, 0, 1), (0.08, 0.06, 0.03))], False, False, 3000),
         "FallenLog": (log("Bark", 0.4, 3.6), True, True, 30000),

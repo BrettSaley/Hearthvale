@@ -28,6 +28,8 @@ MAPS = {"Color": (True, unreal.TextureCompressionSettings.TC_DEFAULT),
         "Roughness": (False, unreal.TextureCompressionSettings.TC_GRAYSCALE)}
 NEAR_TILE, FAR_TILE = 3.0, 25.0  # metres per repeat (landscape quads are 1 m)
 FADE_START, FADE_LENGTH = 1500.0, 6000.0  # cm from the camera
+# Brightness per layer: the rock photo is pale, so mountainsides glared beige.
+TINT = {"Rock": 0.55, "Snow": 0.9}
 
 
 def import_textures():
@@ -113,7 +115,9 @@ def build_material(textures):
         mel.connect_material_expressions(color_near, "RGB", mix, "A")
         mel.connect_material_expressions(color_far, "RGB", mix, "B")
         mel.connect_material_expressions(fade, "", mix, "Alpha")
-        mel.connect_material_expressions(mix, "", colors, f"Layer {layer}")
+        tint = node(material, unreal.MaterialExpressionMultiply, -950, y, const_b=TINT.get(layer, 1.0))
+        mel.connect_material_expressions(mix, "", tint, "A")
+        mel.connect_material_expressions(tint, "", colors, f"Layer {layer}")
         normal = sample(material, textures[(layer, "NormalDX")], near, -1100, y + 130, unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
         mel.connect_material_expressions(normal, "RGB", normals, f"Layer {layer}")
         # Greyscale, non-sRGB textures must be sampled as such or the material fails to compile.

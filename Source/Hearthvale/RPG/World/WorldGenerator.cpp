@@ -813,6 +813,13 @@ TArray<FWorldScenerySpot> UWorldGenerator::PlanScenery()
 					continue;
 				}
 				const float Rest = (Roll - BoulderChance) / (1.f - BoulderChance);
+				// Highland slopes: big rock outcrops breaking them up, more the steeper it gets.
+				if (Ring >= HighlandsStart && Steep > 0.35f && Rest < 0.004f + 0.01f * FMath::Min(Steep, 1.f) && Taken.IsClear(P, 9.f))
+				{
+					Taken.Add(P, 8.f);
+					Place(FName(*FString::Printf(TEXT("Outcrop%d"), Random.RandRange(1, 4))), P, Height - 2.5f, 0.6f, 1.1f, 15.f);
+					continue;
+				}
 				if (Steep > 0.75f)
 				{
 					if (Rest < 0.05f)
@@ -1025,7 +1032,7 @@ bool UWorldGenerator::SaveMapPreview(const FString& Filename, int32 Size, float 
 	};
 	for (const FWorldScenerySpot& Spot : PlanScenery())
 	{
-		if (Spot.Kind.ToString().StartsWith(TEXT("Boulder")) || Spot.Kind == TEXT("FallenLog") || Spot.Kind == TEXT("StandingStone") || Spot.Kind == TEXT("TowerWall"))
+		if (Spot.Kind.ToString().StartsWith(TEXT("Boulder")) || Spot.Kind.ToString().StartsWith(TEXT("Outcrop")) || Spot.Kind == TEXT("FallenLog") || Spot.Kind == TEXT("StandingStone") || Spot.Kind == TEXT("TowerWall"))
 		{
 			Dot(Spot.Transform.GetLocation(), FColor(90, 85, 80), FMath::Max(0, FMath::RoundToInt(1.f / MetersPerPixel)));
 		}
