@@ -293,7 +293,8 @@ void UWorldGenerator::PaintWeights(float X, float Y, float Height, float Slope, 
 
 	// Steep ground is bare rock, beaches and lake beds are sand, peaks are snow.
 	const float Steep = FMath::SmoothStep(0.55f, 0.85f, Slope);
-	const float Shore = 1.f - FMath::SmoothStep(1.2f, 2.2f, Height);
+	// Sand only where the shore is gentle: steep banks (river cuts) stay rock and grass.
+	const float Shore = (1.f - FMath::SmoothStep(1.2f, 2.2f, Height)) * (1.f - FMath::SmoothStep(0.35f, 0.6f, Slope));
 	const float Peak = FMath::SmoothStep(82.f, 95.f, Height);
 	for (float& Weight : OutWeights)
 	{
