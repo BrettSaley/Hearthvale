@@ -288,8 +288,9 @@ void UWorldGenerator::PaintWeights(float X, float Y, float Height, float Slope, 
 	const float High = FMath::SmoothStep(HighlandsStart - 0.03f, HighlandsStart + 0.05f, Ring);
 	OutWeights[0] = (1.f - Forest) * (1.f - High);
 	OutWeights[1] = Forest * (1.f - High);
-	OutWeights[2] = High * 0.7f;
-	OutWeights[0] += High * 0.3f;
+	// Highland pasture is mostly grass; the steepness rule below turns the faces to rock.
+	OutWeights[2] = High * 0.35f;
+	OutWeights[0] += High * 0.65f;
 
 	// Steep ground is bare rock, beaches and lake beds are sand, peaks are snow.
 	const float Steep = FMath::SmoothStep(0.55f, 0.85f, Slope);
@@ -924,9 +925,10 @@ TArray<FWorldScenerySpot> UWorldGenerator::PlanScenery()
 					{
 						Patch(TEXT("Pebble"), P, 3, 1.5f, 0.5f, 1.4f, 30.f);
 					}
-					else if (Rest < 0.36f && Taken.IsClear(P, 1.4f))
+					else if (Rest < 0.4f && Taken.IsClear(P, 1.4f))
 					{
-						Place(TEXT("Bush"), P, Height - 0.1f, 0.6f, 1.f, 5.f);
+						// Young conifers coming up between the pines: one of three kinds.
+						Place(FName(*FString::Printf(TEXT("YoungConifer%d"), Random.RandRange(1, 3))), P, Height - 0.1f, 0.7f, 1.3f, 4.f);
 					}
 				}
 				else if (Rest < 0.1f)

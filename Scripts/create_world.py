@@ -344,6 +344,9 @@ def scenery_kinds():
         # Outcrops on steep Highland faces: cliff rocks from RockEnv_Pack (8-15 m as they come).
         **{f"Outcrop{i + 1}": ([mesh_part(f"/Game/RockEnv_Pack/Meshes/Cliff_Rocks/SM_Cliff_Rock_{n}", (0, 0, 0), (0.6, 0.6, 0.6))], True, True, 0)
            for i, n in enumerate([1, 2, 5, 8])},
+        # Young conifers in the Highlands (PN conifer bushes pack, 2.5-3 m as they come).
+        **{f"YoungConifer{i + 1}": ([mesh_part(f"/Game/PN_coniferBushes_I/Meshes/{n}", (0, 0, 0), (1.0, 1.0, 1.0), collides=False)], False, True, 30000)
+           for i, n in enumerate(["Pine/Pine_08", "Spruce/Spruce_08", "Larch/Larch_07"])},
         "Pebble": ([mesh_part(f"{ROCKS}/SM_SimpleRock_16A", (0, 0, 0), (0.05, 0.05, 0.04))], False, False, 5000),
         "Shell": ([part("Sphere", "Shell", (0, 0, 1), (0.08, 0.06, 0.03))], False, False, 3000),
         # Fallen trunks and driftwood: a dead trunk (2 m tall as it comes) laid on its side.

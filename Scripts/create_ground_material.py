@@ -174,8 +174,12 @@ GRASS = {
     # Dunes: thin tall grass.
     "Sand": [(f"{GRASS_LIB}/grass_12_10_mesh", 8, (0.8, 1.3), (40, 60), False),
              (f"{GRASS_LIB}/grass_12_11_mesh", 6, (0.8, 1.3), (40, 60), False)],
-    # Tough grass in the cracks of the rock.
-    "Rock": [(f"{GRASS_LIB}/grass_10_04_mesh", 6, (0.7, 1.1), (30, 45), False)],
+    # The Highlands' rocky ground: short alpine turf, low grass, ground plants, the odd flower.
+    "Rock": [(f"{GRASS_LIB}/grass_10_04_mesh", 30, (0.7, 1.1), (30, 45), False),
+             (f"{GRASS_LIB}/grass_01_07_mesh", 60, (0.7, 1.1), (30, 45), False),
+             (f"{GRASS_LIB}/lowGrass_01_01_SM", 25, (0.8, 1.3), (30, 45), False),
+             (f"{GROUND}/ground_02_05", 20, (0.8, 1.3), (30, 45), False),
+             (f"{FLOWERS}/flower_06_03", 4, (0.7, 1.0), (30, 45), False)],
 }
 
 def grass_type(layer, varieties):
