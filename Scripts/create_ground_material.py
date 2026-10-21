@@ -131,7 +131,10 @@ def build_material(textures):
     mel.connect_material_expressions(noise, "", shade, "B")
     mel.connect_material_property(shade, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(normals, "", unreal.MaterialProperty.MP_NORMAL)
-    mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    # Ground is never shiny: the photos' roughness runs low, so sunlit grass glared white.
+    matte = node(material, unreal.MaterialExpressionMax, -150, 600, const_b=0.8)
+    mel.connect_material_expressions(rough, "", matte, "A")
+    mel.connect_material_property(matte, "", unreal.MaterialProperty.MP_ROUGHNESS)
     add_grass_output(material)
     mel.recompile_material(material)
     assets.save_loaded_asset(material, only_if_is_dirty=False)

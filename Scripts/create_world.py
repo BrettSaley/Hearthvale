@@ -171,10 +171,10 @@ def tree(mesh, scale, trunk_width, trunk_height):
             mesh_part(mesh, (0, 0, 0), scale, collides=False)]
 
 
-# The trees you chop: a young beech (7.6 m as it comes), a broad beech for the oak, an alder for the ash.
+# The trees you chop: a young beech (15 m as it comes), a broad beech for the oak, an alder for the ash.
 # (Conifers are scenery only, so a conifer is never one you can chop.)
 TREE_LOOKS = {
-    "Tree": tree(f"{BEECH}/SM_EuropeanBeech_Forest_08", (1.25, 1.25, 1.25), 0.35, 3.0),
+    "Tree": tree(f"{BEECH}/SM_EuropeanBeech_Forest_06", (0.55, 0.55, 0.55), 0.35, 3.0),
     "OakTree": tree(f"{BEECH}/SM_EuropeanBeech_Forest_07", (0.65, 0.65, 0.65), 0.55, 3.0),
     "AshTree": tree(f"{MAXTREE}/SM_MT_PM_V60_Alnus_cremastogyne_01_05", (0.75, 0.75, 0.75), 0.35, 4.0),
 }
