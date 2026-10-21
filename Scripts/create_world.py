@@ -241,6 +241,25 @@ def rock(ore):
 ROCK_LOOKS = {"CopperRock": "Copper", "IronRock": "Iron", "SilverRock": "Silver"}
 
 
+# The camp's crafting stations: brick and plank parts get textured materials from the Pack_Bonus pack.
+STATION_MATERIALS = {"MI_Brick": "/Game/Pack_Bonus/Materials/M_Pack_Bonus_Wall_1",
+                     "MI_Wood": "/Game/Pack_Bonus/Materials/M_Pack_Bonus_Wooden_Floor_1"}
+
+
+def restyle_stations():
+    for name in ["Workbench", "Furnace", "Anvil", "Range"]:
+        definition = unreal.load_asset(f"/Game/Crafting/Stations/{name}")
+        # Rebuilt as a new list: looping over the array hands back copies of the parts.
+        parts = []
+        for p in definition.get_editor_property("parts"):
+            material = p.get_editor_property("material")
+            if material and material.get_name() in STATION_MATERIALS:
+                p.set_editor_property("material", unreal.load_asset(STATION_MATERIALS[material.get_name()]))
+            parts.append(p)
+        definition.set_editor_property("parts", parts)
+        save(definition)
+
+
 def restyle_trees():
     for kind, ore in ROCK_LOOKS.items():
         definition = unreal.load_asset(f"/Game/Gathering/Nodes/{kind}")
@@ -520,6 +539,7 @@ def main():
     add_sky(water)
     spawn(unreal.PlayerStart, unreal.WorldGenerator.get_start_location(), label="Start")
     restyle_trees()
+    restyle_stations()
     place_resources()
     create_tints()
     place_scenery()
