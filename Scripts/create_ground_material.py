@@ -121,7 +121,7 @@ def build_material(textures):
         mel.connect_material_expressions(roughness, "R", rough, f"Layer {layer}")
 
     # Broad light and dark patches across the island, so even the far tiles don't repeat.
-    noise = node(material, unreal.MaterialExpressionNoise, -400, -1000, scale=0.0015, levels=4, output_min=0.75, output_max=1.15)
+    noise = node(material, unreal.MaterialExpressionNoise, -400, -1000, scale=0.0015, levels=4, output_min=0.62, output_max=0.95)
     shade = node(material, unreal.MaterialExpressionMultiply, -150, -600)
     mel.connect_material_expressions(colors, "", shade, "A")
     mel.connect_material_expressions(noise, "", shade, "B")

@@ -301,8 +301,7 @@ def scenery_kinds():
         "Shell": ([part("Sphere", "Shell", (0, 0, 1), (0.08, 0.06, 0.03))], False, False, 3000),
         "FallenLog": (log("Bark", 0.4, 3.6), True, True, 30000),
         "Driftwood": (log("Driftwood", 0.22, 2.4), True, True, 20000),
-        "Reed": ([part("Cylinder", "Reed", (0, 0, 75), (0.015, 0.015, 1.5)),
-                  part("Cylinder", "Cattail", (0, 0, 140), (0.035, 0.035, 0.18))], False, False, 10000),
+        "Reed": ([mesh_part("/Game/PN_GrassLibrary/Meshes/grassMesh/grass_03_06_mesh", (0, 0, 0), (1.0, 1.0, 1.5), collides=False)], False, False, 10000),
         "LilyPad": ([part("Cylinder", "LilyPad", (0, 0, 1), (0.55, 0.55, 0.01))], False, False, 15000),
         "LilyFlower": ([part("Sphere", "LilyFlower", (10, 8, 4), (0.14, 0.14, 0.08))], False, False, 15000),
         # Taller plants.
