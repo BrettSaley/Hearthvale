@@ -150,7 +150,7 @@ BEECH = "/Game/EuropeanBeech/Geometry/SimpleWind"
 MAXTREE = "/Game/Maxtree/MT_PM_V060"
 
 
-def mesh_part(mesh, location, scale, rotation=(0, 0, 0), collides=True, visible=True):
+def mesh_part(mesh, location, scale, rotation=(0, 0, 0), collides=True, visible=True, material=None):
     """A part showing a mesh with its own materials: one of the baked plants by name, any mesh by full path,
     or an invisible collider ("Collider")."""
     p = unreal.NodeMeshPart()
@@ -159,6 +159,8 @@ def mesh_part(mesh, location, scale, rotation=(0, 0, 0), collides=True, visible=
     p.set_editor_property("transform", unreal.Transform(V(*location), unreal.Rotator(*rotation), V(*scale)))
     p.set_editor_property("collides", collides)
     p.set_editor_property("visible", visible)
+    if material:
+        p.set_editor_property("material", material)
     return p
 
 
@@ -172,13 +174,34 @@ def tree(mesh, scale, trunk_width, trunk_height):
 # The trees you chop: a young beech (7.6 m as it comes), a broad beech for the oak, an alder for the ash.
 # (Conifers are scenery only, so a conifer is never one you can chop.)
 TREE_LOOKS = {
-    "Tree": tree(f"{BEECH}/SM_EuropeanBeech_Forest_08", (1.0, 1.0, 1.0), 0.35, 3.0),
+    "Tree": tree(f"{BEECH}/SM_EuropeanBeech_Forest_08", (1.25, 1.25, 1.25), 0.35, 3.0),
     "OakTree": tree(f"{BEECH}/SM_EuropeanBeech_Forest_07", (0.65, 0.65, 0.65), 0.55, 3.0),
     "AshTree": tree(f"{MAXTREE}/SM_MT_PM_V60_Alnus_cremastogyne_01_05", (0.75, 0.75, 0.75), 0.35, 4.0),
 }
 
 
+def rock(ore):
+    """An ore rock: a real boulder, half sunk as its mesh is centred on its middle (collision from an invisible cylinder, which interaction finds) with two
+    chunks of ore showing on top. Mined, the chunks are gone (ore=None)."""
+    stone = mesh_part(f"{ROCKS}/SM_SimpleRock_05A", (0, 0, -10), (0.35, 0.35, 0.32), collides=False)
+    parts = [mesh_part("Collider", (0, 0, 30), (1.4, 1.4, 0.6), visible=False), stone]
+    if ore:
+        material = unreal.load_asset(f"/Game/Gathering/Materials/MI_{ore}")
+        parts += [mesh_part(f"{ROCKS}/SM_SimpleRock_16A", (20, 10, 52), (0.08, 0.08, 0.07), (0, 0, 30), collides=False, material=material),
+                  mesh_part(f"{ROCKS}/SM_SimpleRock_16A", (-30, 25, 42), (0.06, 0.06, 0.05), (0, 0, 120), collides=False, material=material)]
+    return parts
+
+
+# Ore rocks (4 parts, the most a node has), and how they look mined out.
+ROCK_LOOKS = {"CopperRock": "Copper", "IronRock": "Iron", "SilverRock": "Silver"}
+
+
 def restyle_trees():
+    for kind, ore in ROCK_LOOKS.items():
+        definition = unreal.load_asset(f"/Game/Gathering/Nodes/{kind}")
+        definition.set_editor_property("parts", rock(ore))
+        definition.set_editor_property("depleted_parts", rock(None))
+        save(definition)
     for kind, parts in TREE_LOOKS.items():
         definition = unreal.load_asset(f"/Game/Gathering/Nodes/{kind}")
         definition.set_editor_property("parts", parts)
@@ -290,7 +313,7 @@ def scenery_kinds():
         # Forest trees that aren't gathered, from the baked plants: only their (invisible) trunk colliders block.
         # The Deepwood is a beech forest: tall forest beeches (31 m as they come).
         "Spruce": (tree(f"{BEECH}/SM_EuropeanBeech_Forest_04", (0.5, 0.5, 0.5), 0.45, 4.0), True, True, 0, True),
-        "Birch": (tree(f"{MAXTREE}/SM_MT_PM_V60_Acer_buergerianum_01_04", (0.75, 0.75, 0.75), 0.3, 4.0), True, True, 0, True),
+        "Birch": (tree(f"{MAXTREE}/SM_MT_PM_V60_Alnus_cremastogyne_01_06", (0.7, 0.7, 0.7), 0.3, 4.0), True, True, 0, True),
         "Pine": (tree("SM_PV_Conifer", (0.5, 0.5, 0.42), 0.3, 4.0), True, True, 0, True),
         "Sapling": ([mesh_part(f"{BEECH}/SM_EuropeanBeech_Sapling_01", (0, 0, 0), (0.8, 0.8, 0.8), collides=False)], False, True, 20000),
         # Landmarks: a stone circle's stones, and a ruined watchtower's wall sections (scaled down where broken).
