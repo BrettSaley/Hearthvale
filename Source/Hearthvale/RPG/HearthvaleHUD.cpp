@@ -44,6 +44,7 @@ void AHearthvaleHUD::DrawHUD()
 	DrawMessages(DeltaSeconds);
 	DrawXPDrops(DeltaSeconds);
 	DrawBanner(DeltaSeconds);
+	DrawSkillTracker(Character, DeltaSeconds);
 }
 
 void AHearthvaleHUD::BindTo(AHearthvaleCharacter* Character)
@@ -62,6 +63,8 @@ void AHearthvaleHUD::HandleXPGained(ESkill Skill, int32 Amount)
 {
 	XPDrops.Add({FString::Printf(TEXT("+%s %s XP"), *FText::AsNumber(Amount).ToString(), *USkillLibrary::GetSkillName(Skill).ToString()),
 		USkillLibrary::GetSkillColor(Skill), 0.f});
+	TrackedSkill = Skill;
+	TrackerTime = 8.f;
 }
 
 void AHearthvaleHUD::HandleLevelUp(ESkill Skill, int32 NewLevel)
@@ -205,6 +208,54 @@ void AHearthvaleHUD::DrawInteraction(AHearthvaleCharacter* Character)
 	GetTextSize(Text, Width, Height, Font);
 	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), CenterX - Width * 0.5f - 10.f, Y - 4.f, Width + 20.f, Height + 8.f);
 	DrawText(Text, Color, CenterX - Width * 0.5f, Y, Font);
+}
+
+void AHearthvaleHUD::DrawSkillTracker(AHearthvaleCharacter* Character, float DeltaSeconds)
+{
+	const AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(PlayerOwner);
+	if (!TrackedSkill.IsSet() || TrackerTime <= 0.f || (Controller && Controller->IsPanelOpen()))
+	{
+		return;
+	}
+	TrackerTime -= DeltaSeconds;
+	const ESkill Skill = TrackedSkill.GetValue();
+	const USkillsComponent* Skills = Character->GetSkills();
+	const int32 Level = Skills->GetLevel(Skill);
+	const int32 XP = Skills->GetXP(Skill);
+	const float Alpha = FMath::Clamp(TrackerTime, 0.f, 1.f);
+	FLinearColor Color = USkillLibrary::GetSkillColor(Skill);
+	Color.A = Alpha;
+
+	// Bottom right: "Mining 18", a bar to the next level, and what's coming.
+	UFont* Font = GEngine->GetMediumFont();
+	UFont* Small = GEngine->GetSmallFont();
+	const float Width = 260.f;
+	const float X = Canvas->ClipX - Width - 24.f;
+	const float Y = Canvas->ClipY - 150.f;
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.55f * Alpha), X - 10.f, Y - 8.f, Width + 20.f, 76.f);
+	const FString Title = FString::Printf(TEXT("%s  %d"), *USkillLibrary::GetSkillName(Skill).ToString(), Level);
+	DrawText(Title, Color, X, Y, Font);
+	float Progress = 1.f;
+	FString Detail = TEXT("Mastered");
+	if (Level < USkillLibrary::MaxLevel)
+	{
+		const int32 From = USkillLibrary::XPForLevel(Level);
+		const int32 To = USkillLibrary::XPForLevel(Level + 1);
+		Progress = static_cast<float>(XP - From) / FMath::Max(1, To - From);
+		Detail = FString::Printf(TEXT("%s XP to level %d"), *FText::AsNumber(To - XP).ToString(), Level + 1);
+	}
+	DrawRect(FLinearColor(0.15f, 0.15f, 0.15f, 0.9f * Alpha), X, Y + 26.f, Width, 6.f);
+	DrawRect(Color, X, Y + 26.f, Width * Progress, 6.f);
+	DrawText(Detail, FLinearColor(0.85f, 0.85f, 0.85f, Alpha), X, Y + 36.f, Small);
+	if (const int32 Next = USkillUnlocks::GetNextUnlockLevel(Skill, Level))
+	{
+		TArray<FString> Names;
+		for (const FSkillUnlock& Unlock : USkillUnlocks::GetUnlocksAt(Skill, Next))
+		{
+			Names.Add(Unlock.Name.ToString());
+		}
+		DrawText(FString::Printf(TEXT("Next at %d: %s"), Next, *FString::Join(Names, TEXT(", "))), FLinearColor(1.f, 0.78f, 0.35f, Alpha), X, Y + 50.f, Small);
+	}
 }
 
 void AHearthvaleHUD::DrawProgress(const FString& Text, float Progress, const FLinearColor& Color)

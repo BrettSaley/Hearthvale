@@ -51,6 +51,8 @@ private:
 	void DrawBanner(float DeltaSeconds);
 	void DrawMessages(float DeltaSeconds);
 	void DrawInteraction(AHearthvaleCharacter* Character);
+	/** The last skill you earned XP in: its level, progress and next unlock, fading after a while. */
+	void DrawSkillTracker(AHearthvaleCharacter* Character, float DeltaSeconds);
 
 	TWeakObjectPtr<AHearthvaleCharacter> BoundCharacter;
 	TArray<FXPDrop> XPDrops;
@@ -58,4 +60,6 @@ private:
 	FString BannerText;
 	FLinearColor BannerColor = FLinearColor::White;
 	float BannerTime = 0.f;
+	TOptional<ESkill> TrackedSkill;
+	float TrackerTime = 0.f;
 };
