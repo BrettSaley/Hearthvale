@@ -5,6 +5,7 @@
 #include "HearthvaleCharacter.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/GatheringNodeDefinition.h"
+#include "RPG/SkillUnlocks.h"
 #include "RPG/SkillsComponent.h"
 
 #define LOCTEXT_NAMESPACE "ResourceNode"
@@ -81,7 +82,9 @@ bool AResourceNode::GetGatherInfo(FGatherInfo& OutInfo) const
 
 bool AResourceNode::OnGathered(AHearthvaleCharacter* Character)
 {
-	if (Definition && FMath::FRand() < Definition->DepleteChance)
+	// The Sustain perk: sometimes the tree stays standing, the rock holds.
+	const float Sustain = Definition ? USkillUnlocks::GetPerk(Definition->Skill, Character->GetSkills()->GetLevel(Definition->Skill), ESkillPerk::Sustain) : 0.f;
+	if (Definition && FMath::FRand() < Definition->DepleteChance * (1.f - Sustain))
 	{
 		Deplete();
 		return true;

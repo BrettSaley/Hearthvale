@@ -1,4 +1,5 @@
 #include "RPG/HearthvaleHUD.h"
+#include "RPG/SkillUnlocks.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
@@ -68,6 +69,15 @@ void AHearthvaleHUD::HandleLevelUp(ESkill Skill, int32 NewLevel)
 	BannerText = FString::Printf(TEXT("%s level %d!"), *USkillLibrary::GetSkillName(Skill).ToString(), NewLevel);
 	BannerColor = USkillLibrary::GetSkillColor(Skill);
 	BannerTime = BannerLifetime;
+	// Say what the level brought, and what's next to aim for.
+	for (const FSkillUnlock& Unlock : USkillUnlocks::GetUnlocksAt(Skill, NewLevel))
+	{
+		AddMessage(FText::Format(NSLOCTEXT("HUD", "Unlocked", "Unlocked: {0} - {1}"), Unlock.Name, Unlock.Description), BannerColor);
+	}
+	if (const int32 Next = USkillUnlocks::GetNextUnlockLevel(Skill, NewLevel))
+	{
+		AddMessage(FText::Format(NSLOCTEXT("HUD", "NextUnlock", "Next {0} unlock at level {1} (K for the skill guide)."), USkillLibrary::GetSkillName(Skill), Next), FLinearColor(0.75f, 0.75f, 0.75f));
+	}
 }
 
 void AHearthvaleHUD::DrawKeyHints()

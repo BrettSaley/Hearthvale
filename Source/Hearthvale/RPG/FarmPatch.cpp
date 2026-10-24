@@ -6,6 +6,7 @@
 #include "RPG/CropDefinition.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/InventoryComponent.h"
+#include "RPG/SkillUnlocks.h"
 #include "RPG/SkillsComponent.h"
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
@@ -243,6 +244,11 @@ bool AFarmPatch::GetGatherInfo(FGatherInfo& OutInfo) const
 
 bool AFarmPatch::OnGathered(AHearthvaleCharacter* Character)
 {
+	// The Sustain perk: sometimes a harvest doesn't count against the patch.
+	if (FMath::FRand() < USkillUnlocks::GetPerk(ESkill::Farming, Character->GetSkills()->GetLevel(ESkill::Farming), ESkillPerk::Sustain))
+	{
+		return false;
+	}
 	if (--HarvestsLeft > 0)
 	{
 		return false;

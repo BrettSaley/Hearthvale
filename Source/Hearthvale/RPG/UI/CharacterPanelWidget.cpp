@@ -6,6 +6,7 @@
 #include "Components/HorizontalBox.h"
 #include "Components/HorizontalBoxSlot.h"
 #include "Components/ProgressBar.h"
+#include "Components/ScrollBox.h"
 #include "Components/SizeBox.h"
 #include "Components/TextBlock.h"
 #include "Components/UniformGridPanel.h"
@@ -16,6 +17,7 @@
 #include "HearthvalePlayerController.h"
 #include "RPG/CropDefinition.h"
 #include "RPG/ItemDefinition.h"
+#include "RPG/SkillUnlocks.h"
 #include "RPG/SkillsComponent.h"
 #include "RPG/UI/HearthvaleUIStyle.h"
 #include "RPG/UI/InventorySlotWidget.h"
@@ -116,6 +118,7 @@ void UCharacterPanelWidget::NativeOnInitialized()
 	Pages = WidgetTree->ConstructWidget<UWidgetSwitcher>();
 	Pages->AddChild(BuildInventoryPage());
 	Pages->AddChild(BuildSkillsPage());
+	Pages->AddChild(BuildGuidePage());
 	Layout->AddChildToVerticalBox(Pages);
 
 	// The item menu floats above everything.
@@ -203,7 +206,16 @@ UWidget* UCharacterPanelWidget::BuildSkillsPage()
 		Top->AddChildToHorizontalBox(HearthvaleUI::MakeText(WidgetTree, USkillLibrary::GetSkillName(Skill), 11,
 			USkillLibrary::GetSkillColor(Skill)))->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 		UTextBlock* Level = HearthvaleUI::MakeText(WidgetTree, FText::GetEmpty(), 11, HearthvaleUI::GoldColor);
-		Top->AddChildToHorizontalBox(Level);
+		Top->AddChildToHorizontalBox(Level)->SetVerticalAlignment(VAlign_Center);
+		UMenuButtonWidget* Guide = CreateWidget<UMenuButtonWidget>(this, UMenuButtonWidget::StaticClass());
+		Guide->Setup(LOCTEXT("GuideButton", "Guide"), [WeakThis = TWeakObjectPtr<UCharacterPanelWidget>(this), Skill]
+		{
+			if (WeakThis.IsValid())
+			{
+				WeakThis->ShowSkillGuide(Skill);
+			}
+		}, 10);
+		Top->AddChildToHorizontalBox(Guide)->SetPadding(FMargin(8.f, 0.f, 0.f, 0.f));
 
 		USizeBox* BarSize = WidgetTree->ConstructWidget<USizeBox>();
 		BarSize->SetHeightOverride(6.f);
@@ -212,6 +224,9 @@ UWidget* UCharacterPanelWidget::BuildSkillsPage()
 		Bar->SetFillColorAndOpacity(USkillLibrary::GetSkillColor(Skill));
 		BarSize->SetContent(Bar);
 		Lines->AddChildToVerticalBox(BarSize)->SetPadding(FMargin(0.f, 2.f, 0.f, 0.f));
+		UTextBlock* Next = HearthvaleUI::MakeText(WidgetTree, FText::GetEmpty(), 9, HearthvaleUI::MutedColor);
+		Lines->AddChildToVerticalBox(Next)->SetPadding(FMargin(0.f, 2.f, 0.f, 0.f));
+		SkillNext.Add(Next);
 
 		Page->AddChildToVerticalBox(Row);
 		SkillRows.Add(Row);
@@ -221,7 +236,152 @@ UWidget* UCharacterPanelWidget::BuildSkillsPage()
 	Page->AddChildToVerticalBox(MakeDivider(WidgetTree))->SetPadding(FMargin(0.f, 6.f));
 	SkillsFooter = HearthvaleUI::MakeText(WidgetTree, FText::GetEmpty(), 11, HearthvaleUI::TextColor);
 	Page->AddChildToVerticalBox(SkillsFooter)->SetPadding(FMargin(2.f, 0.f));
+	UTextBlock* Hint = HearthvaleUI::MakeText(WidgetTree, LOCTEXT("SkillsHint", "Skills level up as you use them. Open a skill's guide to see everything its levels unlock."), 9, HearthvaleUI::MutedColor);
+	Hint->SetAutoWrapText(true);
+	Page->AddChildToVerticalBox(Hint)->SetPadding(FMargin(2.f, 4.f, 2.f, 0.f));
 	return Page;
+}
+
+UWidget* UCharacterPanelWidget::BuildGuidePage()
+{
+	UVerticalBox* Page = WidgetTree->ConstructWidget<UVerticalBox>();
+
+	// Back, the skill and its level.
+	UHorizontalBox* Top = WidgetTree->ConstructWidget<UHorizontalBox>();
+	Page->AddChildToVerticalBox(Top);
+	UMenuButtonWidget* Back = CreateWidget<UMenuButtonWidget>(this, UMenuButtonWidget::StaticClass());
+	Back->Setup(LOCTEXT("Back", "< Skills"), [WeakThis = TWeakObjectPtr<UCharacterPanelWidget>(this)]
+	{
+		if (WeakThis.IsValid())
+		{
+			WeakThis->CloseSkillGuide();
+		}
+	}, 10);
+	Top->AddChildToHorizontalBox(Back)->SetPadding(FMargin(0.f, 0.f, 8.f, 0.f));
+	GuideTitle = HearthvaleUI::MakeText(WidgetTree, FText::GetEmpty(), 14);
+	Top->AddChildToHorizontalBox(GuideTitle)->SetVerticalAlignment(VAlign_Center);
+	Top->AddChildToHorizontalBox(WidgetTree->ConstructWidget<USizeBox>())->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+	GuideLevel = HearthvaleUI::MakeText(WidgetTree, FText::GetEmpty(), 14, HearthvaleUI::GoldColor);
+	Top->AddChildToHorizontalBox(GuideLevel)->SetVerticalAlignment(VAlign_Center);
+
+	// Progress to the next level.
+	FProgressBarStyle BarStyle;
+	BarStyle.SetBackgroundImage(HearthvaleUI::RoundedBrush(HearthvaleUI::SlotColor, 3.f));
+	BarStyle.SetFillImage(HearthvaleUI::RoundedBrush(FLinearColor::White, 3.f));
+	BarStyle.SetMarqueeImage(HearthvaleUI::RoundedBrush(FLinearColor::White, 3.f));
+	USizeBox* BarSize = WidgetTree->ConstructWidget<USizeBox>();
+	BarSize->SetHeightOverride(8.f);
+	GuideBar = WidgetTree->ConstructWidget<UProgressBar>();
+	GuideBar->SetWidgetStyle(BarStyle);
+	BarSize->SetContent(GuideBar);
+	Page->AddChildToVerticalBox(BarSize)->SetPadding(FMargin(0.f, 6.f, 0.f, 2.f));
+	GuideXP = HearthvaleUI::MakeText(WidgetTree, FText::GetEmpty(), 10, HearthvaleUI::MutedColor);
+	Page->AddChildToVerticalBox(GuideXP);
+
+	// What practice has earned so far.
+	Page->AddChildToVerticalBox(HearthvaleUI::MakeText(WidgetTree, LOCTEXT("PerksHeading", "Your perks"), 11, HearthvaleUI::GoldColor))
+		->SetPadding(FMargin(0.f, 8.f, 0.f, 2.f));
+	GuidePerks = HearthvaleUI::MakeText(WidgetTree, FText::GetEmpty(), 10, HearthvaleUI::GoodColor);
+	GuidePerks->SetAutoWrapText(true);
+	Page->AddChildToVerticalBox(GuidePerks);
+
+	Page->AddChildToVerticalBox(MakeDivider(WidgetTree))->SetPadding(FMargin(0.f, 6.f));
+	Page->AddChildToVerticalBox(HearthvaleUI::MakeText(WidgetTree, LOCTEXT("UnlocksHeading", "Unlocks"), 11, HearthvaleUI::GoldColor))
+		->SetPadding(FMargin(0.f, 0.f, 0.f, 2.f));
+	USizeBox* ListSize = WidgetTree->ConstructWidget<USizeBox>();
+	ListSize->SetMaxDesiredHeight(380.f);
+	UScrollBox* Scroll = WidgetTree->ConstructWidget<UScrollBox>();
+	ListSize->SetContent(Scroll);
+	GuideList = WidgetTree->ConstructWidget<UVerticalBox>();
+	Scroll->AddChild(GuideList);
+	Page->AddChildToVerticalBox(ListSize);
+	return Page;
+}
+
+void UCharacterPanelWidget::ShowSkillGuide(ESkill Skill)
+{
+	ShowTab(EPanelTab::Skills);
+	GuideSkill = Skill;
+	Pages->SetActiveWidgetIndex(2);
+	RefreshGuide();
+}
+
+void UCharacterPanelWidget::CloseSkillGuide()
+{
+	GuideSkill.Reset();
+	Pages->SetActiveWidgetIndex(static_cast<int32>(EPanelTab::Skills));
+}
+
+void UCharacterPanelWidget::RefreshGuide()
+{
+	const AHearthvaleCharacter* Owner = Character.Get();
+	if (!Owner || !GuideSkill.IsSet())
+	{
+		return;
+	}
+	const ESkill Skill = GuideSkill.GetValue();
+	const USkillsComponent* Skills = Owner->GetSkills();
+	const int32 Level = Skills->GetLevel(Skill);
+	const int32 XP = Skills->GetXP(Skill);
+	const FLinearColor Color = USkillLibrary::GetSkillColor(Skill);
+
+	GuideTitle->SetText(USkillLibrary::GetSkillName(Skill));
+	GuideTitle->SetColorAndOpacity(Color);
+	GuideLevel->SetText(FText::Format(LOCTEXT("GuideLevel", "Level {0}"), Level));
+	GuideBar->SetFillColorAndOpacity(Color);
+	if (Level >= USkillLibrary::MaxLevel)
+	{
+		GuideBar->SetPercent(1.f);
+		GuideXP->SetText(FText::Format(LOCTEXT("GuideMaxed", "{0} XP: mastered"), FText::AsNumber(XP)));
+	}
+	else
+	{
+		const int32 From = USkillLibrary::XPForLevel(Level);
+		const int32 To = USkillLibrary::XPForLevel(Level + 1);
+		GuideBar->SetPercent(static_cast<float>(XP - From) / FMath::Max(1, To - From));
+		GuideXP->SetText(FText::Format(LOCTEXT("GuideXP", "{0} XP  ·  {1} more for level {2}"), FText::AsNumber(XP), FText::AsNumber(To - XP), Level + 1));
+	}
+	GuidePerks->SetText(USkillUnlocks::DescribePerks(Skill, Level));
+
+	// One row per unlock: the level, what it is, what it does. Reached ones are bright and ticked.
+	GuideList->ClearChildren();
+	const int32 NextLevel = USkillUnlocks::GetNextUnlockLevel(Skill, Level);
+	for (const FSkillUnlock& Unlock : USkillUnlocks::GetUnlocks(Skill))
+	{
+		const bool bReached = Level >= Unlock.Level;
+		const bool bNext = Unlock.Level == NextLevel;
+		UBorder* Row = WidgetTree->ConstructWidget<UBorder>();
+		Row->SetBrush(HearthvaleUI::RoundedBrush(bNext ? HearthvaleUI::SlotHoverColor : bReached ? HearthvaleUI::SlotColor : FLinearColor::Transparent, 3.f));
+		Row->SetPadding(FMargin(6.f, 3.f));
+		UHorizontalBox* Line = WidgetTree->ConstructWidget<UHorizontalBox>();
+		Row->SetContent(Line);
+
+		USizeBox* LevelSize = WidgetTree->ConstructWidget<USizeBox>();
+		LevelSize->SetWidthOverride(44.f);
+		LevelSize->SetContent(HearthvaleUI::MakeText(WidgetTree, FText::Format(LOCTEXT("UnlockLevel", "Lv {0}"), Unlock.Level), 10,
+			bReached ? HearthvaleUI::GoldColor : HearthvaleUI::MutedColor));
+		Line->AddChildToHorizontalBox(LevelSize)->SetVerticalAlignment(VAlign_Center);
+
+		FText Kind;
+		switch (Unlock.Kind)
+		{
+		case EUnlockKind::Resource: Kind = LOCTEXT("KindResource", "Gather"); break;
+		case EUnlockKind::Tool:     Kind = LOCTEXT("KindTool", "Tool"); break;
+		case EUnlockKind::Crop:     Kind = LOCTEXT("KindCrop", "Crop"); break;
+		default:                    Kind = LOCTEXT("KindPerk", "Perk"); break;
+		}
+		UVerticalBox* Texts = WidgetTree->ConstructWidget<UVerticalBox>();
+		Texts->AddChildToVerticalBox(HearthvaleUI::MakeText(WidgetTree, FText::Format(LOCTEXT("UnlockName", "{0}  ·  {1}"), Unlock.Name, Kind), 11,
+			bReached ? (Unlock.Kind == EUnlockKind::Perk ? HearthvaleUI::GoodColor : HearthvaleUI::TextColor) : HearthvaleUI::MutedColor));
+		UTextBlock* Description = HearthvaleUI::MakeText(WidgetTree, Unlock.Description, 9, HearthvaleUI::MutedColor);
+		Description->SetAutoWrapText(true);
+		Texts->AddChildToVerticalBox(Description);
+		Line->AddChildToHorizontalBox(Texts)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+
+		Line->AddChildToHorizontalBox(HearthvaleUI::MakeText(WidgetTree, bReached ? LOCTEXT("Reached", "✓") : bNext ? LOCTEXT("NextMark", "next") : FText::GetEmpty(), 11,
+			bReached ? HearthvaleUI::GoodColor : HearthvaleUI::GoldColor))->SetVerticalAlignment(VAlign_Center);
+		GuideList->AddChildToVerticalBox(Row)->SetPadding(FMargin(0.f, 1.f));
+	}
 }
 
 void UCharacterPanelWidget::NativeDestruct()
@@ -265,6 +425,7 @@ void UCharacterPanelWidget::Unbind()
 void UCharacterPanelWidget::ShowTab(EPanelTab Tab)
 {
 	CurrentTab = Tab;
+	GuideSkill.Reset();
 	CloseItemMenu();
 	Pages->SetActiveWidgetIndex(static_cast<int32>(Tab));
 	for (int32 Index = 0; Index < TabButtons.Num(); ++Index)
@@ -325,9 +486,18 @@ void UCharacterPanelWidget::RefreshSkills()
 				FText::AsNumber(XP), Level + 1, FText::AsNumber(To), FText::AsNumber(To - XP));
 		}
 		SkillRows[Row]->SetToolTipText(Tip);
+		const int32 Next = USkillUnlocks::GetNextUnlockLevel(Skill, Level);
+		TArray<FText> Names;
+		for (const FSkillUnlock& Unlock : USkillUnlocks::GetUnlocksAt(Skill, Next))
+		{
+			Names.Add(Unlock.Name);
+		}
+		SkillNext[Row]->SetText(Next ? FText::Format(LOCTEXT("NextUnlock", "Next at {0}: {1}"), Next, FText::Join(FText::FromString(TEXT(", ")), Names))
+			: LOCTEXT("AllUnlocked", "Everything unlocked"));
 		++Row;
 	}
 	SkillsFooter->SetText(FText::Format(LOCTEXT("SkillsFooter", "Total level {0}"), TotalLevel));
+	RefreshGuide();
 	// Requirements in item tooltips depend on levels.
 	RefreshInventory();
 }

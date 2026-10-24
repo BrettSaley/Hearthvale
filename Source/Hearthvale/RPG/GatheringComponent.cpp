@@ -1,4 +1,5 @@
 #include "RPG/GatheringComponent.h"
+#include "RPG/SkillUnlocks.h"
 #include "Animation/AnimInstance.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "HearthvaleCharacter.h"
@@ -144,7 +145,17 @@ void UGatheringComponent::StopGathering()
 
 bool UGatheringComponent::GetCurrentInfo(FGatherInfo& OutInfo) const
 {
-	return CurrentSource && GetInfo(CurrentSource, OutInfo);
+	if (!CurrentSource || !GetInfo(CurrentSource, OutInfo))
+	{
+		return false;
+	}
+	// Practice makes it quicker (the Speed perk).
+	if (const AHearthvaleCharacter* Character = GetCharacter())
+	{
+		const float Speed = USkillUnlocks::GetPerk(OutInfo.Skill, Character->GetSkills()->GetLevel(OutInfo.Skill), ESkillPerk::Speed);
+		OutInfo.AttemptInterval /= 1.f + Speed;
+	}
+	return true;
 }
 
 float UGatheringComponent::GetAttemptProgress() const
@@ -188,7 +199,9 @@ void UGatheringComponent::Attempt()
 	{
 		Character->PlayAnimMontage(Info.Montage);
 	}
-	if (FMath::FRand() >= SuccessChance(Skills->GetLevel(Info.Skill), Info.RequiredLevel, ToolPower, Info.Difficulty))
+	const int32 Level = Skills->GetLevel(Info.Skill);
+	const float Chance = SuccessChance(Level, Info.RequiredLevel, ToolPower, Info.Difficulty) + USkillUnlocks::GetPerk(Info.Skill, Level, ESkillPerk::Success);
+	if (FMath::FRand() >= FMath::Min(Chance, 0.95f))
 	{
 		return;
 	}
@@ -197,11 +210,18 @@ void UGatheringComponent::Attempt()
 		Inventory->AddItem(Info.Item);
 		const FText Message = Info.SuccessMessage.IsEmpty() ? LOCTEXT("Got", "You get some {0}.") : Info.SuccessMessage;
 		Character->ShowMessage(FText::Format(Message, Info.Item->DisplayName.ToLower()));
+		// The ExtraYield perk: sometimes one more.
+		if (FMath::FRand() < USkillUnlocks::GetPerk(Info.Skill, Level, ESkillPerk::ExtraYield) && Inventory->AddItem(Info.Item) > 0)
+		{
+			Character->ShowMessage(FText::Format(LOCTEXT("Extra", "Your skill gets you an extra {0}."), Info.Item->DisplayName.ToLower()), Lucky);
+		}
 	}
 	Skills->AddXP(Info.Skill, Info.XP);
+	// The RareFinds perk makes each 1-in-N roll come up more often.
+	const float Rare = 1.f + USkillUnlocks::GetPerk(Info.Skill, Level, ESkillPerk::RareFinds);
 	for (const FBonusDrop& Drop : Info.BonusDrops)
 	{
-		if (Drop.Item && FMath::RandRange(1, Drop.OneIn) == 1 && Inventory->AddItem(Drop.Item, Drop.Quantity) > 0)
+		if (Drop.Item && FMath::FRand() * FMath::Max(1, Drop.OneIn) < Rare && Inventory->AddItem(Drop.Item, Drop.Quantity) > 0)
 		{
 			Character->ShowMessage(FText::Format(LOCTEXT("Bonus", "You also find: {0}!"), Drop.Item->DisplayName), Lucky);
 		}

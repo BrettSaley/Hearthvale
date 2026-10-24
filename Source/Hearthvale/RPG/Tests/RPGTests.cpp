@@ -11,6 +11,7 @@
 #include "RPG/HearthvaleSaveGame.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
+#include "RPG/SkillUnlocks.h"
 #include "RPG/SkillsComponent.h"
 #include "RPG/World/WorldGenerator.h"
 
@@ -259,6 +260,40 @@ bool FWorldLayoutTest::RunTest(const FString& Parameters)
 	// Scenery stays off the nodes and the same plan comes back each time.
 	TestTrue(TEXT("Scenery is planned"), UWorldGenerator::PlanScenery().Num() > 10000);
 	TestEqual(TEXT("The plan is the same each time"), UWorldGenerator::PlanResources().Num(), Spots.Num());
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSkillUnlocksTest, "Hearthvale.Skills.Unlocks", TestFlags)
+bool FSkillUnlocksTest::RunTest(const FString& Parameters)
+{
+	// Perks add up over the milestones and are all there at 99.
+	TestEqual(TEXT("No perks at level 1"), USkillUnlocks::GetPerk(ESkill::Woodcutting, 1, ESkillPerk::Speed), 0.f);
+	TestEqual(TEXT("5% faster at 5"), USkillUnlocks::GetPerk(ESkill::Woodcutting, 5, ESkillPerk::Speed), 0.05f);
+	TestTrue(TEXT("Faster at 99 than at 50"), USkillUnlocks::GetPerk(ESkill::Mining, 99, ESkillPerk::Speed) > USkillUnlocks::GetPerk(ESkill::Mining, 50, ESkillPerk::Speed));
+	for (ESkill Skill : {ESkill::Woodcutting, ESkill::Mining, ESkill::Fishing, ESkill::Farming})
+	{
+		const FString Name = USkillLibrary::GetSkillName(Skill).ToString();
+		const TArray<FSkillUnlock> Unlocks = USkillUnlocks::GetUnlocks(Skill);
+		TestTrue(FString::Printf(TEXT("%s has something at level 1"), *Name), Unlocks.Num() > 0 && Unlocks[0].Level == 1);
+		TestTrue(FString::Printf(TEXT("%s has a goal at 99"), *Name), Unlocks.Num() > 0 && Unlocks.Last().Level == 99);
+		for (int32 Index = 1; Index < Unlocks.Num(); ++Index)
+		{
+			TestTrue(FString::Printf(TEXT("%s unlocks in level order"), *Name), Unlocks[Index - 1].Level <= Unlocks[Index].Level);
+		}
+		// Never more than 15 levels without something new.
+		int32 Last = 1;
+		for (const FSkillUnlock& Unlock : Unlocks)
+		{
+			TestTrue(FString::Printf(TEXT("%s: no long gap before level %d"), *Name, Unlock.Level), Unlock.Level - Last <= 15);
+			Last = Unlock.Level;
+		}
+		TestEqual(FString::Printf(TEXT("%s: nothing after 99"), *Name), USkillUnlocks::GetNextUnlockLevel(Skill, 99), 0);
+	}
+	// The game's content shows up: oak at Woodcutting 15, the first crop at Farming 1, an axe.
+	const TArray<FSkillUnlock> Woodcutting = USkillUnlocks::GetUnlocks(ESkill::Woodcutting);
+	TestTrue(TEXT("Oak at Woodcutting 15"), Woodcutting.ContainsByPredicate([](const FSkillUnlock& U) { return U.Kind == EUnlockKind::Resource && U.Level == 15; }));
+	TestTrue(TEXT("Woodcutting unlocks a tool"), Woodcutting.ContainsByPredicate([](const FSkillUnlock& U) { return U.Kind == EUnlockKind::Tool; }));
+	TestTrue(TEXT("Farming unlocks a crop at 1"), USkillUnlocks::GetUnlocks(ESkill::Farming).ContainsByPredicate([](const FSkillUnlock& U) { return U.Kind == EUnlockKind::Crop && U.Level == 1; }));
 	return true;
 }
 

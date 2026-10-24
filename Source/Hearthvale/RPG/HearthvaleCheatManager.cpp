@@ -1,4 +1,6 @@
 #include "RPG/HearthvaleCheatManager.h"
+#include "TimerManager.h"
+#include "UnrealClient.h"
 #include "GameFramework/PlayerController.h"
 #include "HearthvaleCharacter.h"
 #include "HearthvalePlayerController.h"
@@ -25,6 +27,57 @@ void UHearthvaleCheatManager::GiveXP(const FString& Skill, int32 Amount)
 	{
 		Character->GetSkills()->AddXP(Found, Amount);
 	}
+}
+
+void UHearthvaleCheatManager::SetLevel(const FString& Skill, int32 Level)
+{
+	ESkill Found;
+	if (!USkillLibrary::SkillFromName(Skill, Found))
+	{
+		Say(FString::Printf(TEXT("No skill called '%s'."), *Skill));
+		return;
+	}
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		Character->GetSkills()->SetXP(Found, USkillLibrary::XPForLevel(FMath::Clamp(Level, 1, USkillLibrary::MaxLevel)));
+	}
+}
+
+void UHearthvaleCheatManager::SkillGuide(const FString& Skill)
+{
+	ESkill Found;
+	if (!USkillLibrary::SkillFromName(Skill, Found))
+	{
+		Say(FString::Printf(TEXT("No skill called '%s'."), *Skill));
+		return;
+	}
+	if (AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(GetOuterAPlayerController()))
+	{
+		Controller->SetPanelOpen(true, EPanelTab::Skills);
+		if (UCharacterPanelWidget* Panel = Controller->GetPanel())
+		{
+			Panel->ShowSkillGuide(Found);
+		}
+	}
+}
+
+void UHearthvaleCheatManager::After(float Seconds, const FString& Command)
+{
+	APlayerController* Controller = GetOuterAPlayerController();
+	if (!Controller || Command.IsEmpty())
+	{
+		return;
+	}
+	FTimerHandle Handle;
+	Controller->GetWorldTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(Controller, [Controller, Command]
+	{
+		Controller->ConsoleCommand(Command);
+	}), FMath::Max(0.01f, Seconds), false);
+}
+
+void UHearthvaleCheatManager::ShotUI(const FString& Name)
+{
+	FScreenshotRequest::RequestScreenshot(Name.IsEmpty() ? FString(TEXT("Shot")) : Name, true, false);
 }
 
 void UHearthvaleCheatManager::GiveItem(FName ItemId, int32 Quantity)

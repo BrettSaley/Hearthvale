@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "RPG/InventoryComponent.h"
+#include "RPG/Skills.h"
 #include "CharacterPanelWidget.generated.h"
 
 class AHearthvaleCharacter;
@@ -25,7 +26,7 @@ enum class EPanelTab : uint8
 
 /**
  * The character window, with Inventory (backpack above, hotbar below) and
- * Skills tabs. The player controller opens and closes it (I and K).
+ * Skills tabs; each skill opens a guide to what its levels unlock. The player controller opens and closes it (I and K).
  */
 UCLASS()
 class HEARTHVALE_API UCharacterPanelWidget : public UUserWidget
@@ -41,6 +42,14 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Character Panel")
 	EPanelTab GetTab() const { return CurrentTab; }
+
+	/** The Skills tab's guide to one skill: its level, perks, and everything each level unlocks. */
+	UFUNCTION(BlueprintCallable, Category = "Character Panel")
+	void ShowSkillGuide(ESkill Skill);
+
+	/** Back from a skill's guide to the list of skills. */
+	UFUNCTION(BlueprintCallable, Category = "Character Panel")
+	void CloseSkillGuide();
 
 	/** The right-click options for the item in a slot, at a point on screen. */
 	UFUNCTION(BlueprintCallable, Category = "Character Panel")
@@ -86,6 +95,8 @@ private:
 
 	UWidget* BuildInventoryPage();
 	UWidget* BuildSkillsPage();
+	UWidget* BuildGuidePage();
+	void RefreshGuide();
 	void BuildSlots(int32 Count);
 	void Unbind();
 	void AddMenuOption(const FText& Label, TFunction<void()> Action);
@@ -123,7 +134,31 @@ private:
 	TArray<TObjectPtr<UBorder>> SkillRows;
 
 	UPROPERTY()
+	TArray<TObjectPtr<UTextBlock>> SkillNext;
+
+	UPROPERTY()
 	TObjectPtr<UTextBlock> SkillsFooter;
+
+	/** The skill guide page (shown under the Skills tab). */
+	TOptional<ESkill> GuideSkill;
+
+	UPROPERTY()
+	TObjectPtr<UTextBlock> GuideTitle;
+
+	UPROPERTY()
+	TObjectPtr<UTextBlock> GuideLevel;
+
+	UPROPERTY()
+	TObjectPtr<UProgressBar> GuideBar;
+
+	UPROPERTY()
+	TObjectPtr<UTextBlock> GuideXP;
+
+	UPROPERTY()
+	TObjectPtr<UTextBlock> GuidePerks;
+
+	UPROPERTY()
+	TObjectPtr<UVerticalBox> GuideList;
 
 	UPROPERTY()
 	TObjectPtr<UBorder> MenuBlocker;
