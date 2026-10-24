@@ -9,6 +9,12 @@
 
 const FString UHearthvaleSaveGame::SlotName = TEXT("Hearthvale");
 
+FString UHearthvaleSaveGame::GetSlotName()
+{
+	FString Slot;
+	return FParse::Value(FCommandLine::Get(), TEXT("SaveSlot="), Slot) && !Slot.IsEmpty() ? Slot : SlotName;
+}
+
 bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 {
 	UHearthvaleSaveGame* Save = Cast<UHearthvaleSaveGame>(UGameplayStatics::CreateSaveGameObject(StaticClass()));
@@ -25,16 +31,16 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 			Save->FarmPatches.Add(Patch->GetName(), Patch->SaveState());
 		}
 	}
-	return UGameplayStatics::SaveGameToSlot(Save, SlotName, 0);
+	return UGameplayStatics::SaveGameToSlot(Save, GetSlotName(), 0);
 }
 
 bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 {
-	if (!UGameplayStatics::DoesSaveGameExist(SlotName, 0))
+	if (!UGameplayStatics::DoesSaveGameExist(GetSlotName(), 0))
 	{
 		return false;
 	}
-	const UHearthvaleSaveGame* Save = Cast<UHearthvaleSaveGame>(UGameplayStatics::LoadGameFromSlot(SlotName, 0));
+	const UHearthvaleSaveGame* Save = Cast<UHearthvaleSaveGame>(UGameplayStatics::LoadGameFromSlot(GetSlotName(), 0));
 	if (!Save)
 	{
 		return false;
@@ -84,7 +90,7 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 
 bool UHearthvaleSaveGame::DeleteSave()
 {
-	return UGameplayStatics::DeleteGameInSlot(SlotName, 0);
+	return UGameplayStatics::DeleteGameInSlot(GetSlotName(), 0);
 }
 
 FName UHearthvaleSaveGame::UpgradeItemId(FName ItemId)

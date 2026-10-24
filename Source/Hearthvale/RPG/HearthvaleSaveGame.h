@@ -33,6 +33,9 @@ class HEARTHVALE_API UHearthvaleSaveGame : public USaveGame
 
 public:
 	static const FString SlotName;
+
+	/** The slot in use: SlotName, or -SaveSlot=Name from the command line (test runs keep their own save). */
+	static FString GetSlotName();
 	static constexpr int32 CurrentVersion = 2;
 
 	UPROPERTY()
