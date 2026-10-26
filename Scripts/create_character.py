@@ -32,9 +32,9 @@ PARTS = {
     "Skin":     ((0.55, 0.36, 0.26), 0.65, 0.0, None, 1.0),
     "Hair":     ((0.2, 0.1, 0.045), 0.9, 1.6, "Cloth", 14.0),
     "Beard":    ((0.23, 0.115, 0.05), 0.9, 2.2, "Cloth", 14.0),
-    "Tunic":    ((0.13, 0.17, 0.24), 0.95, 1.8, "Cloth", 9.0),
+    "Tunic":    ((0.13, 0.17, 0.24), 0.95, 2.4, "Cloth", 9.0),
     "Belt":     ((1.1, 0.9, 0.7), 0.6, 1.6, "Leather", 5.0),
-    "Trousers": ((0.2, 0.15, 0.1), 0.97, 1.6, "Cloth", 9.0),
+    "Trousers": ((0.2, 0.15, 0.1), 0.97, 2.4, "Cloth", 9.0),
     "Wraps":    ((0.46, 0.4, 0.31), 0.97, 1.0, "Cloth", 12.0),
     "Bracers":  ((1.7, 1.3, 0.95), 0.65, 1.0, "Leather", 5.0),
     "Boots":    ((1.3, 1.05, 0.8), 0.7, 1.2, "Leather", 4.0),
@@ -212,10 +212,15 @@ def build():
                     region[i] = "Beard"  # jaw and chin; the cheeks and nose stay bare
             if bone_of[i].lower().startswith("neck") and front > 0.25 and d.z > -radius * 1.2:
                 region[i] = "Beard"
-        elif region[i] in ("Tunic", "Trousers") and pelvis.z + 2.0 < p.z < pelvis.z + 9.0:
-            region[i] = "Belt"
-        elif region[i] == "Trousers" and p.z > pelvis.z + 9.0:
-            region[i] = "Tunic"  # the tunic comes down over the hips
+        elif region[i] in ("Tunic", "Trousers"):
+            # Clean, level cuts round the body rather than the zigzag where bones meet:
+            # tunic above, a belt, the tunic's hem hanging below it, then trousers.
+            if pelvis.z + 3.0 < p.z < pelvis.z + 9.0:
+                region[i] = "Belt"
+            elif p.z >= pelvis.z + 9.0 or p.z > pelvis.z - 16.0:
+                region[i] = "Tunic"
+            else:
+                region[i] = "Trousers"
 
     # Cloth drapes over the body rather than hugging every muscle: smooth the clothed parts
     # (each vertex drifts towards the middle of its neighbours) before pushing them out.
@@ -228,8 +233,8 @@ def build():
         neighbours[t.x].update((t.y, t.z))
         neighbours[t.y].update((t.x, t.z))
         neighbours[t.z].update((t.x, t.y))
-    draped = {"Tunic": 0.7, "Trousers": 0.7, "Belt": 0.5, "Bracers": 0.5}
-    for _ in range(10):
+    draped = {"Tunic": 0.75, "Trousers": 0.75, "Belt": 0.5, "Bracers": 0.5}
+    for _ in range(24):
         smoothed = list(points)
         for i in range(count):
             amount = draped.get(region[i])
