@@ -1,4 +1,5 @@
 #include "RPG/HearthvaleCheatManager.h"
+#include "GameFramework/SpringArmComponent.h"
 #include "TimerManager.h"
 #include "UnrealClient.h"
 #include "GameFramework/PlayerController.h"
@@ -73,6 +74,26 @@ void UHearthvaleCheatManager::After(float Seconds, const FString& Command)
 	{
 		Controller->ConsoleCommand(Command);
 	}), FMath::Max(0.01f, Seconds), false);
+}
+
+void UHearthvaleCheatManager::CamDistance(float Distance)
+{
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		if (USpringArmComponent* Boom = Character->FindComponentByClass<USpringArmComponent>())
+		{
+			Boom->TargetArmLength = FMath::Max(50.f, Distance);
+		}
+	}
+}
+
+void UHearthvaleCheatManager::Orbit(float Yaw, float Pitch)
+{
+	if (APlayerController* Controller = GetOuterAPlayerController())
+	{
+		const FRotator Now = Controller->GetControlRotation();
+		Controller->SetControlRotation(FRotator(FMath::Clamp(Pitch, -80.f, 80.f), Now.Yaw + Yaw, 0.f));
+	}
 }
 
 void UHearthvaleCheatManager::ShotUI(const FString& Name)

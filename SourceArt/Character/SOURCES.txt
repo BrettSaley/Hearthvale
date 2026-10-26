@@ -1,0 +1,6 @@
+﻿Cloth and leather for the player's outfit, from ambientCG (https://ambientcg.com), CC0 1.0 (public domain).
+
+Cloth    Fabric019   https://ambientcg.com/view?id=Fabric019   (white woven wool, tinted per part)
+Leather  Leather030  https://ambientcg.com/view?id=Leather030  (dark leather: boots and belt)
+
+1K JPG; normals are DirectX. Scripts/create_character.py imports them.

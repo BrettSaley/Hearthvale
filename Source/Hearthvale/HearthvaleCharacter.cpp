@@ -12,6 +12,7 @@
 #include "InputActionValue.h"
 #include "Hearthvale.h"
 #include "TimerManager.h"
+#include "Engine/SkeletalMesh.h"
 #include "UObject/ConstructorHelpers.h"
 #include "InputAction.h"
 #include "EngineUtils.h"
@@ -205,6 +206,15 @@ void AHearthvaleCharacter::PossessedBy(AController* NewController)
 	}
 	GetWorldTimerManager().SetTimer(AutosaveTimer, FTimerDelegate::CreateWeakLambda(this, [this] { SaveProgress(); }),
 		AutosaveInterval, true);
+}
+
+void AHearthvaleCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+	if (USkeletalMesh* Look = Appearance.LoadSynchronous())
+	{
+		GetMesh()->SetSkeletalMeshAsset(Look);
+	}
 }
 
 void AHearthvaleCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)

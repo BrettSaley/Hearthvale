@@ -217,5 +217,10 @@ protected:
 	virtual void PossessedBy(AController* NewController) override;
 
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void BeginPlay() override;
+
+	/** What the character looks like: the settler from Scripts/create_character.py (same skeleton as the mannequin, so the same animations). Empty keeps the mesh set on the Blueprint. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Appearance")
+	TSoftObjectPtr<USkeletalMesh> Appearance = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(TEXT("/Game/Characters/Settler/SKM_Settler.SKM_Settler")));
 };
 

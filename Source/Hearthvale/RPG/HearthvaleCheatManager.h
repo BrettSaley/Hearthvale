@@ -37,6 +37,14 @@ public:
 	UFUNCTION(Exec)
 	void After(float Seconds, const FString& Command);
 
+	/** How far the camera sits behind the character, in cm (CamDistance 120 for a close look). */
+	UFUNCTION(Exec)
+	void CamDistance(float Distance);
+
+	/** Swings the camera round the character (Orbit 180 -10 to look at its face). */
+	UFUNCTION(Exec)
+	void Orbit(float Yaw, float Pitch = 0.f);
+
 	/** Saves a screenshot of the game with its UI to Saved/Screenshots (ShotUI skills_tab). */
 	UFUNCTION(Exec)
 	void ShotUI(const FString& Name);
