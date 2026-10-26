@@ -1,8 +1,8 @@
 """Builds the player's look: /Game/Characters/Settler/SKM_Settler.
 
 A simple, rugged settler in the spirit of Valheim: wool tunic, leather belt
-and bracers, loose trousers, wrapped shins, leather boots, a mop of hair and
-a beard. It's made from
+and bracers, loose trousers, wrapped shins, leather boots, a short red cape,
+a mop of hair and a beard. It's made from
 the UE mannequin (SKM_Manny_Simple), so it keeps the mannequin's skeleton and
 every animation: each vertex is sorted into a part of the outfit by the bone
 that moves it (and, on the head, where it sits), coloured with that part's
@@ -39,6 +39,7 @@ PARTS = {
     "Bracers":  ((1.7, 1.3, 0.95), 0.65, 1.0, "Leather", 5.0),
     "Boots":    ((1.3, 1.05, 0.8), 0.7, 1.2, "Leather", 4.0),
     "Eyes":     ((0.025, 0.02, 0.018), 0.25, 0.0, None, 1.0),
+    "Cape":     ((0.085, 0.018, 0.014), 0.97, 0.0, "Cloth", 6.0),
 }
 ORDER = list(PARTS)
 
@@ -309,6 +310,42 @@ def build():
         for vid in range(before, after):
             mesh, _ = gs.GeometryScript_BoneWeights.set_vertex_bone_weights(mesh, vid, [weight])
         unreal.log_warning(f"create_character: eye at {centre}")
+
+    # A short cape hung from the shoulders: a thin panel just behind the back, bending with the
+    # spine (each of its vertices follows the spine bone at its height) and flaring out a little at
+    # the bottom so it hangs clear of the body.
+    tunic_back = [points[i].x * fwd.x + points[i].y * fwd.y for i in range(count)
+                  if region[i] == "Tunic" and pelvis.z + 25.0 < points[i].z < pelvis.z + 50.0]
+    back = min(tunic_back) - 2.5 if tunic_back else -15.0
+    top, bottom = pelvis.z + 55.0, pelvis.z - 8.0
+    middle = (top + bottom) * 0.5
+    spine = [b for b in ("spine_05", "spine_04", "spine_03", "spine_02", "spine_01", "pelvis") if b in names]
+    spine_z = {b: where[b].z for b in spine}
+    yaw = math.degrees(math.atan2(fwd.y, fwd.x))
+    # Boxes are built up from their base, so place it at the hem.
+    centre = unreal.Vector(fwd.x * back, fwd.y * back, bottom)
+    before = gs.GeometryScript_MeshQueries.get_vertex_count(mesh)
+    primitive = unreal.GeometryScriptPrimitiveOptions()
+    primitive.set_editor_property("material_id", ORDER.index("Cape"))
+    mesh = gs.GeometryScript_Primitives.append_box(mesh, primitive, unreal.Transform(centre, unreal.Rotator(0, 0, yaw), unreal.Vector(1, 1, 1)),
+                                                   1.2, 44.0, top - bottom, 0, 6, 12)
+    after = gs.GeometryScript_MeshQueries.get_vertex_count(mesh)
+    for vid in range(before, after):
+        p, _ = gs.GeometryScript_MeshQueries.get_vertex_position(mesh, vid)
+        flare = (top - p.z) / (top - bottom)
+        # Narrower at the shoulders, flaring back and out towards the hem.
+        side = p.x * right.x + p.y * right.y
+        # ...and curving round the back: the sides come forward.
+        wrap = (side / 22.0) ** 2 * 7.0
+        q = unreal.Vector(p.x - fwd.x * (flare * 7.0 - wrap) - right.x * side * (0.25 - 0.3 * flare),
+                          p.y - fwd.y * (flare * 7.0 - wrap) - right.y * side * (0.25 - 0.3 * flare), p.z)
+        mesh, _ = gs.GeometryScript_MeshEdits.set_vertex_position(mesh, vid, q)
+        nearest = min(spine, key=lambda b: abs(spine_z[b] - p.z)) if spine else "root"
+        weight = unreal.GeometryScriptBoneWeight()
+        weight.set_editor_property("bone_index", names.index(nearest) if nearest in names else 0)
+        weight.set_editor_property("weight", 1.0)
+        mesh, _ = gs.GeometryScript_BoneWeights.set_vertex_bone_weights(mesh, vid, [weight])
+    unreal.log_warning(f"create_character: cape {after - before} vertices, back at {back:.1f}")
 
     options = unreal.GeometryScriptCopyMeshToAssetOptions()
     options.set_editor_property("enable_recompute_normals", True)
