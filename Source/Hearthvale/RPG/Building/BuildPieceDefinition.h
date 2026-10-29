@@ -67,9 +67,17 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")
 	float Height = 100.f;
 
+	/** Only buildable near a workbench (the bench itself and a campfire aren't, so you can start). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")
+	bool bNeedsWorkbench = true;
+
 	/** Makes it a crafting station (a fire you cook at, a workbench). */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")
 	TObjectPtr<UCraftingStationDefinition> Station;
+
+	/** A chest: how many slots it holds (0 for none). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece", meta = (ClampMin = 0))
+	int32 StorageSlots = 0;
 
 	/** A door: this part swings open and shut about DoorHinge. -1 for none. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Door")

@@ -93,6 +93,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Inventory")
 	int32 GetCapacity() const { return Capacity; }
 
+	/** Resizes it (a chest's storage); items in slots past the new end are lost. */
+	void SetCapacity(int32 NewCapacity);
+
 	/** The first slots are the hotbar (keys 1-9); the rest is the backpack. */
 	static constexpr int32 HotbarSize = 9;
 

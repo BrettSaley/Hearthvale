@@ -3,7 +3,7 @@
 - Stone (an item): a bonus find while mining any ore rock
 - M_BuildGhost: the see-through green/red preview in build mode
 - Build pieces in /Game/Building/Pieces (UBuildPieceDefinition): wooden and
-  stone floors and walls, a window wall, a door, stairs, a roof and gable ends, a fence, the crafting stations, a torch
+  stone floors and walls, a window wall, a door, stairs, a roof and gable ends, a fence, a chest, the crafting stations, a torch
 
 Run after create_crafting.py and create_world.py (the stations' looks come
 from their definitions), headless with the editor closed:
@@ -249,6 +249,13 @@ def fence():
             + [part("Cube", "Planks", (0, 0, z), (1.95, 0.05, 0.12)) for z in (40, 88)])
 
 
+def chest():
+    # A plank box with a darker lid and two log bands.
+    return ([part("Cube", "Planks", (0, 0, 25), (1.0, 0.6, 0.5)),
+             part("Cube", "WallPlanks", (0, 0, 56), (1.04, 0.64, 0.12))]
+            + [part("Cube", "Bark", (x, 0, 31), (0.06, 0.66, 0.62), collides=False) for x in (-32, 32)])
+
+
 def gable():
     # Under one roof cell's slope, on the wall below it.
     return [part("Gable", "WallPlanks", (0, 0, 0), (1, 1, 1))]
@@ -267,6 +274,7 @@ def station_parts(name):
 # --- The pieces ---
 # Logs don't stack (a backpack holds 28), so wood costs stay low: a 2x2 hut is about 30 logs.
 # ID: (name, category, snap, cost, parts, footprint half-size, height, sort, extras)
+# Everything but a campfire and a workbench has to be built near a workbench (extras "workbench": False).
 S = Category.STRUCTURE
 C = Category.CRAFTING
 F = Category.FURNITURE
@@ -285,9 +293,9 @@ PIECES = {
     "StoneWall": ("Stone wall", S, Snap.EDGE, [("Stone", 6)], wall("Masonry", 0.3), (86, 15, 100), 200, 8, {}),
     "WoodFence": ("Fence", F, Snap.EDGE, [("Logs", 1)], fence(), (88, 6, 55), 110, 9, {}),
     "Campfire": ("Campfire", C, Snap.FREE, [("Logs", 2), ("Stone", 4)], station_parts("Campfire"), (70, 70, 30), 30, 10,
-                 {"station": "Campfire"}),
+                 {"station": "Campfire", "workbench": False}),
     "Workbench": ("Workbench", C, Snap.FREE, [("Logs", 6)], station_parts("Workbench"), (82, 42, 50), 95, 11,
-                  {"station": "Workbench"}),
+                  {"station": "Workbench", "workbench": False}),
     "Furnace": ("Furnace", C, Snap.FREE, [("Stone", 12), ("Logs", 2)], station_parts("Furnace"), (66, 66, 120), 280, 12,
                 {"station": "Furnace"}),
     "Anvil": ("Anvil", C, Snap.FREE, [("IronBar", 3), ("Logs", 2)], station_parts("Anvil"), (45, 30, 35), 70, 13,
@@ -296,6 +304,7 @@ PIECES = {
               {"station": "Range"}),
     "Torch": ("Torch", F, Snap.FREE, [("Logs", 1)], torch(), (10, 10, 80), 180, 20,
               {"light_intensity": 14.0, "light_offset": V(0, 0, 185)}),
+    "WoodChest": ("Chest", F, Snap.FREE, [("Logs", 4)], chest(), (52, 32, 31), 62, 21, {"storage": 18}),
 }
 
 
@@ -314,7 +323,9 @@ def create_pieces():
                             ("parts", parts), ("footprint", V(*footprint)), ("height", float(height)), ("sort_order", sort),
                             ("door_part", extras.get("door_part", -1)), ("door_hinge", extras.get("door_hinge", V(0, 0, 0))),
                             ("light_intensity", extras.get("light_intensity", 0.0)),
-                            ("light_offset", extras.get("light_offset", V(0, 0, 100)))]:
+                            ("light_offset", extras.get("light_offset", V(0, 0, 100))),
+                            ("needs_workbench", extras.get("workbench", True)),
+                            ("storage_slots", extras.get("storage", 0))]:
             piece.set_editor_property(prop, value)
         station = extras.get("station")
         piece.set_editor_property("station", unreal.load_asset(f"/Game/Crafting/Stations/{station}") if station else None)

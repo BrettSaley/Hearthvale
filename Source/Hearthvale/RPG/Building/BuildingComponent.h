@@ -87,6 +87,13 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Building")
 	float Reach = 800.f;
 
+	/** How far (cm) from a workbench pieces that need one can go. */
+	UPROPERTY(EditDefaultsOnly, Category = "Building")
+	float WorkbenchRange = 2000.f;
+
+	/** Whether there's a workbench (built or the camp's) within range of a spot. */
+	bool IsNearWorkbench(const FVector& Spot) const;
+
 private:
 	AHearthvaleCharacter* GetCharacter() const;
 	bool AimTrace(FHitResult& OutHit) const;

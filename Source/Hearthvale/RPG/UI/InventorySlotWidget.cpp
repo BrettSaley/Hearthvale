@@ -105,6 +105,11 @@ FReply UInventorySlotWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry
 	UCharacterPanelWidget* Owner = Panel.Get();
 	if (!Owner)
 	{
+		if (ClickHandler && !Stack.IsEmpty() && InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+		{
+			ClickHandler();
+			return FReply::Handled();
+		}
 		return FReply::Unhandled();
 	}
 	Owner->CloseItemMenu();

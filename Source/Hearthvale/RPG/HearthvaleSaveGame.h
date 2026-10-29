@@ -36,6 +36,10 @@ struct FSavedBuildPiece
 	/** Doors: whether it was left open. */
 	UPROPERTY()
 	bool bOpen = false;
+
+	/** Chests: what's in them. */
+	UPROPERTY()
+	TArray<FSavedItemStack> Items;
 };
 
 /**

@@ -14,6 +14,8 @@ class UHotbarWidget;
 class UCraftingMenuWidget;
 class ACraftingStation;
 class UBuildingComponent;
+class UChestWidget;
+class ABuildPiece;
 
 /**
  *  Basic PlayerController class for a third person game
@@ -47,13 +49,24 @@ public:
 
 	void CloseCraftingMenu();
 
+	/** Opens a chest's window, or closes it if it's already open on that chest. */
+	void ToggleChest(ABuildPiece* Chest);
+
+	void CloseChest();
+
+	UFUNCTION(BlueprintPure, Category="UI")
+	bool IsChestOpen() const;
+
+	UFUNCTION(BlueprintPure, Category="UI")
+	UChestWidget* GetChestWindow() const { return ChestWindow; }
+
 	UFUNCTION(BlueprintPure, Category="UI")
 	bool IsCraftingMenuOpen() const;
 
 	UFUNCTION(BlueprintPure, Category="UI")
 	UCraftingMenuWidget* GetCraftingMenu() const { return CraftingMenu; }
 
-	/** Whether any window has the mouse (the character window or a crafting menu). */
+	/** Whether any window has the mouse (the character window, a crafting menu or a chest). */
 	UFUNCTION(BlueprintPure, Category="UI")
 	bool IsMenuOpen() const;
 
@@ -96,6 +109,10 @@ protected:
 	/** The recipe list at a station */
 	UPROPERTY()
 	TObjectPtr<UCraftingMenuWidget> CraftingMenu;
+
+	/** A chest's contents and the backpack, side by side */
+	UPROPERTY()
+	TObjectPtr<UChestWidget> ChestWindow;
 
 	/** The hotbar along the bottom of the screen */
 	UPROPERTY()

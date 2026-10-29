@@ -101,6 +101,10 @@ public:
 	UFUNCTION(Exec)
 	void BuildAt(FName PieceId, float X, float Y, int32 Rotation = 0, float From = 1500.f);
 
+	/** With a chest open: moves a slot's items across, from the chest (1) or the backpack (0). */
+	UFUNCTION(Exec)
+	void ChestMove(int32 FromChest, int32 Slot);
+
 	/** Takes down everything built (giving back its materials). */
 	UFUNCTION(Exec)
 	void ClearBuilt();

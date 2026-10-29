@@ -3,7 +3,10 @@
 #include "Engine/World.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "RPG/Building/BuildPieceDefinition.h"
+#include "HearthvaleCharacter.h"
+#include "HearthvalePlayerController.h"
 #include "RPG/CraftingStationDefinition.h"
+#include "RPG/InventoryComponent.h"
 
 #define LOCTEXT_NAMESPACE "BuildPiece"
 
@@ -22,6 +25,12 @@ ABuildPiece* ABuildPiece::Spawn(UWorld* World, UBuildPieceDefinition* InPiece, c
 		Built->Definition = InPiece->Station;
 		Built->bOpen = bInOpen;
 		Built->FinishSpawning(Transform);
+		if (InPiece->StorageSlots > 0)
+		{
+			Built->Storage = NewObject<UInventoryComponent>(Built, TEXT("Storage"));
+			Built->Storage->SetCapacity(InPiece->StorageSlots);
+			Built->Storage->RegisterComponent();
+		}
 	}
 	return Built;
 }
@@ -69,6 +78,12 @@ bool ABuildPiece::GetInteractionPrompt(const AHearthvaleCharacter* Character, FI
 		OutPrompt.Target = Piece->DisplayName;
 		return true;
 	}
+	if (Piece && Storage)
+	{
+		OutPrompt.Action = LOCTEXT("OpenChest", "Open");
+		OutPrompt.Target = Piece->DisplayName;
+		return true;
+	}
 	// Stations work like the camp's; plain walls and floors aren't used.
 	return Super::GetInteractionPrompt(Character, OutPrompt);
 }
@@ -78,6 +93,14 @@ void ABuildPiece::Interact(AHearthvaleCharacter* Character)
 	if (Piece && Piece->IsDoor())
 	{
 		SetOpen(!bOpen);
+		return;
+	}
+	if (Storage)
+	{
+		if (AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(Character->GetController()))
+		{
+			Controller->ToggleChest(this);
+		}
 		return;
 	}
 	Super::Interact(Character);

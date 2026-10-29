@@ -184,3 +184,10 @@ int32 UInventoryComponent::FirstEmptySlot() const
 {
 	return Slots.IndexOfByPredicate([](const FItemStack& Slot) { return Slot.IsEmpty(); });
 }
+
+void UInventoryComponent::SetCapacity(int32 NewCapacity)
+{
+	Capacity = FMath::Max(1, NewCapacity);
+	Slots.SetNum(Capacity);
+	OnInventoryChanged.Broadcast();
+}

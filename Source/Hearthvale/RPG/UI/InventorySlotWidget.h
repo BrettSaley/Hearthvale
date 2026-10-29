@@ -35,6 +35,9 @@ public:
 	/** A small label in the corner, for the hotbar number key. */
 	void SetKeyLabel(const FText& Label);
 
+	/** Without a panel: what clicking a filled slot does (the chest moves the item across). */
+	void SetClickHandler(TFunction<void()> Handler) { ClickHandler = MoveTemp(Handler); }
+
 protected:
 	virtual void NativeOnInitialized() override;
 	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
@@ -68,6 +71,7 @@ private:
 	TObjectPtr<UTextBlock> KeyText;
 
 	TWeakObjectPtr<UCharacterPanelWidget> Panel;
+	TFunction<void()> ClickHandler;
 	int32 Index = INDEX_NONE;
 	FItemStack Stack;
 	bool bHovered = false;

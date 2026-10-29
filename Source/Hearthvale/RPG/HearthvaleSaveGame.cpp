@@ -36,7 +36,14 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 		{
 			if (Built->GetPiece() && !Built->IsActorBeingDestroyed())
 			{
-				Save->BuildPieces.Add(FSavedBuildPiece{Built->GetPiece()->GetPieceId(), Built->GetActorTransform(), Built->IsOpen()});
+				FSavedBuildPiece& Saved = Save->BuildPieces.Add_GetRef(FSavedBuildPiece{Built->GetPiece()->GetPieceId(), Built->GetActorTransform(), Built->IsOpen()});
+				if (const UInventoryComponent* Storage = Built->GetStorage())
+				{
+					for (const FItemStack& Slot : Storage->GetSlots())
+					{
+						Saved.Items.Add(Slot.IsEmpty() ? FSavedItemStack() : FSavedItemStack{Slot.Item->GetItemId(), Slot.Quantity});
+					}
+				}
 			}
 		}
 	}
@@ -102,7 +109,16 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 		{
 			if (UBuildPieceDefinition* Piece = UBuildPieceDefinition::FindPiece(Saved.PieceId))
 			{
-				ABuildPiece::Spawn(World, Piece, Saved.Transform, Saved.bOpen);
+				ABuildPiece* Built = ABuildPiece::Spawn(World, Piece, Saved.Transform, Saved.bOpen);
+				UInventoryComponent* Storage = Built ? Built->GetStorage() : nullptr;
+				for (int32 Index = 0; Storage && Index < Saved.Items.Num() && Index < Storage->GetCapacity(); ++Index)
+				{
+					UItemDefinition* Item = Saved.Items[Index].ItemId.IsNone() ? nullptr : UItemDefinition::FindItem(UpgradeItemId(Saved.Items[Index].ItemId));
+					if (Item)
+					{
+						Storage->SetSlot(Index, FItemStack{Item, Saved.Items[Index].Quantity});
+					}
+				}
 			}
 			else
 			{

@@ -8,6 +8,7 @@
 #include "Landscape.h"
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
+#include "RPG/CraftingStationDefinition.h"
 #include "RPG/GroundItem.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
@@ -17,6 +18,9 @@
 namespace
 {
 	const FLinearColor Warning(1.f, 0.55f, 0.4f);
+
+	/** The sea and the lakes are all at this height (Scripts/create_world.py). */
+	constexpr float WaterLevel = 0.f;
 
 	/** Floors are thin; anything taller counts as a wall or bench to stand things on. */
 	bool IsFloor(const UBuildPieceDefinition* Piece)
@@ -299,6 +303,19 @@ bool UBuildingComponent::IsClear(const UBuildPieceDefinition* Piece, const FTran
 	return true;
 }
 
+bool UBuildingComponent::IsNearWorkbench(const FVector& Spot) const
+{
+	for (const ACraftingStation* Station : TActorRange<ACraftingStation>(GetWorld()))
+	{
+		const UCraftingStationDefinition* Definition = Station->GetDefinition();
+		if (Definition && Definition->Station == ECraftStation::Workbench && FVector::Dist(Station->GetActorLocation(), Spot) <= WorkbenchRange)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 bool UBuildingComponent::CanAfford(const UBuildPieceDefinition* Piece) const
 {
 	const AHearthvaleCharacter* Character = GetCharacter();
@@ -336,6 +353,14 @@ FBuildPlacement UBuildingComponent::EvaluatePlacement(const UBuildPieceDefinitio
 	if (Character && FVector::Dist(Character->GetActorLocation(), Result.Transform.GetLocation()) > Reach)
 	{
 		Result.Problem = LOCTEXT("TooFar", "Too far away");
+	}
+	else if (GroundZ(Result.Transform.GetLocation(), Result.Transform.GetLocation().Z) < WaterLevel)
+	{
+		Result.Problem = LOCTEXT("Water", "Can't build in the water");
+	}
+	else if (Piece->bNeedsWorkbench && !IsNearWorkbench(Result.Transform.GetLocation()))
+	{
+		Result.Problem = LOCTEXT("NoWorkbench", "Needs a workbench nearby");
 	}
 	else if (!CanAfford(Piece))
 	{
@@ -424,6 +449,17 @@ void UBuildingComponent::Remove(ABuildPiece* Built)
 			}
 		}
 		Character->ShowMessage(FText::Format(LOCTEXT("TakenDown", "You take down the {0}."), Piece->DisplayName.ToLower()));
+	}
+	if (const UInventoryComponent* Storage = Built->GetStorage())
+	{
+		for (const FItemStack& Stack : Storage->GetSlots())
+		{
+			if (!Stack.IsEmpty())
+			{
+				const FVector Scatter(FMath::FRandRange(-40.f, 40.f), FMath::FRandRange(-40.f, 40.f), 0.f);
+				AGroundItem::Spawn(GetWorld(), Stack, Built->GetActorLocation() + Scatter);
+			}
+		}
 	}
 	Built->Destroy();
 }

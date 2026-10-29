@@ -5,6 +5,7 @@
 #include "BuildPiece.generated.h"
 
 class UBuildPieceDefinition;
+class UInventoryComponent;
 class UMaterialInstanceDynamic;
 
 /**
@@ -37,6 +38,9 @@ public:
 	/** Height (cm) of its top, where pieces stacked on it start. */
 	float GetTop() const;
 
+	/** A chest's contents; null for anything else. */
+	UInventoryComponent* GetStorage() const { return Storage; }
+
 protected:
 	virtual void ApplyLook() override;
 
@@ -45,6 +49,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Building")
 	bool bOpen = false;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Building")
+	TObjectPtr<UInventoryComponent> Storage;
 };
 
 /**

@@ -9,6 +9,7 @@
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/CraftingStation.h"
+#include "RPG/UI/ChestWidget.h"
 #include "RPG/CraftingStationDefinition.h"
 #include "RPG/FarmPatch.h"
 #include "RPG/HearthvaleSaveGame.h"
@@ -324,4 +325,15 @@ void UHearthvaleCheatManager::ClearBuilt()
 			Character->GetBuilding()->Remove(Built);
 		}
 	}
+}
+
+void UHearthvaleCheatManager::ChestMove(int32 FromChest, int32 Slot)
+{
+	AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(GetOuterAPlayerController());
+	if (!Controller || !Controller->IsChestOpen())
+	{
+		Say(TEXT("No chest is open."));
+		return;
+	}
+	Say(Controller->GetChestWindow()->MoveStack(FromChest != 0, Slot) ? TEXT("Moved.") : TEXT("Nothing moved."));
 }
