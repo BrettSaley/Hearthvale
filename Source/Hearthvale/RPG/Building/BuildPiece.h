@@ -35,6 +35,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Building")
 	void SetOpen(bool bInOpen);
 
+	/** Tints it (in build mode, the piece middle mouse would take down); null clears it. */
+	void SetHighlight(UMaterialInterface* Overlay);
+
 	/** Height (cm) of its top, where pieces stacked on it start. */
 	float GetTop() const;
 

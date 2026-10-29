@@ -6,6 +6,7 @@
 #include "HearthvaleCharacter.h"
 #include "HearthvalePlayerController.h"
 #include "RPG/Building/BuildingComponent.h"
+#include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/CraftingComponent.h"
 #include "RPG/CraftingStation.h"
@@ -360,6 +361,15 @@ void AHearthvaleHUD::DrawBuildMenu(AHearthvaleCharacter* Character)
 	const float StatusY = Top - 84.f;
 	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), CenterX - Width * 0.5f - 10.f, StatusY - 4.f, Width + 20.f, Height + 8.f);
 	DrawText(Status, Placement.bValid ? FLinearColor(0.55f, 1.f, 0.6f) : FLinearColor(1.f, 0.5f, 0.42f), CenterX - Width * 0.5f, StatusY, Medium);
+	// What middle mouse would take down.
+	if (const ABuildPiece* Hovered = Building->GetHovered())
+	{
+		const FString TakeDown = FString::Printf(TEXT("[Middle mouse]  Take down %s"),
+			Hovered->GetPiece() ? *Hovered->GetPiece()->DisplayName.ToString() : TEXT(""));
+		GetTextSize(TakeDown, Width, Height, Font);
+		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), CenterX - Width * 0.5f - 8.f, StatusY - 26.f, Width + 16.f, Height + 6.f);
+		DrawText(TakeDown, FLinearColor(1.f, 0.62f, 0.55f), CenterX - Width * 0.5f, StatusY - 23.f, Font);
+	}
 	const FString Keys = TEXT("[1-9 / Wheel] Pick    [Q] Next tab    [R] Turn    [Middle mouse] Take down    [B] Done");
 	GetTextSize(Keys, Width, Height, Font);
 	DrawText(Keys, FLinearColor(1.f, 1.f, 1.f, 0.7f), CenterX - Width * 0.5f, Top - 48.f, Font);

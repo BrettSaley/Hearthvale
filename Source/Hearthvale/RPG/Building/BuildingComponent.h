@@ -91,6 +91,9 @@ public:
 
 	const FBuildPlacement& GetPlacement() const { return Placement; }
 
+	/** The built piece being looked at in build mode (what middle mouse would take down), or null. */
+	ABuildPiece* GetHovered() const { return Hovered.Get(); }
+
 	bool CanAfford(const UBuildPieceDefinition* Piece) const;
 
 	/** Where a piece goes when aimed at a hit (the ground, or something built), and whether it can. */
@@ -121,12 +124,19 @@ private:
 	float GroundZ(const FVector& Spot, float Fallback) const;
 	bool IsClear(const UBuildPieceDefinition* Piece, const FTransform& Transform) const;
 	void UpdatePlacement();
+	void SetHovered(ABuildPiece* Piece);
 
 	UPROPERTY()
 	TArray<TObjectPtr<UBuildPieceDefinition>> Pieces;
 
 	UPROPERTY()
 	TObjectPtr<ABuildGhost> Ghost;
+
+	TWeakObjectPtr<ABuildPiece> Hovered;
+
+	/** The see-through red laid over the hovered piece. */
+	UPROPERTY()
+	TObjectPtr<class UMaterialInstanceDynamic> HoverMaterial;
 
 	bool bBuilding = false;
 	EBuildCategory Category = EBuildCategory::Structure;

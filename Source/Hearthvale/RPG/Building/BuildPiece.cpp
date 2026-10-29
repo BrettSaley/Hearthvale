@@ -73,6 +73,14 @@ FVector ABuildPiece::GetWakeSpot() const
 	return GetActorLocation() + GetActorRightVector() * 110.f + FVector(0.f, 0.f, 100.f);
 }
 
+void ABuildPiece::SetHighlight(UMaterialInterface* Overlay)
+{
+	for (UStaticMeshComponent* Part : PartMeshes)
+	{
+		Part->SetOverlayMaterial(Part->GetStaticMesh() ? Overlay : nullptr);
+	}
+}
+
 float ABuildPiece::GetTop() const
 {
 	return GetActorLocation().Z + (Piece ? Piece->Height : 0.f);

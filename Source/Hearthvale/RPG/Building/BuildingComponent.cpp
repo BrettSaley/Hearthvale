@@ -6,6 +6,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "HearthvaleCharacter.h"
 #include "Landscape.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/CraftingStationDefinition.h"
@@ -81,11 +82,41 @@ void UBuildingComponent::SetBuildMode(bool bOn)
 		}
 		UpdatePlacement();
 	}
-	else if (Ghost)
+	else
 	{
-		Ghost->Destroy();
-		Ghost = nullptr;
+		SetHovered(nullptr);
+		if (Ghost)
+		{
+			Ghost->Destroy();
+			Ghost = nullptr;
+		}
 	}
+}
+
+void UBuildingComponent::SetHovered(ABuildPiece* Piece)
+{
+	if (Hovered.Get() == Piece)
+	{
+		return;
+	}
+	if (ABuildPiece* Old = Hovered.Get())
+	{
+		Old->SetHighlight(nullptr);
+	}
+	Hovered = Piece;
+	if (!Piece)
+	{
+		return;
+	}
+	if (!HoverMaterial)
+	{
+		if (UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Building/M_BuildGhost.M_BuildGhost")))
+		{
+			HoverMaterial = UMaterialInstanceDynamic::Create(Base, this);
+			HoverMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.9f, 0.2f, 0.12f));
+		}
+	}
+	Piece->SetHighlight(HoverMaterial);
 }
 
 void UBuildingComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -174,7 +205,9 @@ void UBuildingComponent::UpdatePlacement()
 {
 	UBuildPieceDefinition* Piece = GetSelectedPiece();
 	FHitResult Hit;
-	if (!Piece || !Ghost || !AimTrace(Hit))
+	const bool bAimed = AimTrace(Hit);
+	SetHovered(bAimed ? Cast<ABuildPiece>(Hit.GetActor()) : nullptr);
+	if (!Piece || !Ghost || !bAimed)
 	{
 		Placement = FBuildPlacement();
 		Placement.Problem = LOCTEXT("NoAim", "Look at the ground to build");
