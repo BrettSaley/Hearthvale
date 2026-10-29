@@ -292,6 +292,14 @@ void UHearthvaleCheatManager::BuildSelect(int32 Index)
 	}
 }
 
+void UHearthvaleCheatManager::BuildTab()
+{
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		Character->GetBuilding()->CycleCategory();
+	}
+}
+
 void UHearthvaleCheatManager::BuildAt(FName PieceId, float X, float Y, int32 Rotation, float From)
 {
 	AHearthvaleCharacter* Character = GetHearthvaleCharacter();

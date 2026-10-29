@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "RPG/Building/BuildPieceDefinition.h"
 #include "BuildingComponent.generated.h"
 
 class ABuildGhost;
@@ -49,11 +50,23 @@ public:
 
 	UBuildPieceDefinition* GetSelectedPiece();
 
+	/** The build menu's tab: only its pieces show, and the number keys and wheel pick among them. */
+	UFUNCTION(BlueprintPure, Category = "Building")
+	EBuildCategory GetCategory() const { return Category; }
+
+	/** The pieces on the current tab, in menu order. */
+	TArray<UBuildPieceDefinition*> GetTabPieces();
+
+	/** Picks the Index-th piece on the current tab (0 is the first). */
 	UFUNCTION(BlueprintCallable, Category = "Building")
 	void SelectPiece(int32 Index);
 
-	/** Moves along the build menu (the mouse wheel), wrapping round. */
+	/** Moves along the current tab (the mouse wheel), wrapping round. */
 	void CyclePiece(int32 Direction);
+
+	/** The next tab that has pieces (Q), picking its first. */
+	UFUNCTION(BlueprintCallable, Category = "Building")
+	void CycleCategory();
 
 	/** Turns the preview a step (R). */
 	UFUNCTION(BlueprintCallable, Category = "Building")
@@ -116,6 +129,8 @@ private:
 	TObjectPtr<ABuildGhost> Ghost;
 
 	bool bBuilding = false;
+	EBuildCategory Category = EBuildCategory::Structure;
+	/** Into GetPieces(), not the tab. */
 	int32 Selected = 0;
 	int32 Rotation = 0;
 	FBuildPlacement Placement;

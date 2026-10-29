@@ -150,6 +150,7 @@ protected:
 	UBuildingComponent* GetActiveBuilding() const;
 	void BuildPressed();
 	void RotatePressed();
+	void NextTabPressed();
 	void RemovePressed();
 
 	/** Returns true if the player should use UMG touch controls */

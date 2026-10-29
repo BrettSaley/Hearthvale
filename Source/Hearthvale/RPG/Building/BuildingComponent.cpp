@@ -94,21 +94,49 @@ void UBuildingComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
+TArray<UBuildPieceDefinition*> UBuildingComponent::GetTabPieces()
+{
+	TArray<UBuildPieceDefinition*> Tab;
+	for (UBuildPieceDefinition* Piece : GetPieces())
+	{
+		if (Piece->Category == Category)
+		{
+			Tab.Add(Piece);
+		}
+	}
+	return Tab;
+}
+
 void UBuildingComponent::SelectPiece(int32 Index)
 {
-	const int32 Count = GetPieces().Num();
-	if (Count > 0)
+	const TArray<UBuildPieceDefinition*> Tab = GetTabPieces();
+	if (!Tab.IsEmpty())
 	{
-		Selected = FMath::Clamp(Index, 0, Count - 1);
+		Selected = GetPieces().IndexOfByKey(Tab[FMath::Clamp(Index, 0, Tab.Num() - 1)]);
 	}
 }
 
 void UBuildingComponent::CyclePiece(int32 Direction)
 {
-	const int32 Count = GetPieces().Num();
-	if (Count > 0)
+	const TArray<UBuildPieceDefinition*> Tab = GetTabPieces();
+	if (!Tab.IsEmpty())
 	{
-		Selected = (Selected + Direction % Count + Count) % Count;
+		const int32 Current = FMath::Max(0, Tab.IndexOfByKey(GetSelectedPiece()));
+		SelectPiece((Current + Direction % Tab.Num() + Tab.Num()) % Tab.Num());
+	}
+}
+
+void UBuildingComponent::CycleCategory()
+{
+	const int32 Count = StaticEnum<EBuildCategory>()->NumEnums() - 1;  // Less the _MAX entry.
+	for (int32 Step = 1; Step <= Count; ++Step)
+	{
+		Category = static_cast<EBuildCategory>((static_cast<int32>(Category) + 1) % Count);
+		if (!GetTabPieces().IsEmpty())
+		{
+			SelectPiece(0);
+			return;
+		}
 	}
 }
 

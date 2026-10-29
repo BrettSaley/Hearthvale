@@ -284,7 +284,8 @@ void AHearthvaleHUD::DrawProgress(const FString& Text, float Progress, const FLi
 void AHearthvaleHUD::DrawBuildMenu(AHearthvaleCharacter* Character)
 {
 	UBuildingComponent* Building = Character->GetBuilding();
-	const TArray<TObjectPtr<UBuildPieceDefinition>>& Pieces = Building->GetPieces();
+	const TArray<UBuildPieceDefinition*> Pieces = Building->GetTabPieces();
+	const int32 SelectedIndex = Pieces.IndexOfByKey(Building->GetSelectedPiece());
 	UFont* Font = GEngine->GetSmallFont();
 	UFont* Medium = GEngine->GetMediumFont();
 	const float CenterX = Canvas->ClipX * 0.5f;
@@ -301,7 +302,7 @@ void AHearthvaleHUD::DrawBuildMenu(AHearthvaleCharacter* Character)
 	constexpr float Gap = 6.f;
 	const int32 Fits = FMath::Max(1, FMath::FloorToInt((Canvas->ClipX - 80.f + Gap) / (BoxWidth + Gap)));
 	const int32 Shown = FMath::Min(Pieces.Num(), Fits);
-	const int32 First = FMath::Clamp(Building->GetSelectedIndex() - Shown / 2, 0, Pieces.Num() - Shown);
+	const int32 First = FMath::Clamp(SelectedIndex - Shown / 2, 0, Pieces.Num() - Shown);
 	const float RowWidth = Shown * BoxWidth + (Shown - 1) * Gap;
 	const float Left = CenterX - RowWidth * 0.5f;
 	const float Top = Canvas->ClipY - 190.f;
@@ -316,7 +317,7 @@ void AHearthvaleHUD::DrawBuildMenu(AHearthvaleCharacter* Character)
 	for (int32 Index = First; Index < First + Shown; ++Index)
 	{
 		const UBuildPieceDefinition* Piece = Pieces[Index];
-		const bool bSelected = Index == Building->GetSelectedIndex();
+		const bool bSelected = Index == SelectedIndex;
 		const bool bAffordable = Building->CanAfford(Piece);
 		const float X = Left + (Index - First) * (BoxWidth + Gap);
 		if (bSelected)
@@ -356,10 +357,24 @@ void AHearthvaleHUD::DrawBuildMenu(AHearthvaleCharacter* Character)
 		: Placement.Problem.ToString();
 	float Width, Height;
 	GetTextSize(Status, Width, Height, Medium);
-	const float StatusY = Top - 64.f;
+	const float StatusY = Top - 84.f;
 	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), CenterX - Width * 0.5f - 10.f, StatusY - 4.f, Width + 20.f, Height + 8.f);
 	DrawText(Status, Placement.bValid ? FLinearColor(0.55f, 1.f, 0.6f) : FLinearColor(1.f, 0.5f, 0.42f), CenterX - Width * 0.5f, StatusY, Medium);
-	const FString Keys = TEXT("[1-9 / Wheel] Pick    [R] Turn    [Middle mouse] Take down    [B] Done");
+	const FString Keys = TEXT("[1-9 / Wheel] Pick    [Q] Next tab    [R] Turn    [Middle mouse] Take down    [B] Done");
 	GetTextSize(Keys, Width, Height, Font);
-	DrawText(Keys, FLinearColor(1.f, 1.f, 1.f, 0.7f), CenterX - Width * 0.5f, Top - 26.f, Font);
+	DrawText(Keys, FLinearColor(1.f, 1.f, 1.f, 0.7f), CenterX - Width * 0.5f, Top - 48.f, Font);
+
+	// The tabs, along the strip's top left; the current one in gold.
+	float TabX = Left;
+	const UEnum* Categories = StaticEnum<EBuildCategory>();
+	for (int32 Tab = 0; Tab < Categories->NumEnums() - 1; ++Tab)
+	{
+		const FString Name = Categories->GetDisplayNameTextByIndex(Tab).ToString();
+		const bool bCurrent = Tab == static_cast<int32>(Building->GetCategory());
+		float TabWidth, TabHeight;
+		GetTextSize(Name, TabWidth, TabHeight, Font);
+		DrawRect(bCurrent ? Gold : FLinearColor(0.05f, 0.04f, 0.03f, 0.7f), TabX, Top - 24.f, TabWidth + 16.f, 20.f);
+		DrawText(Name, bCurrent ? FLinearColor::Black : FLinearColor(0.85f, 0.85f, 0.8f), TabX + 8.f, Top - 22.f, Font);
+		TabX += TabWidth + 20.f;
+	}
 }

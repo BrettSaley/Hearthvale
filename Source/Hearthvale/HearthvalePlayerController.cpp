@@ -123,10 +123,11 @@ void AHearthvalePlayerController::SetupInputComponent()
 		}
 	}
 
-	// Build mode: B, then left mouse builds, R turns, middle mouse takes down.
+	// Build mode: B, then left mouse builds, R turns, Q changes tab, middle mouse takes down.
 	InputComponent->BindKey(EKeys::B, IE_Pressed, this, &AHearthvalePlayerController::ToggleBuildMode);
 	InputComponent->BindKey(EKeys::LeftMouseButton, IE_Pressed, this, &AHearthvalePlayerController::BuildPressed);
 	InputComponent->BindKey(EKeys::R, IE_Pressed, this, &AHearthvalePlayerController::RotatePressed);
+	InputComponent->BindKey(EKeys::Q, IE_Pressed, this, &AHearthvalePlayerController::NextTabPressed);
 	InputComponent->BindKey(EKeys::MiddleMouseButton, IE_Pressed, this, &AHearthvalePlayerController::RemovePressed);
 
 	// only add IMCs for local player controllers
@@ -333,6 +334,14 @@ void AHearthvalePlayerController::RotatePressed()
 	if (UBuildingComponent* Building = GetActiveBuilding())
 	{
 		Building->Rotate();
+	}
+}
+
+void AHearthvalePlayerController::NextTabPressed()
+{
+	if (UBuildingComponent* Building = GetActiveBuilding())
+	{
+		Building->CycleCategory();
 	}
 }
 

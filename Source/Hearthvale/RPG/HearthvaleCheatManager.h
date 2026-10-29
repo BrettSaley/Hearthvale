@@ -90,9 +90,13 @@ public:
 	UFUNCTION(Exec)
 	void BuildMode();
 
-	/** Picks a piece in the build menu (0 is the first). */
+	/** Picks a piece on the build menu's current tab (0 is the first). */
 	UFUNCTION(Exec)
 	void BuildSelect(int32 Index);
+
+	/** The build menu's next tab, as Q. */
+	UFUNCTION(Exec)
+	void BuildTab();
 
 	/**
 	 * Builds a piece as if aimed straight down at a spot: X and Y cm from the
