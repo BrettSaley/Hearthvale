@@ -29,6 +29,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Chest")
 	bool MoveStack(bool bFromChest, int32 SlotIndex);
 
+	/** Moves every slot holding the same item as this one across (shift-click). False if nothing moved. */
+	UFUNCTION(BlueprintCallable, Category = "Chest")
+	bool MoveAllLike(bool bFromChest, int32 SlotIndex);
+
 protected:
 	virtual void NativeOnInitialized() override;
 	virtual void NativeDestruct() override;

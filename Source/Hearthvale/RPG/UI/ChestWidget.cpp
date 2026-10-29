@@ -14,6 +14,7 @@
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/InventoryComponent.h"
+#include "RPG/ItemDefinition.h"
 #include "RPG/UI/HearthvaleUIStyle.h"
 #include "RPG/UI/InventorySlotWidget.h"
 #include "RPG/UI/MenuButtonWidget.h"
@@ -70,7 +71,7 @@ void UChestWidget::NativeOnInitialized()
 	Layout->AddChildToVerticalBox(BackpackGrid)->SetHorizontalAlignment(HAlign_Center);
 
 	UTextBlock* Hint = HearthvaleUI::MakeText(WidgetTree,
-		LOCTEXT("Hint", "Click an item to move it across  ·  E or X to close"), 9, HearthvaleUI::MutedColor);
+		LOCTEXT("Hint", "Click an item to move it across, shift-click to move all of that kind  ·  E or X to close"), 9, HearthvaleUI::MutedColor);
 	Layout->AddChildToVerticalBox(Hint)->SetPadding(FMargin(0.f, 8.f, 0.f, 0.f));
 }
 
@@ -115,11 +116,11 @@ void UChestWidget::BuildGrid(UUniformGridPanel* Grid, TArray<TObjectPtr<UInvento
 	{
 		UInventorySlotWidget* SlotWidget = CreateWidget<UInventorySlotWidget>(this, UInventorySlotWidget::StaticClass());
 		SlotWidget->Init(nullptr, Index);
-		SlotWidget->SetClickHandler([WeakThis = TWeakObjectPtr<UChestWidget>(this), bChestSide, Index]
+		SlotWidget->SetClickHandler([WeakThis = TWeakObjectPtr<UChestWidget>(this), bChestSide, Index](bool bShift)
 		{
 			if (WeakThis.IsValid())
 			{
-				WeakThis->MoveStack(bChestSide, Index);
+				bShift ? WeakThis->MoveAllLike(bChestSide, Index) : WeakThis->MoveStack(bChestSide, Index);
 			}
 		});
 		Grid->AddChildToUniformGrid(SlotWidget, Index / ChestColumns, Index % ChestColumns);
@@ -170,6 +171,39 @@ bool UChestWidget::MoveStack(bool bFromChest, int32 SlotIndex)
 			HearthvaleUI::BadColor);
 	}
 	return Moved > 0;
+}
+
+bool UChestWidget::MoveAllLike(bool bFromChest, int32 SlotIndex)
+{
+	UInventoryComponent* Storage = GetChestStorage();
+	AHearthvaleCharacter* Owner = Character.Get();
+	if (!Storage || !Owner)
+	{
+		return false;
+	}
+	const UInventoryComponent* From = bFromChest ? Storage : Owner->GetInventory();
+	const UItemDefinition* Item = From->GetSlot(SlotIndex).Item;
+	if (!Item)
+	{
+		return false;
+	}
+	// Logs and the like don't stack, so this saves a click per log. Stops when the other side fills.
+	bool bMoved = false;
+	for (int32 Index = 0; Index < From->GetCapacity(); ++Index)
+	{
+		if (From->GetSlot(Index).Item != Item)
+		{
+			continue;
+		}
+		const int32 Before = From->GetSlot(Index).Quantity;
+		MoveStack(bFromChest, Index);
+		if (From->GetSlot(Index).Item == Item && From->GetSlot(Index).Quantity == Before)
+		{
+			break;
+		}
+		bMoved = true;
+	}
+	return bMoved;
 }
 
 void UChestWidget::Unbind()

@@ -255,6 +255,26 @@ float UBuildingComponent::FindBaseZ(const UBuildPieceDefinition* Piece, const FH
 		}
 		return Level;
 	}
+	// A beam rests on poles standing at its ends, so it needn't be aimed at their tops.
+	if (Piece->Height <= 50.f)
+	{
+		const bool bRunsNorthSouth = FMath::IsNearlyZero(FMath::Fmod(Snapped.X, UBuildPieceDefinition::GridSize), 1.f);
+		const FVector Along = bRunsNorthSouth ? FVector(0.f, Half, 0.f) : FVector(Half, 0.f, 0.f);
+		float Highest = -MAX_flt;
+		for (const ABuildPiece* Near : TActorRange<ABuildPiece>(GetWorld()))
+		{
+			const UBuildPieceDefinition* NearPiece = Near->GetPiece();
+			if (NearPiece && NearPiece->Snap == EBuildSnap::Free
+				&& FMath::Min(FVector::Dist2D(Near->GetActorLocation(), Snapped + Along), FVector::Dist2D(Near->GetActorLocation(), Snapped - Along)) < 25.f)
+			{
+				Highest = FMath::Max(Highest, Near->GetTop());
+			}
+		}
+		if (Highest > -MAX_flt)
+		{
+			return Highest;
+		}
+	}
 	// A wall stands on the floor whose edge it's on, or else down in the ground a little.
 	for (const ABuildPiece* Near : TActorRange<ABuildPiece>(GetWorld()))
 	{

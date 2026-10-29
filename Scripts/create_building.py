@@ -3,7 +3,7 @@
 - Stone (an item): a bonus find while mining any ore rock
 - M_BuildGhost: the see-through green/red preview in build mode
 - Build pieces in /Game/Building/Pieces (UBuildPieceDefinition): wooden and
-  stone floors and walls, a window wall, a door, stairs, a roof and gable ends, a fence, a chest, a bed (where you wake), the crafting stations, a torch
+  stone floors and walls, a window wall, a door, stairs, a roof and gable ends, a fence, log poles and beams, a chest, a bed (where you wake), the crafting stations, a torch
 
 Run after create_crafting.py and create_world.py (the stations' looks come
 from their definitions), headless with the editor closed:
@@ -316,6 +316,11 @@ PIECES = {
                    (100, 100, 15), 30, 7, {}),
     "StoneWall": ("Stone wall", S, Snap.EDGE, [("Stone", 6)], wall("Masonry", 0.3), (86, 15, 100), 200, 8, {}),
     "WoodFence": ("Fence", F, Snap.EDGE, [("Logs", 1)], fence(), (88, 6, 55), 110, 9, {}),
+    # Timber framing: an upright log anywhere, and a log lying along a cell's edge (on a wall, poles or the ground).
+    "WoodPole": ("Log pole", S, Snap.FREE, [("Logs", 1)], [part("Cylinder", "Bark", (0, 0, 100), (0.22, 0.22, 2.0))],
+                 (10, 10, 100), 200, 9, {}),
+    "WoodBeam": ("Log beam", S, Snap.EDGE, [("Logs", 1)], [part("Cylinder", "Bark", (0, 0, 11), (0.22, 0.22, 2.0), (0, 90, 0))],
+                 (88, 10, 10), 22, 9, {}),
     "Campfire": ("Campfire", C, Snap.FREE, [("Logs", 2), ("Stone", 4)], station_parts("Campfire"), (70, 70, 30), 30, 10,
                  {"station": "Campfire", "workbench": False}),
     "Workbench": ("Workbench", C, Snap.FREE, [("Logs", 6)], station_parts("Workbench"), (82, 42, 50), 95, 11,

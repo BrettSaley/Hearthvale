@@ -101,9 +101,9 @@ public:
 	UFUNCTION(Exec)
 	void BuildAt(FName PieceId, float X, float Y, int32 Rotation = 0, float From = 1500.f);
 
-	/** With a chest open: moves a slot's items across, from the chest (1) or the backpack (0). */
+	/** With a chest open: moves a slot's items across, from the chest (1) or the backpack (0); AllLikeIt 1 is a shift-click. */
 	UFUNCTION(Exec)
-	void ChestMove(int32 FromChest, int32 Slot);
+	void ChestMove(int32 FromChest, int32 Slot, int32 AllLikeIt = 0);
 
 	/** Takes down the piece found straight down at a spot (as BuildAt aims), as middle mouse would. */
 	UFUNCTION(Exec)

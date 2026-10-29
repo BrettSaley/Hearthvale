@@ -107,7 +107,7 @@ FReply UInventorySlotWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry
 	{
 		if (ClickHandler && !Stack.IsEmpty() && InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
 		{
-			ClickHandler();
+			ClickHandler(InMouseEvent.IsShiftDown());
 			return FReply::Handled();
 		}
 		return FReply::Unhandled();

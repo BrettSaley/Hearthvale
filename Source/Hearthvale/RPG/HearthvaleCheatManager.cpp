@@ -327,7 +327,7 @@ void UHearthvaleCheatManager::ClearBuilt()
 	}
 }
 
-void UHearthvaleCheatManager::ChestMove(int32 FromChest, int32 Slot)
+void UHearthvaleCheatManager::ChestMove(int32 FromChest, int32 Slot, int32 AllLikeIt)
 {
 	AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(GetOuterAPlayerController());
 	if (!Controller || !Controller->IsChestOpen())
@@ -335,7 +335,9 @@ void UHearthvaleCheatManager::ChestMove(int32 FromChest, int32 Slot)
 		Say(TEXT("No chest is open."));
 		return;
 	}
-	Say(Controller->GetChestWindow()->MoveStack(FromChest != 0, Slot) ? TEXT("Moved.") : TEXT("Nothing moved."));
+	UChestWidget* Window = Controller->GetChestWindow();
+	const bool bMoved = AllLikeIt ? Window->MoveAllLike(FromChest != 0, Slot) : Window->MoveStack(FromChest != 0, Slot);
+	Say(bMoved ? TEXT("Moved.") : TEXT("Nothing moved."));
 }
 
 void UHearthvaleCheatManager::TakeDownAt(float X, float Y, float From)

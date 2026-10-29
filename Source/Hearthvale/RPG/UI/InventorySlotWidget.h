@@ -35,8 +35,8 @@ public:
 	/** A small label in the corner, for the hotbar number key. */
 	void SetKeyLabel(const FText& Label);
 
-	/** Without a panel: what clicking a filled slot does (the chest moves the item across). */
-	void SetClickHandler(TFunction<void()> Handler) { ClickHandler = MoveTemp(Handler); }
+	/** Without a panel: what clicking a filled slot does (the chest moves the item across); told whether shift was held. */
+	void SetClickHandler(TFunction<void(bool)> Handler) { ClickHandler = MoveTemp(Handler); }
 
 protected:
 	virtual void NativeOnInitialized() override;
@@ -71,7 +71,7 @@ private:
 	TObjectPtr<UTextBlock> KeyText;
 
 	TWeakObjectPtr<UCharacterPanelWidget> Panel;
-	TFunction<void()> ClickHandler;
+	TFunction<void(bool)> ClickHandler;
 	int32 Index = INDEX_NONE;
 	FItemStack Stack;
 	bool bHovered = false;
