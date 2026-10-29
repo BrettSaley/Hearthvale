@@ -218,7 +218,8 @@ float UBuildingComponent::FindBaseZ(const UBuildPieceDefinition* Piece, const FH
 			return Hit.ImpactPoint.Z;
 		}
 		const UBuildPieceDefinition* OnPiece = On->GetPiece();
-		const bool bSameLevel = Piece->Snap == EBuildSnap::Cell && OnPiece && OnPiece->Snap == EBuildSnap::Cell;
+		// Floors extend floors and roofs extend roofs; stairs (or a roof) aimed at a floor stand on it.
+		const bool bSameLevel = Piece->Snap == EBuildSnap::Cell && OnPiece && OnPiece->Snap == EBuildSnap::Cell && IsFloor(Piece) == IsFloor(OnPiece);
 		return bSameLevel ? On->GetActorLocation().Z : On->GetTop();
 	}
 	const float Ground = Hit.ImpactPoint.Z;

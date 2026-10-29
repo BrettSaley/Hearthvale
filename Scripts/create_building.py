@@ -3,7 +3,7 @@
 - Stone (an item): a bonus find while mining any ore rock
 - M_BuildGhost: the see-through green/red preview in build mode
 - Build pieces in /Game/Building/Pieces (UBuildPieceDefinition): wooden and
-  stone floors and walls, a door, a roof and gable ends, the crafting stations, a torch
+  stone floors and walls, a window wall, a door, stairs, a roof and gable ends, a fence, the crafting stations, a torch
 
 Run after create_crafting.py and create_world.py (the stations' looks come
 from their definitions), headless with the editor closed:
@@ -221,6 +221,34 @@ def roof():
             part("Cylinder", "Bark", (100, 0, 115), (0.2, 0.2, 2.1), (90, 0, 0), collides=False)]
 
 
+def window_wall():
+    # A wall with an 80 cm square window at eye height.
+    return [part("Cube", "WallPlanks", (0, 0, 45), (2.0, 0.2, 0.9)),
+            part("Cube", "WallPlanks", (0, 0, 175), (2.0, 0.2, 0.5)),
+            part("Cube", "WallPlanks", (-70, 0, 120), (0.6, 0.2, 0.6)),
+            part("Cube", "WallPlanks", (70, 0, 120), (0.6, 0.2, 0.6)),
+            part("Cube", "Bark", (0, 0, 91), (0.84, 0.26, 0.04), collides=False)] + posts()
+
+
+STAIR_RISE = 220  # A floor's top to the next floor's top: a wall plus a floor.
+STAIR_STEPS = 8
+
+
+def stairs():
+    # Solid steps rising towards +X across a cell, each low enough to walk up.
+    run = 200 / STAIR_STEPS
+    steps = []
+    for i in range(STAIR_STEPS):
+        top = STAIR_RISE * (i + 1) / STAIR_STEPS
+        steps.append(part("Cube", "Planks", (-100 + run * (i + 0.5), 0, top / 2), (run / 100, 1.6, top / 100)))
+    return steps + [part("Cube", "Bark", (0, y, STAIR_RISE / 2), (2.3, 0.08, 0.14), (0, 45, 0), collides=False) for y in (-82, 82)]
+
+
+def fence():
+    return ([part("Cylinder", "Bark", (x, 0, 55), (0.12, 0.12, 1.1)) for x in (-92, 0, 92)]
+            + [part("Cube", "Planks", (0, 0, z), (1.95, 0.05, 0.12)) for z in (40, 88)])
+
+
 def gable():
     # Under one roof cell's slope, on the wall below it.
     return [part("Gable", "WallPlanks", (0, 0, 0), (1, 1, 1))]
@@ -246,13 +274,16 @@ PIECES = {
     "WoodFloor": ("Wood floor", S, Snap.CELL, [("Logs", 2)], [part("Cube", "Planks", (0, 0, 10), (2.0, 2.0, 0.2))],
                   (100, 100, 10), 20, 0, {}),
     "WoodWall": ("Wood wall", S, Snap.EDGE, [("Logs", 2)], wall("WallPlanks", 0.2) + posts(), (88, 10, 100), 200, 1, {}),
-    "WoodDoor": ("Wood door", S, Snap.EDGE, [("Logs", 3)], door_frame(), (88, 10, 100), 200, 2,
+    "WoodWindow": ("Window wall", S, Snap.EDGE, [("Logs", 2)], window_wall(), (88, 10, 100), 200, 2, {}),
+    "WoodDoor": ("Wood door", S, Snap.EDGE, [("Logs", 3)], door_frame(), (88, 10, 100), 200, 3,
                  {"door_part": 3, "door_hinge": V(-40, 0, 0)}),
-    "WoodRoof": ("Roof", S, Snap.CELL, [("Logs", 2)], roof(), (96, 96, 58), 115, 3, {}),
-    "WoodGable": ("Gable end", S, Snap.EDGE, [("Logs", 2)], gable(), (60, 10, 20), GABLE_HEIGHT, 4, {}),
+    "WoodStairs": ("Stairs", S, Snap.CELL, [("Logs", 3)], stairs(), (96, 80, STAIR_RISE / 2), STAIR_RISE, 4, {}),
+    "WoodRoof": ("Roof", S, Snap.CELL, [("Logs", 2)], roof(), (96, 96, 58), 115, 5, {}),
+    "WoodGable": ("Gable end", S, Snap.EDGE, [("Logs", 2)], gable(), (60, 10, 20), GABLE_HEIGHT, 6, {}),
     "StoneFloor": ("Stone floor", S, Snap.CELL, [("Stone", 6)], [part("Cube", "Flagstone", (0, 0, 15), (2.0, 2.0, 0.3))],
-                   (100, 100, 15), 30, 5, {}),
-    "StoneWall": ("Stone wall", S, Snap.EDGE, [("Stone", 6)], wall("Masonry", 0.3), (86, 15, 100), 200, 6, {}),
+                   (100, 100, 15), 30, 7, {}),
+    "StoneWall": ("Stone wall", S, Snap.EDGE, [("Stone", 6)], wall("Masonry", 0.3), (86, 15, 100), 200, 8, {}),
+    "WoodFence": ("Fence", F, Snap.EDGE, [("Logs", 1)], fence(), (88, 6, 55), 110, 9, {}),
     "Campfire": ("Campfire", C, Snap.FREE, [("Logs", 2), ("Stone", 4)], station_parts("Campfire"), (70, 70, 30), 30, 10,
                  {"station": "Campfire"}),
     "Workbench": ("Workbench", C, Snap.FREE, [("Logs", 6)], station_parts("Workbench"), (82, 42, 50), 95, 11,

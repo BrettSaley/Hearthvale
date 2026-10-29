@@ -294,19 +294,31 @@ void AHearthvaleHUD::DrawBuildMenu(AHearthvaleCharacter* Character)
 		return;
 	}
 
-	// A row of pieces above the hotbar: the key, the name and the cost.
+	// A row of pieces above the hotbar: the key, the name and the cost. When they don't all
+	// fit, the row scrolls to keep the selected one in view.
 	constexpr float BoxWidth = 112.f;
 	constexpr float BoxHeight = 66.f;
 	constexpr float Gap = 6.f;
-	const float RowWidth = Pieces.Num() * BoxWidth + (Pieces.Num() - 1) * Gap;
+	const int32 Fits = FMath::Max(1, FMath::FloorToInt((Canvas->ClipX - 80.f + Gap) / (BoxWidth + Gap)));
+	const int32 Shown = FMath::Min(Pieces.Num(), Fits);
+	const int32 First = FMath::Clamp(Building->GetSelectedIndex() - Shown / 2, 0, Pieces.Num() - Shown);
+	const float RowWidth = Shown * BoxWidth + (Shown - 1) * Gap;
 	const float Left = CenterX - RowWidth * 0.5f;
 	const float Top = Canvas->ClipY - 190.f;
-	for (int32 Index = 0; Index < Pieces.Num(); ++Index)
+	if (First > 0)
+	{
+		DrawText(TEXT("<"), FLinearColor(1.f, 1.f, 1.f, 0.7f), Left - 22.f, Top + BoxHeight * 0.5f - 10.f, Medium);
+	}
+	if (First + Shown < Pieces.Num())
+	{
+		DrawText(TEXT(">"), FLinearColor(1.f, 1.f, 1.f, 0.7f), Left + RowWidth + 10.f, Top + BoxHeight * 0.5f - 10.f, Medium);
+	}
+	for (int32 Index = First; Index < First + Shown; ++Index)
 	{
 		const UBuildPieceDefinition* Piece = Pieces[Index];
 		const bool bSelected = Index == Building->GetSelectedIndex();
 		const bool bAffordable = Building->CanAfford(Piece);
-		const float X = Left + Index * (BoxWidth + Gap);
+		const float X = Left + (Index - First) * (BoxWidth + Gap);
 		if (bSelected)
 		{
 			DrawRect(Gold, X - 2.f, Top - 2.f, BoxWidth + 4.f, BoxHeight + 4.f);
