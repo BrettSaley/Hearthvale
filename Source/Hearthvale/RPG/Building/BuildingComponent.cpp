@@ -349,6 +349,13 @@ FBuildPlacement UBuildingComponent::EvaluatePlacement(const UBuildPieceDefinitio
 	}
 	const FTransform Flat = ComputePlacement(Piece, Aim, Aim.Z, Rot);
 	Result.Transform = ComputePlacement(Piece, Aim, FindBaseZ(Piece, Hit, Flat.GetLocation()), Rot);
+	// Benches, beds and the like face whoever's building (their +X towards them), then turn from there.
+	const FVector Looking = (Hit.TraceEnd - Hit.TraceStart).GetSafeNormal2D();
+	if (Piece->Snap == EBuildSnap::Free && !Looking.IsNearlyZero())
+	{
+		const float Facing = FMath::GridSnap(Looking.Rotation().Yaw + 180.f, 15.f);
+		Result.Transform.SetRotation(FRotator(0.f, Facing + Rot * 15.f, 0.f).Quaternion());
+	}
 	const AHearthvaleCharacter* Character = GetCharacter();
 	if (Character && FVector::Dist(Character->GetActorLocation(), Result.Transform.GetLocation()) > Reach)
 	{
