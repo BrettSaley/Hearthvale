@@ -5,6 +5,8 @@
 #include "Engine/Font.h"
 #include "HearthvaleCharacter.h"
 #include "HearthvalePlayerController.h"
+#include "RPG/Building/BuildingComponent.h"
+#include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/CraftingComponent.h"
 #include "RPG/CraftingStation.h"
 #include "RPG/CraftingStationDefinition.h"
@@ -40,7 +42,14 @@ void AHearthvaleHUD::DrawHUD()
 	const float DeltaSeconds = GetWorld()->GetDeltaSeconds();
 
 	DrawKeyHints();
-	DrawInteraction(Character);
+	if (Character->GetBuilding()->IsBuilding())
+	{
+		DrawBuildMenu(Character);
+	}
+	else
+	{
+		DrawInteraction(Character);
+	}
 	DrawMessages(DeltaSeconds);
 	DrawXPDrops(DeltaSeconds);
 	DrawBanner(DeltaSeconds);
@@ -90,7 +99,7 @@ void AHearthvaleHUD::DrawKeyHints()
 	{
 		return;
 	}
-	const FString Text = TEXT("[I] Inventory    [K] Skills");
+	const FString Text = TEXT("[I] Inventory    [K] Skills    [B] Build");
 	UFont* Font = GEngine->GetSmallFont();
 	float Width, Height;
 	GetTextSize(Text, Width, Height, Font);
@@ -270,4 +279,75 @@ void AHearthvaleHUD::DrawProgress(const FString& Text, float Progress, const FLi
 	const float BarY = Y + Height + 6.f;
 	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.6f), CenterX - BarWidth * 0.5f - 2.f, BarY - 2.f, BarWidth + 4.f, 12.f);
 	DrawRect(Color, CenterX - BarWidth * 0.5f, BarY, BarWidth * Progress, 8.f);
+}
+
+void AHearthvaleHUD::DrawBuildMenu(AHearthvaleCharacter* Character)
+{
+	UBuildingComponent* Building = Character->GetBuilding();
+	const TArray<TObjectPtr<UBuildPieceDefinition>>& Pieces = Building->GetPieces();
+	UFont* Font = GEngine->GetSmallFont();
+	UFont* Medium = GEngine->GetMediumFont();
+	const float CenterX = Canvas->ClipX * 0.5f;
+	if (Pieces.IsEmpty())
+	{
+		DrawText(TEXT("Nothing to build."), FLinearColor::White, CenterX - 60.f, Canvas->ClipY * 0.8f, Medium);
+		return;
+	}
+
+	// A row of pieces above the hotbar: the key, the name and the cost.
+	constexpr float BoxWidth = 112.f;
+	constexpr float BoxHeight = 66.f;
+	constexpr float Gap = 6.f;
+	const float RowWidth = Pieces.Num() * BoxWidth + (Pieces.Num() - 1) * Gap;
+	const float Left = CenterX - RowWidth * 0.5f;
+	const float Top = Canvas->ClipY - 190.f;
+	for (int32 Index = 0; Index < Pieces.Num(); ++Index)
+	{
+		const UBuildPieceDefinition* Piece = Pieces[Index];
+		const bool bSelected = Index == Building->GetSelectedIndex();
+		const bool bAffordable = Building->CanAfford(Piece);
+		const float X = Left + Index * (BoxWidth + Gap);
+		if (bSelected)
+		{
+			DrawRect(Gold, X - 2.f, Top - 2.f, BoxWidth + 4.f, BoxHeight + 4.f);
+		}
+		DrawRect(FLinearColor(0.05f, 0.04f, 0.03f, bSelected ? 0.92f : 0.7f), X, Top, BoxWidth, BoxHeight);
+		if (Index < 9)
+		{
+			DrawText(FString::FromInt(Index + 1), FLinearColor(1.f, 1.f, 1.f, 0.45f), X + BoxWidth - 12.f, Top + 3.f, Font);
+		}
+		const FLinearColor NameColor = bAffordable ? FLinearColor::White : FLinearColor(0.6f, 0.6f, 0.6f);
+		DrawText(Piece->DisplayName.ToString(), NameColor, X + 6.f, Top + 4.f, Font);
+		float Y = Top + 24.f;
+		for (const FItemAmount& Part : Piece->Cost)
+		{
+			if (!Part.Item)
+			{
+				continue;
+			}
+			const bool bHave = Character->GetInventory()->HasItem(Part.Item, Part.Quantity);
+			DrawText(FString::Printf(TEXT("%d %s"), Part.Quantity, *Part.Item->DisplayName.ToString()),
+				bHave ? FLinearColor(0.85f, 0.85f, 0.8f) : FLinearColor(1.f, 0.3f, 0.25f), X + 6.f, Y, Font);
+			Y += 14.f;
+		}
+	}
+
+	// A dot where pieces go.
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.6f), CenterX - 3.f, Canvas->ClipY * 0.5f - 3.f, 6.f, 6.f);
+	DrawRect(FLinearColor::White, CenterX - 2.f, Canvas->ClipY * 0.5f - 2.f, 4.f, 4.f);
+
+	// What's selected, whether it fits there, and the keys.
+	const FBuildPlacement& Placement = Building->GetPlacement();
+	const UBuildPieceDefinition* Selected = Building->GetSelectedPiece();
+	const FString Status = Placement.bValid
+		? FString::Printf(TEXT("[Left mouse]  Build %s"), Selected ? *Selected->DisplayName.ToString() : TEXT(""))
+		: Placement.Problem.ToString();
+	float Width, Height;
+	GetTextSize(Status, Width, Height, Medium);
+	const float StatusY = Top - 64.f;
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), CenterX - Width * 0.5f - 10.f, StatusY - 4.f, Width + 20.f, Height + 8.f);
+	DrawText(Status, Placement.bValid ? FLinearColor(0.55f, 1.f, 0.6f) : FLinearColor(1.f, 0.5f, 0.42f), CenterX - Width * 0.5f, StatusY, Medium);
+	const FString Keys = TEXT("[1-9 / Wheel] Pick    [R] Turn    [Middle mouse] Take down    [B] Done");
+	GetTextSize(Keys, Width, Height, Font);
+	DrawText(Keys, FLinearColor(1.f, 1.f, 1.f, 0.7f), CenterX - Width * 0.5f, Top - 26.f, Font);
 }

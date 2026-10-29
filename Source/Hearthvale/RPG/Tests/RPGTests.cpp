@@ -3,6 +3,8 @@
 // -ExecCmds="Automation RunTests Hearthvale; Quit".
 
 #include "Misc/AutomationTest.h"
+#include "RPG/Building/BuildingComponent.h"
+#include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/CraftingComponent.h"
 #include "RPG/CropDefinition.h"
 #include "RPG/RecipeDefinition.h"
@@ -294,6 +296,57 @@ bool FSkillUnlocksTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Oak at Woodcutting 15"), Woodcutting.ContainsByPredicate([](const FSkillUnlock& U) { return U.Kind == EUnlockKind::Resource && U.Level == 15; }));
 	TestTrue(TEXT("Woodcutting unlocks a tool"), Woodcutting.ContainsByPredicate([](const FSkillUnlock& U) { return U.Kind == EUnlockKind::Tool; }));
 	TestTrue(TEXT("Farming unlocks a crop at 1"), USkillUnlocks::GetUnlocks(ESkill::Farming).ContainsByPredicate([](const FSkillUnlock& U) { return U.Kind == EUnlockKind::Crop && U.Level == 1; }));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildingTest, "Hearthvale.Building", TestFlags)
+bool FBuildingTest::RunTest(const FString& Parameters)
+{
+	// Floors fill the 2 m cell aimed into, at the height given; turning goes in quarters.
+	UBuildPieceDefinition* Floor = NewObject<UBuildPieceDefinition>();
+	Floor->Snap = EBuildSnap::Cell;
+	FTransform At = UBuildingComponent::ComputePlacement(Floor, FVector(250.f, -30.f, 0.f), 40.f, 1);
+	TestEqual(TEXT("Floor snaps to its cell's middle"), At.GetLocation(), FVector(300.f, -100.f, 40.f));
+	TestEqual(TEXT("Floor turns a quarter"), float(At.Rotator().Yaw), 90.f, 0.01f);
+
+	// Walls go on the nearest side of the cell, running along it.
+	UBuildPieceDefinition* Wall = NewObject<UBuildPieceDefinition>();
+	Wall->Snap = EBuildSnap::Edge;
+	At = UBuildingComponent::ComputePlacement(Wall, FVector(215.f, 120.f, 0.f), 0.f, 0);
+	TestEqual(TEXT("Wall on the west side"), At.GetLocation(), FVector(200.f, 100.f, 0.f));
+	TestEqual(TEXT("West wall runs north-south"), float(FMath::Abs(At.Rotator().Yaw)), 90.f, 0.01f);
+	At = UBuildingComponent::ComputePlacement(Wall, FVector(310.f, 390.f, 0.f), 0.f, 0);
+	TestEqual(TEXT("Wall on the north side"), At.GetLocation(), FVector(300.f, 400.f, 0.f));
+	TestEqual(TEXT("North wall runs east-west"), float(At.Rotator().Yaw), 0.f, 0.01f);
+	At = UBuildingComponent::ComputePlacement(Wall, FVector(310.f, 390.f, 0.f), 0.f, 1);
+	TestEqual(TEXT("Turning a wall flips it, same place"), At.GetLocation(), FVector(300.f, 400.f, 0.f));
+	TestEqual(TEXT("Turned wall faces the other way"), float(FMath::Abs(At.Rotator().Yaw)), 180.f, 0.01f);
+	// Negative coordinates snap the same way.
+	At = UBuildingComponent::ComputePlacement(Wall, FVector(-190.f, -100.f, 0.f), 0.f, 0);
+	TestEqual(TEXT("Wall snaps below zero"), At.GetLocation(), FVector(-200.f, -100.f, 0.f));
+
+	// Benches go just where aimed, turning in small steps.
+	UBuildPieceDefinition* Bench = NewObject<UBuildPieceDefinition>();
+	Bench->Snap = EBuildSnap::Free;
+	At = UBuildingComponent::ComputePlacement(Bench, FVector(123.f, 45.f, 9.f), 9.f, 3);
+	TestEqual(TEXT("Bench where aimed"), At.GetLocation(), FVector(123.f, 45.f, 9.f));
+	TestEqual(TEXT("Bench turns 15 degrees a step"), float(At.Rotator().Yaw), 45.f, 0.01f);
+
+	// The real pieces exist, cost something, and walls stand on cell edges.
+	const TArray<UBuildPieceDefinition*> Pieces = UBuildPieceDefinition::GetAllPieces();
+	TestTrue(TEXT("There are build pieces"), Pieces.Num() >= 8);
+	for (const UBuildPieceDefinition* Piece : Pieces)
+	{
+		TestTrue(FString::Printf(TEXT("%s costs something"), *Piece->GetName()), Piece->Cost.Num() > 0);
+		TestTrue(FString::Printf(TEXT("%s has a look"), *Piece->GetName()), Piece->Parts.Num() > 0 && Piece->Parts.Num() <= 12);
+		TestTrue(FString::Printf(TEXT("%s is found by ID"), *Piece->GetName()), UBuildPieceDefinition::FindPiece(Piece->GetPieceId()) == Piece);
+	}
+	const UBuildPieceDefinition* WoodWall = UBuildPieceDefinition::FindPiece(TEXT("WoodWall"));
+	TestTrue(TEXT("Wood wall snaps to edges"), WoodWall && WoodWall->Snap == EBuildSnap::Edge);
+	// Two walls meeting at a corner mustn't block each other.
+	TestTrue(TEXT("Walls leave their corners free"), WoodWall && WoodWall->Footprint.X - 4.f + WoodWall->Footprint.Y <= UBuildPieceDefinition::GridSize * 0.5f);
+	const UBuildPieceDefinition* Door = UBuildPieceDefinition::FindPiece(TEXT("WoodDoor"));
+	TestTrue(TEXT("The door has a panel"), Door && Door->IsDoor());
 	return true;
 }
 

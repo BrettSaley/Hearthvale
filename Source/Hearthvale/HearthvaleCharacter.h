@@ -17,6 +17,7 @@ class UItemDefinition;
 class UCraftingComponent;
 class UCraftingStationDefinition;
 class UInteractionComponent;
+class UBuildingComponent;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
@@ -63,6 +64,10 @@ class AHearthvaleCharacter : public ACharacter
 	/** Finds what the player can interact with */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInteractionComponent> Interaction;
+
+	/** Build mode: places walls, floors, fires and benches */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UBuildingComponent> Building;
 
 	/** Seconds between autosaves */
 	UPROPERTY(EditDefaultsOnly, Category="RPG")
@@ -162,6 +167,8 @@ public:
 	FORCEINLINE UCraftingComponent* GetCrafting() const { return Crafting; }
 
 	FORCEINLINE UInteractionComponent* GetInteraction() const { return Interaction; }
+
+	FORCEINLINE UBuildingComponent* GetBuilding() const { return Building; }
 
 	/** Shows a line in the player's message feed (does nothing for non-players). */
 	void ShowMessage(const FText& Text, const FLinearColor& Color = FLinearColor::White) const;

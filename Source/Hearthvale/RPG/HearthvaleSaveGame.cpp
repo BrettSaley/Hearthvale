@@ -2,6 +2,8 @@
 #include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
 #include "HearthvaleCharacter.h"
+#include "RPG/Building/BuildPiece.h"
+#include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
@@ -29,6 +31,13 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 		for (const AFarmPatch* Patch : TActorRange<AFarmPatch>(World))
 		{
 			Save->FarmPatches.Add(Patch->GetName(), Patch->SaveState());
+		}
+		for (const ABuildPiece* Built : TActorRange<ABuildPiece>(World))
+		{
+			if (Built->GetPiece() && !Built->IsActorBeingDestroyed())
+			{
+				Save->BuildPieces.Add(FSavedBuildPiece{Built->GetPiece()->GetPieceId(), Built->GetActorTransform(), Built->IsOpen()});
+			}
 		}
 	}
 	return UGameplayStatics::SaveGameToSlot(Save, GetSlotName(), 0);
@@ -82,6 +91,22 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 			if (const FSavedFarmPatch* Saved = Save->FarmPatches.Find(Patch->GetName()))
 			{
 				Patch->LoadState(*Saved);
+			}
+		}
+		// What was built replaces whatever is standing now.
+		for (ABuildPiece* Built : TActorRange<ABuildPiece>(World))
+		{
+			Built->Destroy();
+		}
+		for (const FSavedBuildPiece& Saved : Save->BuildPieces)
+		{
+			if (UBuildPieceDefinition* Piece = UBuildPieceDefinition::FindPiece(Saved.PieceId))
+			{
+				ABuildPiece::Spawn(World, Piece, Saved.Transform, Saved.bOpen);
+			}
+			else
+			{
+				UE_LOG(LogHearthvale, Warning, TEXT("Save has an unknown build piece '%s'; dropping it."), *Saved.PieceId.ToString());
 			}
 		}
 	}

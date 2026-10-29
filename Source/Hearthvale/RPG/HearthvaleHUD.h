@@ -51,6 +51,8 @@ private:
 	void DrawBanner(float DeltaSeconds);
 	void DrawMessages(float DeltaSeconds);
 	void DrawInteraction(AHearthvaleCharacter* Character);
+	/** In build mode: the pieces, what each costs, and why the preview can't go where it is. */
+	void DrawBuildMenu(AHearthvaleCharacter* Character);
 	/** The last skill you earned XP in: its level, progress and next unlock, fading after a while. */
 	void DrawSkillTracker(AHearthvaleCharacter* Character, float DeltaSeconds);
 

@@ -13,6 +13,7 @@ class UInputAction;
 class UHotbarWidget;
 class UCraftingMenuWidget;
 class ACraftingStation;
+class UBuildingComponent;
 
 /**
  *  Basic PlayerController class for a third person game
@@ -58,6 +59,9 @@ public:
 
 	/** A hotbar number key (0-8): holds that slot, or with the window open, moves the item under the mouse there. */
 	void HotbarKey(int32 Slot);
+
+	/** B: in and out of build mode (closing any window). */
+	void ToggleBuildMode();
 
 protected:
 
@@ -124,6 +128,12 @@ protected:
 
 	/** Input mapping context setup */
 	virtual void SetupInputComponent() override;
+
+	/** The character's building, when in build mode with no window open. */
+	UBuildingComponent* GetActiveBuilding() const;
+	void BuildPressed();
+	void RotatePressed();
+	void RemovePressed();
 
 	/** Returns true if the player should use UMG touch controls */
 	bool ShouldUseTouchControls() const;

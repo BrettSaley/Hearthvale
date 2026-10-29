@@ -5,6 +5,9 @@
 #include "GameFramework/PlayerController.h"
 #include "HearthvaleCharacter.h"
 #include "HearthvalePlayerController.h"
+#include "RPG/Building/BuildingComponent.h"
+#include "RPG/Building/BuildPiece.h"
+#include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/CraftingStation.h"
 #include "RPG/CraftingStationDefinition.h"
 #include "RPG/FarmPatch.h"
@@ -13,6 +16,7 @@
 #include "RPG/InventoryComponent.h"
 #include "RPG/ResourceNode.h"
 #include "EngineUtils.h"
+#include "Hearthvale.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
 
@@ -253,6 +257,7 @@ AHearthvaleCharacter* UHearthvaleCheatManager::GetHearthvaleCharacter() const
 
 void UHearthvaleCheatManager::Say(const FString& Message) const
 {
+	UE_LOG(LogHearthvale, Log, TEXT("Cheat: %s"), *Message);
 	GetOuterAPlayerController()->ClientMessage(Message);
 }
 
@@ -268,4 +273,55 @@ void UHearthvaleCheatManager::GrowCrops()
 		}
 	}
 	Say(FString::Printf(TEXT("Grew %d patch(es)."), Grown));
+}
+
+void UHearthvaleCheatManager::BuildMode()
+{
+	if (AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(GetOuterAPlayerController()))
+	{
+		Controller->ToggleBuildMode();
+	}
+}
+
+void UHearthvaleCheatManager::BuildSelect(int32 Index)
+{
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		Character->GetBuilding()->SelectPiece(Index);
+	}
+}
+
+void UHearthvaleCheatManager::BuildAt(FName PieceId, float X, float Y, int32 Rotation, float From)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	UBuildPieceDefinition* Piece = UBuildPieceDefinition::FindPiece(PieceId);
+	if (!Character || !Piece)
+	{
+		Say(FString::Printf(TEXT("No build piece called '%s'."), *PieceId.ToString()));
+		return;
+	}
+	const float Grid = UBuildPieceDefinition::GridSize;
+	const FVector At = Character->GetActorLocation();
+	const FVector Spot(FMath::FloorToFloat(At.X / Grid) * Grid + X, FMath::FloorToFloat(At.Y / Grid) * Grid + Y, At.Z);
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(CheatBuild), false, Character);
+	if (!GetWorld()->LineTraceSingleByChannel(Hit, Spot + FVector(0.f, 0.f, From), Spot - FVector(0.f, 0.f, 3000.f), ECC_Visibility, Params))
+	{
+		Say(TEXT("Nothing to build on there."));
+		return;
+	}
+	const ABuildPiece* Built = Character->GetBuilding()->BuildAt(Piece, Hit, Rotation);
+	Say(Built ? FString::Printf(TEXT("Built %s at %s"), *PieceId.ToString(), *Built->GetActorLocation().ToCompactString())
+		: FString::Printf(TEXT("Couldn't build %s here."), *PieceId.ToString()));
+}
+
+void UHearthvaleCheatManager::ClearBuilt()
+{
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		for (ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
+		{
+			Character->GetBuilding()->Remove(Built);
+		}
+	}
 }

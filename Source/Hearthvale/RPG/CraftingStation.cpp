@@ -66,14 +66,27 @@ void ACraftingStation::BeginPlay()
 void ACraftingStation::ApplyLook()
 {
 	const TArray<FNodeMeshPart> NoParts;
-	const TArray<FNodeMeshPart>& Parts = Definition ? Definition->Parts : NoParts;
+	ApplyParts(Definition ? Definition->Parts : NoParts);
+	if (Definition)
+	{
+		ApplyLight(Definition->LightIntensity, Definition->LightColor, Definition->LightOffset, Definition->Flicker);
+	}
+	else
+	{
+		ApplyLight(0.f, FLinearColor::White, FVector::ZeroVector, 0.f);
+	}
+}
+
+void ACraftingStation::ApplyParts(const TArray<FNodeMeshPart>& Parts)
+{
 	for (int32 Index = 0; Index < PartMeshes.Num(); ++Index)
 	{
 		UStaticMeshComponent* Mesh = PartMeshes[Index];
 		const bool bUsed = Parts.IsValidIndex(Index) && Parts[Index].Mesh;
+		const bool bCollides = bUsed && Parts[Index].bCollides;
 		Mesh->SetStaticMesh(bUsed ? Parts[Index].Mesh.Get() : nullptr);
-		Mesh->SetVisibility(bUsed);
-		Mesh->SetCollisionEnabled(bUsed ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
+		Mesh->SetVisibility(bUsed && Parts[Index].bVisible);
+		Mesh->SetCollisionEnabled(bCollides ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
 		if (!bUsed)
 		{
 			continue;
@@ -88,15 +101,17 @@ void ACraftingStation::ApplyLook()
 			}
 		}
 	}
-	const float Intensity = Definition ? Definition->LightIntensity : 0.f;
+}
+
+void ACraftingStation::ApplyLight(float Intensity, const FLinearColor& Color, const FVector& Offset, float Flicker)
+{
+	LightBase = Intensity;
+	LightFlicker = Flicker;
 	Light->SetVisibility(Intensity > 0.f);
 	Light->SetIntensity(Intensity);
-	if (Definition)
-	{
-		Light->SetLightColor(Definition->LightColor);
-		Light->SetRelativeLocation(Definition->LightOffset);
-	}
-	SetActorTickEnabled(Definition && Definition->Flicker > 0.f && Intensity > 0.f);
+	Light->SetLightColor(Color);
+	Light->SetRelativeLocation(Offset);
+	SetActorTickEnabled(Flicker > 0.f && Intensity > 0.f);
 }
 
 void ACraftingStation::Tick(float DeltaSeconds)
@@ -105,9 +120,8 @@ void ACraftingStation::Tick(float DeltaSeconds)
 	// Two out-of-step waves read as a fire rather than a pulse.
 	FlickerTime += DeltaSeconds;
 	const float Wave = 0.6f * FMath::Sin(FlickerTime * 9.f) + 0.4f * FMath::Sin(FlickerTime * 23.f + 1.3f);
-	Light->SetIntensity(Definition->LightIntensity * (1.f + Definition->Flicker * 0.5f * Wave));
+	Light->SetIntensity(LightBase * (1.f + LightFlicker * 0.5f * Wave));
 }
-
 bool ACraftingStation::GetInteractionPrompt(const AHearthvaleCharacter* Character, FInteractionPrompt& OutPrompt) const
 {
 	if (!Definition)

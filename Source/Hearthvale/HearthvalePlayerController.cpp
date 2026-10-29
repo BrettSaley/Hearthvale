@@ -6,6 +6,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "HearthvaleCharacter.h"
 #include "InputAction.h"
+#include "RPG/Building/BuildingComponent.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/UI/CraftingMenuWidget.h"
 #include "RPG/UI/HotbarWidget.h"
@@ -104,11 +105,25 @@ void AHearthvalePlayerController::SetupInputComponent()
 				// Wheel down moves right, as in Minecraft.
 				if (AHearthvaleCharacter* Hero = Cast<AHearthvaleCharacter>(GetPawn()))
 				{
-					Hero->CycleHotbar(Value.Get<float>() < 0.f ? 1 : -1);
+					const int32 Direction = Value.Get<float>() < 0.f ? 1 : -1;
+					if (Hero->GetBuilding()->IsBuilding())
+					{
+						Hero->GetBuilding()->CyclePiece(Direction);
+					}
+					else
+					{
+						Hero->CycleHotbar(Direction);
+					}
 				}
 			});
 		}
 	}
+
+	// Build mode: B, then left mouse builds, R turns, middle mouse takes down.
+	InputComponent->BindKey(EKeys::B, IE_Pressed, this, &AHearthvalePlayerController::ToggleBuildMode);
+	InputComponent->BindKey(EKeys::LeftMouseButton, IE_Pressed, this, &AHearthvalePlayerController::BuildPressed);
+	InputComponent->BindKey(EKeys::R, IE_Pressed, this, &AHearthvalePlayerController::RotatePressed);
+	InputComponent->BindKey(EKeys::MiddleMouseButton, IE_Pressed, this, &AHearthvalePlayerController::RemovePressed);
 
 	// only add IMCs for local player controllers
 	if (IsLocalPlayerController())
@@ -242,11 +257,65 @@ void AHearthvalePlayerController::OnPossess(APawn* InPawn)
 	}
 }
 
+UBuildingComponent* AHearthvalePlayerController::GetActiveBuilding() const
+{
+	const AHearthvaleCharacter* Hero = Cast<AHearthvaleCharacter>(GetPawn());
+	UBuildingComponent* Building = Hero ? Hero->GetBuilding() : nullptr;
+	return Building && Building->IsBuilding() && !IsMenuOpen() ? Building : nullptr;
+}
+
+void AHearthvalePlayerController::ToggleBuildMode()
+{
+	const AHearthvaleCharacter* Hero = Cast<AHearthvaleCharacter>(GetPawn());
+	if (!Hero)
+	{
+		return;
+	}
+	UBuildingComponent* Building = Hero->GetBuilding();
+	const bool bOn = !Building->IsBuilding();
+	if (bOn)
+	{
+		SetPanelOpen(false);
+		CloseCraftingMenu();
+	}
+	Building->SetBuildMode(bOn);
+}
+
+void AHearthvalePlayerController::BuildPressed()
+{
+	if (UBuildingComponent* Building = GetActiveBuilding())
+	{
+		Building->PlaceSelected();
+	}
+}
+
+void AHearthvalePlayerController::RotatePressed()
+{
+	if (UBuildingComponent* Building = GetActiveBuilding())
+	{
+		Building->Rotate();
+	}
+}
+
+void AHearthvalePlayerController::RemovePressed()
+{
+	if (UBuildingComponent* Building = GetActiveBuilding())
+	{
+		Building->RemoveAimed();
+	}
+}
+
 void AHearthvalePlayerController::HotbarKey(int32 Slot)
 {
 	AHearthvaleCharacter* Hero = Cast<AHearthvaleCharacter>(GetPawn());
 	if (!Hero)
 	{
+		return;
+	}
+	// In build mode the number keys pick a piece.
+	if (Hero->GetBuilding()->IsBuilding() && !IsPanelOpen())
+	{
+		Hero->GetBuilding()->SelectPiece(Slot);
 		return;
 	}
 	// Window open with the mouse over an item: put it on that hotbar slot (swapping).

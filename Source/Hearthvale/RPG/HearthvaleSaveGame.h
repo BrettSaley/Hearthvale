@@ -21,8 +21,25 @@ struct FSavedItemStack
 	int32 Quantity = 0;
 };
 
+/** Something the player built. */
+USTRUCT()
+struct FSavedBuildPiece
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FName PieceId;
+
+	UPROPERTY()
+	FTransform Transform;
+
+	/** Doors: whether it was left open. */
+	UPROPERTY()
+	bool bOpen = false;
+};
+
 /**
- * A character's progress: skills, items and their farm patches.
+ * A character's progress: skills, items, their farm patches and what they built.
  * Version 2 dropped Cooking (its XP isn't carried over to Farming, which took
  * its place) and raw fish (they load as the plain fish).
  */
@@ -53,6 +70,9 @@ public:
 	/** By patch actor name. */
 	UPROPERTY()
 	TMap<FString, FSavedFarmPatch> FarmPatches;
+
+	UPROPERTY()
+	TArray<FSavedBuildPiece> BuildPieces;
 
 	/** Write a character's progress (and the farm patches in their world) to disk. */
 	static bool SaveProgress(const AHearthvaleCharacter* Character);

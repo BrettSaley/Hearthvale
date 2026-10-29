@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "RPG/GatheringNodeDefinition.h"
 #include "RPG/Interactable.h"
 #include "CraftingStation.generated.h"
 
@@ -39,10 +40,16 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Crafting")
 	TObjectPtr<UCraftingStationDefinition> Definition;
 
-private:
 	static constexpr int32 MaxParts = 12;
 
-	void ApplyLook();
+	/** Sets the meshes and light from the definition. Built pieces (ABuildPiece) take theirs from elsewhere. */
+	virtual void ApplyLook();
+
+	/** Shows these parts (up to MaxParts) on the part meshes. */
+	void ApplyParts(const TArray<FNodeMeshPart>& Parts);
+
+	/** A glow; zero intensity for none. Flicker 0 is steady. */
+	void ApplyLight(float Intensity, const FLinearColor& Color, const FVector& Offset, float Flicker);
 
 	UPROPERTY(VisibleAnywhere, Category = "Visuals")
 	TArray<TObjectPtr<UStaticMeshComponent>> PartMeshes;
@@ -50,5 +57,8 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Visuals")
 	TObjectPtr<UPointLightComponent> Light;
 
+private:
 	float FlickerTime = 0.f;
+	float LightBase = 0.f;
+	float LightFlicker = 0.f;
 };

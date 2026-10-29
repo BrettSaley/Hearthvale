@@ -17,6 +17,8 @@
 #include "InputAction.h"
 #include "EngineUtils.h"
 #include "HearthvalePlayerController.h"
+#include "RPG/Building/BuildPiece.h"
+#include "RPG/Building/BuildingComponent.h"
 #include "RPG/CraftingComponent.h"
 #include "RPG/CraftingStation.h"
 #include "RPG/CraftingStationDefinition.h"
@@ -70,6 +72,7 @@ AHearthvaleCharacter::AHearthvaleCharacter()
 	Crafting = CreateDefaultSubobject<UCraftingComponent>(TEXT("Crafting"));
 	CampfireDefinition = TSoftObjectPtr<UCraftingStationDefinition>(FSoftObjectPath(TEXT("/Game/Crafting/Stations/Campfire.Campfire")));
 	Interaction = CreateDefaultSubobject<UInteractionComponent>(TEXT("Interaction"));
+	Building = CreateDefaultSubobject<UBuildingComponent>(TEXT("Building"));
 	static ConstructorHelpers::FObjectFinder<UInputAction> InteractActionAsset(TEXT("/Game/Input/Actions/IA_Interact.IA_Interact"));
 	InteractAction = InteractActionAsset.Object;
 	static ConstructorHelpers::FObjectFinder<UInputAction> UseItemActionAsset(TEXT("/Game/Input/Actions/IA_UseItem.IA_UseItem"));
@@ -317,6 +320,11 @@ void AHearthvaleCharacter::DoUseItem()
 			return;
 		}
 	}
+	// In build mode the mouse buttons build.
+	if (Building->IsBuilding())
+	{
+		return;
+	}
 	const UItemDefinition* Held = GetHeldItem();
 	if (Held && Held->CanLightFire())
 	{
@@ -337,7 +345,8 @@ bool AHearthvaleCharacter::LightFire(int32 SlotIndex)
 	const FVector Spot = Feet + GetActorForwardVector() * 110.f;
 	for (const ACraftingStation* Station : TActorRange<ACraftingStation>(GetWorld()))
 	{
-		if (FVector::Dist2D(Station->GetActorLocation(), Spot) < 160.f)
+		// Built walls and floors don't burn; other fires and benches are in the way.
+		if (Station->GetDefinition() && FVector::Dist2D(Station->GetActorLocation(), Spot) < 160.f)
 		{
 			ShowMessage(NSLOCTEXT("Hearthvale", "FireTooClose", "There's already something burning here."), Warning);
 			return false;

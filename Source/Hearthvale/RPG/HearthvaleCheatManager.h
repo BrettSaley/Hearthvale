@@ -86,6 +86,25 @@ public:
 	UFUNCTION(Exec)
 	void Interact();
 
+	/** Same as pressing B. */
+	UFUNCTION(Exec)
+	void BuildMode();
+
+	/** Picks a piece in the build menu (0 is the first). */
+	UFUNCTION(Exec)
+	void BuildSelect(int32 Index);
+
+	/**
+	 * Builds a piece as if aimed straight down at a spot: X and Y cm from the
+	 * corner of the grid cell the character stands in, from From cm above them. Costs materials as usual.
+	 */
+	UFUNCTION(Exec)
+	void BuildAt(FName PieceId, float X, float Y, int32 Rotation = 0, float From = 1500.f);
+
+	/** Takes down everything built (giving back its materials). */
+	UFUNCTION(Exec)
+	void ClearBuilt();
+
 private:
 	AHearthvaleCharacter* GetHearthvaleCharacter() const;
 	void Say(const FString& Message) const;
