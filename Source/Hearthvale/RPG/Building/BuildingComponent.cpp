@@ -422,12 +422,38 @@ bool UBuildingComponent::RemoveAimed()
 {
 	FHitResult Hit;
 	ABuildPiece* Built = AimTrace(Hit) ? Cast<ABuildPiece>(Hit.GetActor()) : nullptr;
-	if (!Built)
+	return Built && TryRemove(Built);
+}
+
+bool UBuildingComponent::TryRemove(ABuildPiece* Built)
+{
+	// Nothing is left floating: what stands on it comes down first.
+	if (IsHoldingUp(Built))
 	{
+		if (const AHearthvaleCharacter* Character = GetCharacter())
+		{
+			Character->ShowMessage(LOCTEXT("HoldingUp", "Something stands on that; take it down first."), BuildWarning);
+		}
 		return false;
 	}
 	Remove(Built);
 	return true;
+}
+
+bool UBuildingComponent::IsHoldingUp(const ABuildPiece* Built) const
+{
+	// Pieces stand on another's top, at most half a cell from its middle (a wall on a floor's
+	// edge, a roof over a wall, a gable on one).
+	const float Top = Built->GetTop();
+	for (const ABuildPiece* Other : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		if (Other != Built && FMath::Abs(Other->GetActorLocation().Z - Top) < 5.f
+			&& FVector::Dist2D(Other->GetActorLocation(), Built->GetActorLocation()) <= UBuildPieceDefinition::GridSize * 0.5f + 10.f)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 void UBuildingComponent::Remove(ABuildPiece* Built)

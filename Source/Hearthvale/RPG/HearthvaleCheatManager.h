@@ -105,6 +105,10 @@ public:
 	UFUNCTION(Exec)
 	void ChestMove(int32 FromChest, int32 Slot);
 
+	/** Takes down the piece found straight down at a spot (as BuildAt aims), as middle mouse would. */
+	UFUNCTION(Exec)
+	void TakeDownAt(float X, float Y, float From = 1500.f);
+
 	/** Takes down everything built (giving back its materials). */
 	UFUNCTION(Exec)
 	void ClearBuilt();

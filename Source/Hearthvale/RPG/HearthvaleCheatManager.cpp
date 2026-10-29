@@ -337,3 +337,22 @@ void UHearthvaleCheatManager::ChestMove(int32 FromChest, int32 Slot)
 	}
 	Say(Controller->GetChestWindow()->MoveStack(FromChest != 0, Slot) ? TEXT("Moved.") : TEXT("Nothing moved."));
 }
+
+void UHearthvaleCheatManager::TakeDownAt(float X, float Y, float From)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	if (!Character)
+	{
+		return;
+	}
+	const float Grid = UBuildPieceDefinition::GridSize;
+	const FVector At = Character->GetActorLocation();
+	const FVector Spot(FMath::FloorToFloat(At.X / Grid) * Grid + X, FMath::FloorToFloat(At.Y / Grid) * Grid + Y, At.Z);
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(CheatTakeDown), false, Character);
+	ABuildPiece* Built = GetWorld()->LineTraceSingleByChannel(Hit, Spot + FVector(0.f, 0.f, From), Spot - FVector(0.f, 0.f, 3000.f), ECC_Visibility, Params)
+		? Cast<ABuildPiece>(Hit.GetActor()) : nullptr;
+	const FString Name = Built && Built->GetPiece() ? Built->GetPiece()->GetName() : FString();
+	Say(!Built ? TEXT("Nothing built there.") : Character->GetBuilding()->TryRemove(Built)
+		? FString::Printf(TEXT("Took down %s"), *Name) : FString::Printf(TEXT("Couldn't take down %s"), *Name));
+}

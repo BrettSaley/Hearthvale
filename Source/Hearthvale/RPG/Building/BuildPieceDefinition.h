@@ -104,6 +104,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")
 	int32 SortOrder = 0;
 
+	/** Listed in DefaultGame.ini so packaged games cook every piece (nothing refers to them directly). */
+	static const FPrimaryAssetType PieceType;
+	virtual FPrimaryAssetId GetPrimaryAssetId() const override { return FPrimaryAssetId(PieceType, GetFName()); }
+
 	FName GetPieceId() const { return GetFName(); }
 	bool IsDoor() const { return Parts.IsValidIndex(DoorPart); }
 

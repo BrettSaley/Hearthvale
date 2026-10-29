@@ -1,6 +1,8 @@
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 
+const FPrimaryAssetType UBuildPieceDefinition::PieceType(TEXT("BuildPiece"));
+
 TArray<UBuildPieceDefinition*> UBuildPieceDefinition::GetAllPieces()
 {
 	TArray<UBuildPieceDefinition*> Pieces;

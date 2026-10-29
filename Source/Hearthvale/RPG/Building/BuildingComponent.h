@@ -67,8 +67,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Building")
 	bool RemoveAimed();
 
-	/** Takes down a piece, giving back what it cost. */
+	/** Takes down a piece unless something stands on it (with a message); false if it didn't. */
+	bool TryRemove(ABuildPiece* Built);
+
+	/** Takes down a piece, giving back what it cost, whatever stands on it. */
 	void Remove(ABuildPiece* Built);
+
+	/** Whether another piece stands on this one (so taking it down would leave that floating). */
+	bool IsHoldingUp(const ABuildPiece* Built) const;
 
 	const FBuildPlacement& GetPlacement() const { return Placement; }
 
