@@ -3,7 +3,7 @@
 - Stone (an item): a bonus find while mining any ore rock
 - M_BuildGhost: the see-through green/red preview in build mode
 - Build pieces in /Game/Building/Pieces (UBuildPieceDefinition): wooden and
-  stone floors and walls, a window wall, a door, stairs, a roof and gable ends, a fence, log poles and beams, a chest, a bed (where you wake), the crafting stations, a torch
+  stone floors and walls, a window wall, a door, stairs, a roof and gable ends, a fence, log poles and beams, a chest, a bed (where you wake), a table and stool, a hearth (an indoor fire), the crafting stations, a torch
 
 Run after create_crafting.py and create_world.py (the stations' looks come
 from their definitions), headless with the editor closed:
@@ -280,6 +280,26 @@ def bed():
             part("Cube", "Blanket", (-22, 0, 42), (1.5, 1.06, 0.06), collides=False)]
 
 
+def hearth():
+    # A raised square of flagstones with a stone kerb round the fire: an indoor campfire.
+    kerb = [part("Cube", "Masonry", (x * 62, y * 62, 22), (0.16 if x else 1.4, 1.4 if x else 0.16, 0.2))
+            for x, y in ((1, 0), (-1, 0), (0, 1), (0, -1))]
+    logs = [part("Cylinder", "Bark", (0, 0, 22), (0.12, 0.12, 0.7), (90, 0, yaw), collides=False) for yaw in (30, 120)]
+    return ([part("Cube", "Flagstone", (0, 0, 6), (1.4, 1.4, 0.12))] + kerb + logs
+            + [part("Sphere", "Flame", (0, 0, 18), (0.45, 0.45, 0.1), collides=False),
+               part("Cone", "Flame", (0, 0, 46), (0.36, 0.36, 0.55), collides=False)])
+
+
+def table():
+    return ([part("Cube", "Planks", (0, 0, 76), (1.6, 0.9, 0.08))]
+            + [part("Cube", "WallPlanks", (x, y, 36), (0.1, 0.1, 0.72)) for x in (-70, 70) for y in (-37, 37)])
+
+
+def stool():
+    return ([part("Cylinder", "Planks", (0, 0, 44), (0.42, 0.42, 0.06))]
+            + [part("Cylinder", "Bark", (x, y, 21), (0.06, 0.06, 0.42)) for x, y in ((14, 0), (-7, 12), (-7, -12))])
+
+
 def gable():
     # Under one roof cell's slope, on the wall below it.
     return [part("Gable", "WallPlanks", (0, 0, 0), (1, 1, 1))]
@@ -323,6 +343,8 @@ PIECES = {
                  (88, 10, 10), 22, 9, {}),
     "Campfire": ("Campfire", C, Snap.FREE, [("Logs", 2), ("Stone", 4)], station_parts("Campfire"), (70, 70, 30), 30, 10,
                  {"station": "Campfire", "workbench": False}),
+    "Hearth": ("Hearth", C, Snap.FREE, [("Stone", 10), ("Logs", 1)], hearth(), (70, 70, 25), 30, 10,
+               {"station": "Campfire"}),
     "Workbench": ("Workbench", C, Snap.FREE, [("Logs", 6)], station_parts("Workbench"), (82, 42, 50), 95, 11,
                   {"station": "Workbench", "workbench": False}),
     "Furnace": ("Furnace", C, Snap.FREE, [("Stone", 12), ("Logs", 2)], station_parts("Furnace"), (66, 66, 120), 280, 12,
@@ -334,6 +356,8 @@ PIECES = {
     "Torch": ("Torch", F, Snap.FREE, [("Logs", 1)], torch(), (10, 10, 80), 180, 20,
               {"light_intensity": 14.0, "light_offset": V(0, 0, 185)}),
     "WoodChest": ("Chest", F, Snap.FREE, [("Logs", 4)], chest(), (52, 32, 31), 62, 21, {"storage": 18}),
+    "WoodTable": ("Table", F, Snap.FREE, [("Logs", 2)], table(), (80, 45, 40), 80, 23, {}),
+    "WoodStool": ("Stool", F, Snap.FREE, [("Logs", 1)], stool(), (22, 22, 23), 47, 24, {}),
     "WoodBed": ("Bed", F, Snap.FREE, [("Logs", 4)], bed(), (105, 55, 25), 50, 22, {"bed": True}),
 }
 
