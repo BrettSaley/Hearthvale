@@ -37,6 +37,7 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 			if (Built->GetPiece() && !Built->IsActorBeingDestroyed())
 			{
 				FSavedBuildPiece& Saved = Save->BuildPieces.Add_GetRef(FSavedBuildPiece{Built->GetPiece()->GetPieceId(), Built->GetActorTransform(), Built->IsOpen()});
+				Saved.bClaimed = Built->IsClaimed();
 				if (const UInventoryComponent* Storage = Built->GetStorage())
 				{
 					for (const FItemStack& Slot : Storage->GetSlots())
@@ -109,7 +110,12 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 		{
 			if (UBuildPieceDefinition* Piece = UBuildPieceDefinition::FindPiece(Saved.PieceId))
 			{
-				ABuildPiece* Built = ABuildPiece::Spawn(World, Piece, Saved.Transform, Saved.bOpen);
+				ABuildPiece* Built = ABuildPiece::Spawn(World, Piece, Saved.Transform, Saved.bOpen, Saved.bClaimed);
+				// Wake at your bed.
+				if (Built && Built->IsClaimed())
+				{
+					Character->TeleportTo(Built->GetWakeSpot(), FRotator(0.f, Built->GetActorRotation().Yaw - 90.f, 0.f));
+				}
 				UInventoryComponent* Storage = Built ? Built->GetStorage() : nullptr;
 				for (int32 Index = 0; Storage && Index < Saved.Items.Num() && Index < Storage->GetCapacity(); ++Index)
 				{

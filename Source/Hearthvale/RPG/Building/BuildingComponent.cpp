@@ -17,7 +17,7 @@
 
 namespace
 {
-	const FLinearColor Warning(1.f, 0.55f, 0.4f);
+	const FLinearColor BuildWarning(1.f, 0.55f, 0.4f);
 
 	/** The sea and the lakes are all at this height (Scripts/create_world.py). */
 	constexpr float WaterLevel = 0.f;
@@ -392,7 +392,7 @@ ABuildPiece* UBuildingComponent::BuildAt(UBuildPieceDefinition* Piece, const FHi
 	const FBuildPlacement Where = EvaluatePlacement(Piece, Hit, Rot);
 	if (!Where.bValid)
 	{
-		Character->ShowMessage(Where.Problem, Warning);
+		Character->ShowMessage(Where.Problem, BuildWarning);
 		return nullptr;
 	}
 	for (const FItemAmount& Part : Piece->Cost)

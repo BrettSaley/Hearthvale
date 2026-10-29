@@ -23,8 +23,8 @@
 namespace
 {
 	/** Walk further than this from the chest and it closes. */
-	constexpr float CloseDistance = 350.f;
-	constexpr int32 Columns = 9;
+	constexpr float ChestCloseDistance = 350.f;
+	constexpr int32 ChestColumns = 9;
 }
 
 void UChestWidget::NativeOnInitialized()
@@ -122,7 +122,7 @@ void UChestWidget::BuildGrid(UUniformGridPanel* Grid, TArray<TObjectPtr<UInvento
 				WeakThis->MoveStack(bChestSide, Index);
 			}
 		});
-		Grid->AddChildToUniformGrid(SlotWidget, Index / Columns, Index % Columns);
+		Grid->AddChildToUniformGrid(SlotWidget, Index / ChestColumns, Index % ChestColumns);
 		Widgets.Add(SlotWidget);
 	}
 }
@@ -202,7 +202,7 @@ void UChestWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 		return;
 	}
 	const AHearthvaleCharacter* Owner = Character.Get();
-	if (!Owner || !Chest.IsValid() || FVector::Dist2D(Owner->GetActorLocation(), Chest->GetActorLocation()) > CloseDistance)
+	if (!Owner || !Chest.IsValid() || FVector::Dist2D(Owner->GetActorLocation(), Chest->GetActorLocation()) > ChestCloseDistance)
 	{
 		Close();
 	}

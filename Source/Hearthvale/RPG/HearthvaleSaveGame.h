@@ -37,6 +37,10 @@ struct FSavedBuildPiece
 	UPROPERTY()
 	bool bOpen = false;
 
+	/** Beds: whether it's the one the player wakes at. */
+	UPROPERTY()
+	bool bClaimed = false;
+
 	/** Chests: what's in them. */
 	UPROPERTY()
 	TArray<FSavedItemStack> Items;

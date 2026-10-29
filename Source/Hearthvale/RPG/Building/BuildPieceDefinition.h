@@ -75,6 +75,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")
 	TObjectPtr<UCraftingStationDefinition> Station;
 
+	/** A bed: rest at it to wake there when you come back. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")
+	bool bIsBed = false;
+
 	/** A chest: how many slots it holds (0 for none). */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece", meta = (ClampMin = 0))
 	int32 StorageSlots = 0;

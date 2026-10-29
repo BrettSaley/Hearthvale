@@ -20,7 +20,7 @@ class HEARTHVALE_API ABuildPiece : public ACraftingStation
 
 public:
 	/** Places a piece in the world (doesn't take its cost: that's the builder's job). */
-	static ABuildPiece* Spawn(UWorld* World, UBuildPieceDefinition* Piece, const FTransform& Transform, bool bOpen = false);
+	static ABuildPiece* Spawn(UWorld* World, UBuildPieceDefinition* Piece, const FTransform& Transform, bool bOpen = false, bool bClaimed = false);
 
 	virtual bool GetInteractionPrompt(const AHearthvaleCharacter* Character, FInteractionPrompt& OutPrompt) const override;
 	virtual void Interact(AHearthvaleCharacter* Character) override;
@@ -38,6 +38,13 @@ public:
 	/** Height (cm) of its top, where pieces stacked on it start. */
 	float GetTop() const;
 
+	/** A bed the player rests at: where they wake when they come back. Only one is. */
+	UFUNCTION(BlueprintPure, Category = "Building")
+	bool IsClaimed() const { return bClaimed; }
+
+	/** Where someone waking at this bed stands: beside it. */
+	FVector GetWakeSpot() const;
+
 	/** A chest's contents; null for anything else. */
 	UInventoryComponent* GetStorage() const { return Storage; }
 
@@ -52,6 +59,9 @@ protected:
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Building")
 	TObjectPtr<UInventoryComponent> Storage;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Building")
+	bool bClaimed = false;
 };
 
 /**

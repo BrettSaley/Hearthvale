@@ -1,6 +1,7 @@
 #include "RPG/Building/BuildPiece.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "HearthvaleCharacter.h"
@@ -10,7 +11,7 @@
 
 #define LOCTEXT_NAMESPACE "BuildPiece"
 
-ABuildPiece* ABuildPiece::Spawn(UWorld* World, UBuildPieceDefinition* InPiece, const FTransform& Transform, bool bInOpen)
+ABuildPiece* ABuildPiece::Spawn(UWorld* World, UBuildPieceDefinition* InPiece, const FTransform& Transform, bool bInOpen, bool bInClaimed)
 {
 	if (!World || !InPiece)
 	{
@@ -24,6 +25,7 @@ ABuildPiece* ABuildPiece::Spawn(UWorld* World, UBuildPieceDefinition* InPiece, c
 		Built->Piece = InPiece;
 		Built->Definition = InPiece->Station;
 		Built->bOpen = bInOpen;
+		Built->bClaimed = bInClaimed && InPiece->bIsBed;
 		Built->FinishSpawning(Transform);
 		if (InPiece->StorageSlots > 0)
 		{
@@ -65,6 +67,12 @@ void ABuildPiece::ApplyLook()
 	}
 }
 
+FVector ABuildPiece::GetWakeSpot() const
+{
+	// Beside the bed, standing: a character's half height above where it stands.
+	return GetActorLocation() + GetActorRightVector() * 110.f + FVector(0.f, 0.f, 100.f);
+}
+
 float ABuildPiece::GetTop() const
 {
 	return GetActorLocation().Z + (Piece ? Piece->Height : 0.f);
@@ -76,6 +84,20 @@ bool ABuildPiece::GetInteractionPrompt(const AHearthvaleCharacter* Character, FI
 	{
 		OutPrompt.Action = bOpen ? LOCTEXT("Close", "Close") : LOCTEXT("Open", "Open");
 		OutPrompt.Target = Piece->DisplayName;
+		return true;
+	}
+	if (Piece && Piece->bIsBed)
+	{
+		OutPrompt.Target = Piece->DisplayName;
+		if (bClaimed)
+		{
+			OutPrompt.bAvailable = false;
+			OutPrompt.Status = LOCTEXT("YourBed", "yours: you wake here");
+		}
+		else
+		{
+			OutPrompt.Action = LOCTEXT("RestAt", "Rest at");
+		}
 		return true;
 	}
 	if (Piece && Storage)
@@ -93,6 +115,17 @@ void ABuildPiece::Interact(AHearthvaleCharacter* Character)
 	if (Piece && Piece->IsDoor())
 	{
 		SetOpen(!bOpen);
+		return;
+	}
+	if (Piece && Piece->bIsBed)
+	{
+		// Only one bed is yours.
+		for (ABuildPiece* Other : TActorRange<ABuildPiece>(GetWorld()))
+		{
+			Other->bClaimed = false;
+		}
+		bClaimed = true;
+		Character->ShowMessage(LOCTEXT("Rested", "You rest a while. You'll wake here when you come back."));
 		return;
 	}
 	if (Storage)

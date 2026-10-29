@@ -3,7 +3,7 @@
 - Stone (an item): a bonus find while mining any ore rock
 - M_BuildGhost: the see-through green/red preview in build mode
 - Build pieces in /Game/Building/Pieces (UBuildPieceDefinition): wooden and
-  stone floors and walls, a window wall, a door, stairs, a roof and gable ends, a fence, a chest, the crafting stations, a torch
+  stone floors and walls, a window wall, a door, stairs, a roof and gable ends, a fence, a chest, a bed (where you wake), the crafting stations, a torch
 
 Run after create_crafting.py and create_world.py (the stations' looks come
 from their definitions), headless with the editor closed:
@@ -187,6 +187,21 @@ MATERIALS = {
 MATERIALS.update(create_surfaces())
 
 
+def create_cloth():
+    """Plain-coloured cloth for the bed (the basic shape material, tinted)."""
+    parent = unreal.load_asset("/Engine/BasicShapes/BasicShapeMaterial")
+    for name, color in {"Blanket": (0.32, 0.06, 0.045), "Linen": (0.72, 0.66, 0.55)}.items():
+        mi, _ = create(f"MI_Build{name}", "/Game/Building", unreal.MaterialInstanceConstant,
+                       unreal.MaterialInstanceConstantFactoryNew())
+        mel.set_material_instance_parent(mi, parent)
+        mel.set_material_instance_vector_parameter_value(mi, "Color", unreal.LinearColor(*color, 1.0))
+        save(mi)
+        MATERIALS[name] = mi
+
+
+create_cloth()
+
+
 def part(shape, material, location, scale, rotation=(0, 0, 0), collides=True, visible=True):
     """Basic shapes are 100 cm across, centred on their origin. Rotation is (roll, pitch, yaw)."""
     p = unreal.NodeMeshPart()
@@ -256,6 +271,15 @@ def chest():
             + [part("Cube", "Bark", (x, 0, 31), (0.06, 0.66, 0.62), collides=False) for x in (-32, 32)])
 
 
+def bed():
+    # A plank frame with a headboard at +X, a linen mattress and pillow, and a red blanket.
+    return [part("Cube", "Planks", (0, 0, 14), (2.1, 1.1, 0.28)),
+            part("Cube", "WallPlanks", (102, 0, 40), (0.08, 1.1, 0.8)),
+            part("Cube", "Linen", (0, 0, 34), (1.96, 1.0, 0.14), collides=False),
+            part("Cube", "Linen", (75, 0, 46), (0.34, 0.7, 0.12), collides=False),
+            part("Cube", "Blanket", (-22, 0, 42), (1.5, 1.06, 0.06), collides=False)]
+
+
 def gable():
     # Under one roof cell's slope, on the wall below it.
     return [part("Gable", "WallPlanks", (0, 0, 0), (1, 1, 1))]
@@ -305,6 +329,7 @@ PIECES = {
     "Torch": ("Torch", F, Snap.FREE, [("Logs", 1)], torch(), (10, 10, 80), 180, 20,
               {"light_intensity": 14.0, "light_offset": V(0, 0, 185)}),
     "WoodChest": ("Chest", F, Snap.FREE, [("Logs", 4)], chest(), (52, 32, 31), 62, 21, {"storage": 18}),
+    "WoodBed": ("Bed", F, Snap.FREE, [("Logs", 4)], bed(), (105, 55, 25), 50, 22, {"bed": True}),
 }
 
 
@@ -325,7 +350,8 @@ def create_pieces():
                             ("light_intensity", extras.get("light_intensity", 0.0)),
                             ("light_offset", extras.get("light_offset", V(0, 0, 100))),
                             ("needs_workbench", extras.get("workbench", True)),
-                            ("storage_slots", extras.get("storage", 0))]:
+                            ("storage_slots", extras.get("storage", 0)),
+                            ("is_bed", extras.get("bed", False))]:
             piece.set_editor_property(prop, value)
         station = extras.get("station")
         piece.set_editor_property("station", unreal.load_asset(f"/Game/Crafting/Stations/{station}") if station else None)
