@@ -73,6 +73,35 @@ FVector ABuildPiece::GetWakeSpot() const
 	return GetActorLocation() + GetActorRightVector() * 110.f + FVector(0.f, 0.f, 100.f);
 }
 
+void ABuildPiece::PlayBuilt()
+{
+	if (RiseAge >= RiseSeconds)
+	{
+		bTickedBefore = IsActorTickEnabled();
+	}
+	RiseAge = 0.f;
+	SetActorScale3D(FVector(1.f, 1.f, 0.6f));
+	SetActorTickEnabled(true);
+}
+
+void ABuildPiece::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	if (RiseAge >= RiseSeconds)
+	{
+		return;
+	}
+	// Up from 60% height, easing out, with a touch of overshoot.
+	RiseAge = FMath::Min(RiseAge + DeltaSeconds, RiseSeconds);
+	const float T = RiseAge / RiseSeconds;
+	const float Height = 0.6f + 0.4f * (1.f + 2.2f * FMath::Pow(T - 1.f, 3.f) + 1.2f * FMath::Pow(T - 1.f, 2.f));
+	SetActorScale3D(FVector(1.f, 1.f, RiseAge >= RiseSeconds ? 1.f : Height));
+	if (RiseAge >= RiseSeconds)
+	{
+		SetActorTickEnabled(bTickedBefore);
+	}
+}
+
 void ABuildPiece::SetHighlight(UMaterialInterface* Overlay)
 {
 	for (UStaticMeshComponent* Part : PartMeshes)

@@ -36,7 +36,10 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 		{
 			if (Built->GetPiece() && !Built->IsActorBeingDestroyed())
 			{
-				FSavedBuildPiece& Saved = Save->BuildPieces.Add_GetRef(FSavedBuildPiece{Built->GetPiece()->GetPieceId(), Built->GetActorTransform(), Built->IsOpen()});
+				// Full size, even if it's still rising into place.
+				FTransform Transform = Built->GetActorTransform();
+				Transform.SetScale3D(FVector::OneVector);
+				FSavedBuildPiece& Saved = Save->BuildPieces.Add_GetRef(FSavedBuildPiece{Built->GetPiece()->GetPieceId(), Transform, Built->IsOpen()});
 				Saved.bClaimed = Built->IsClaimed();
 				if (const UInventoryComponent* Storage = Built->GetStorage())
 				{

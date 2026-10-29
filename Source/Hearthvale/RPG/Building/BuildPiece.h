@@ -35,6 +35,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Building")
 	void SetOpen(bool bInOpen);
 
+	/** Rises into place over a moment: the feedback for having just built it. */
+	void PlayBuilt();
+
+	virtual void Tick(float DeltaSeconds) override;
+
 	/** Tints it (in build mode, the piece middle mouse would take down); null clears it. */
 	void SetHighlight(UMaterialInterface* Overlay);
 
@@ -65,6 +70,13 @@ protected:
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Building")
 	bool bClaimed = false;
+
+private:
+	static constexpr float RiseSeconds = 0.18f;
+	/** Time since PlayBuilt, or past RiseSeconds when still. */
+	float RiseAge = RiseSeconds;
+	/** Whether it ticked before rising (a flickering light), to put back after. */
+	bool bTickedBefore = false;
 };
 
 /**

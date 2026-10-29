@@ -490,7 +490,12 @@ ABuildPiece* UBuildingComponent::BuildAt(UBuildPieceDefinition* Piece, const FHi
 			Character->GetInventory()->RemoveItem(Part.Item, Part.Quantity);
 		}
 	}
-	return ABuildPiece::Spawn(GetWorld(), Piece, Where.Transform);
+	ABuildPiece* Built = ABuildPiece::Spawn(GetWorld(), Piece, Where.Transform);
+	if (Built)
+	{
+		Built->PlayBuilt();
+	}
+	return Built;
 }
 
 bool UBuildingComponent::PlaceSelected()
