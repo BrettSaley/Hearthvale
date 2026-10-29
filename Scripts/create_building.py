@@ -3,7 +3,7 @@
 - Stone (an item): a bonus find while mining any ore rock
 - M_BuildGhost: the see-through green/red preview in build mode
 - Build pieces in /Game/Building/Pieces (UBuildPieceDefinition): wooden and
-  stone floors and walls, a window wall, a door, stairs, a roof and gable ends, a fence, log poles and beams, a chest, a bed (where you wake), a table and stool, a hearth (an indoor fire), the crafting stations, a torch
+  stone floors, foundations and walls, a window wall, a door, stairs, a roof and gable ends, a fence, log poles and beams, a chest, a bed (where you wake), a table and stool, a hearth (an indoor fire), the crafting stations, a torch
 
 Run after create_crafting.py and create_world.py (the stations' looks come
 from their definitions), headless with the editor closed:
@@ -334,6 +334,10 @@ PIECES = {
     "WoodGable": ("Gable end", S, Snap.EDGE, [("Logs", 2)], gable(), (60, 10, 20), GABLE_HEIGHT, 6, {}),
     "StoneFloor": ("Stone floor", S, Snap.CELL, [("Stone", 6)], [part("Cube", "Flagstone", (0, 0, 15), (2.0, 2.0, 0.3))],
                    (100, 100, 15), 30, 7, {}),
+    # A floor whose stonework runs a metre down, so it sits flush on a slope; only its top half checks for room.
+    "StoneFoundation": ("Foundation", S, Snap.CELL, [("Stone", 8)],
+                        [part("Cube", "Masonry", (0, 0, -45), (2.0, 2.0, 1.1)), part("Cube", "Flagstone", (0, 0, 15), (2.02, 2.02, 0.1))],
+                        (100, 100, 10), 20, 7, {}),
     "StoneWall": ("Stone wall", S, Snap.EDGE, [("Stone", 6)], wall("Masonry", 0.3), (86, 15, 100), 200, 8, {}),
     "WoodFence": ("Fence", F, Snap.EDGE, [("Logs", 1)], fence(), (88, 6, 55), 110, 9, {}),
     # Timber framing: an upright log anywhere, and a log lying along a cell's edge (on a wall, poles or the ground).
