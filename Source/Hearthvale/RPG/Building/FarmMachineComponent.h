@@ -10,8 +10,10 @@ class UInventoryComponent;
 /**
  * The workings of a farm machine (a build piece whose definition has one):
  * sprinklers water plots in range; harvesters pick and replant them; collectors
- * shear sheep and sweep up what's on the ground. Harvesters and collectors burn
- * fuel (logs, from their own storage): each log is good for its FuelValue jobs.
+ * shear sheep and sweep up what's on the ground; incubators hatch eggs. All but
+ * sprinklers burn fuel (logs, from their own storage): each log is good for its
+ * FuelValue jobs. Harvesters and collectors unload what they make into the nearest
+ * chest (or trough) in range, so they can run unattended.
  * The work they do earns the player Farming XP, as if they'd done it themselves.
  */
 UCLASS(ClassGroup = (RPG))
@@ -46,6 +48,9 @@ private:
 	void Water(float DeltaTime);
 	bool Harvest();
 	bool Collect();
+	bool Hatch();
+	/** Moves what it's made (not seeds, fuel or fertiliser) into the nearest chest in range, or else trough. */
+	void Unload();
 	/** Takes one job's fuel, burning a log from storage if needed; false if there's none. */
 	bool TakeFuel();
 	void GiveXP(int32 XP) const;

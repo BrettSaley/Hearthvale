@@ -5,7 +5,8 @@
 - Build pieces in /Game/Building/Pieces (UBuildPieceDefinition): wooden and
   stone floors, foundations and walls, a window wall, a door, stairs, a roof and gable ends, a fence, log poles and beams, a chest, a bed (where you wake), a table and stool, a hearth (an indoor fire), the crafting stations, a torch
 - Farm machines (built with bars; each needs a Smithing level): sprinklers that speed crops up, an
-  auto-feeder, harvesters that pick and replant plots, a collector that shears sheep and gathers eggs.
+  auto-feeder, harvesters that pick and replant plots, a collector that shears sheep and gathers eggs,
+  an incubator that hatches chicks. Harvesters and collectors unload into the nearest chest in range.
   Logs are their fuel (better logs last longer).
 - The Farm tab: a garden plot (a farm patch you build), a fence and gate (animals can't get through), a nest box (hens lay in it), a feeding trough (tame animals eat from it), a wool rug
 
@@ -335,6 +336,13 @@ def feeder():
             + [part("Cylinder", "Iron", (x, y, 50), (0.07, 0.07, 1.0)) for x in (-75, 75) for y in (-30, 30)])
 
 
+def incubator():
+    # A copper-bound box with a glass-ish dome and a little chimney.
+    return [part("Cube", "Copper", (0, 0, 35), (0.9, 0.7, 0.7)),
+            part("Sphere", "Straw", (0, 0, 72), (0.7, 0.55, 0.35), collides=False),
+            part("Cylinder", "Iron", (-30, 20, 95), (0.08, 0.08, 0.5), collides=False)]
+
+
 def rug():
     return [part("Cube", "Wool", (0, 0, 1), (2.4, 1.6, 0.02), collides=False),
             part("Cube", "Blanket", (0, 0, 1.5), (1.8, 1.0, 0.02), collides=False)]
@@ -447,6 +455,9 @@ PIECES = {
     "SteelSprinkler": ("Steel irrigator", A, Snap.FREE, [("SteelBar", 4), ("SilverBar", 2)], sprinkler("Steel", 220), (16, 16, 115), 240, 46,
                        {"smithing": 45, "machine": unreal.FarmMachine.SPRINKLER, "range": 1500, "boost": 8.0,
                         "about": "Waters plots within 15 m: crops grow eight times as fast."}),
+    "Incubator": ("Incubator", A, Snap.FREE, [("CopperBar", 3), ("IronBar", 2), ("Logs", 2)], incubator(), (45, 35, 45), 90, 47,
+                  {"smithing": 30, "storage": 9, "machine": unreal.FarmMachine.INCUBATOR, "range": 1500, "work": 30.0,
+                   "hatch": "Chicken", "about": "Hatches a chick from an egg in it every 30 s. Burns logs."}),
     "WoolRug": ("Wool rug", F, Snap.FREE, [("Wool", 4)], rug(), (120, 80, 2), 3, 25, {}),
     # Timber framing: an upright log anywhere, and a log lying along a cell's edge (on a wall, poles or the ground).
     "WoodPole": ("Log pole", S, Snap.FREE, [("Logs", 1)], [part("Cylinder", "Bark", (0, 0, 100), (0.22, 0.22, 2.0))],
@@ -501,6 +512,7 @@ def create_pieces():
                             ("range", float(extras.get("range", 0))),
                             ("growth_boost", extras.get("boost", 1.0)),
                             ("work_seconds", extras.get("work", 2.0)),
+                            ("hatch_animal", unreal.load_asset(f"/Game/Farming/Animals/{extras['hatch']}") if "hatch" in extras else None),
                             ("plot_size", unreal.Vector2D(*extras.get("plot", (0, 0)))),
                             ("plot_soil", unreal.load_asset("/Game/Farming/Materials/MI_Soil") if "plot" in extras else None)]:
             piece.set_editor_property(prop, value)

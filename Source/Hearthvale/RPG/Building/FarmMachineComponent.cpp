@@ -4,6 +4,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
+#include "RPG/AnimalDefinition.h"
 #include "RPG/FarmAnimal.h"
 #include "RPG/FarmPatch.h"
 #include "RPG/GroundItem.h"
@@ -68,8 +69,9 @@ bool UFarmMachineComponent::WorkOnce()
 	}
 	switch (Definition->Machine)
 	{
-	case EFarmMachine::Harvester: return Harvest();
-	case EFarmMachine::Collector: return Collect();
+	case EFarmMachine::Harvester: Unload(); return Harvest();
+	case EFarmMachine::Collector: Unload(); return Collect();
+	case EFarmMachine::Incubator: return Hatch();
 	default:                      return false;
 	}
 }
@@ -214,6 +216,76 @@ bool UFarmMachineComponent::Collect()
 	return false;
 }
 
+void UFarmMachineComponent::Unload()
+{
+	const ABuildPiece* Piece = GetPiece();
+	UInventoryComponent* Storage = GetStorage();
+	UInventoryComponent* Chest = nullptr;
+	const float Range = Piece->GetPiece()->GetRange();
+	float Nearest = Range * 2.f;
+	for (const ABuildPiece* Other : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		// Chests before troughs: a trough only counts as further away than anything in range.
+		const float Reach = FVector::Dist2D(Other->GetActorLocation(), Piece->GetActorLocation());
+		const float Distance = Reach + (Other->GetPiece() && Other->GetPiece()->bTrough ? Range : 0.f);
+		if (Other != Piece && Other->GetStorage() && !Other->GetMachine() && Other->GetPiece() && !Other->GetPiece()->bNestBox
+			&& Reach <= Range && Distance < Nearest)
+		{
+			Chest = Other->GetStorage();
+			Nearest = Distance;
+		}
+	}
+	if (!Chest)
+	{
+		return;
+	}
+	const TArray<FItemStack>& Slots = Storage->GetSlots();
+	for (int32 Index = 0; Index < Slots.Num(); ++Index)
+	{
+		const FItemStack Stack = Slots[Index];
+		if (Stack.IsEmpty() || Stack.Item->IsSeed() || Stack.Item->FuelValue > 0 || Stack.Item->GetItemId() == TEXT("Fertiliser"))
+		{
+			continue;
+		}
+		const int32 Moved = Chest->AddItem(Stack.Item, Stack.Quantity);
+		if (Moved > 0)
+		{
+			Storage->RemoveFromSlot(Index, Moved);
+			bFull = false;
+		}
+	}
+}
+
+bool UFarmMachineComponent::Hatch()
+{
+	// An egg and some fuel make a chick, while there's room for more of them nearby.
+	const ABuildPiece* Piece = GetPiece();
+	UAnimalDefinition* Animal = Piece->GetPiece()->HatchAnimal;
+	UInventoryComponent* Storage = GetStorage();
+	if (!Animal || !Animal->Produce || !Storage->HasItem(Animal->Produce))
+	{
+		return false;
+	}
+	int32 Nearby = 0;
+	for (const AFarmAnimal* Other : TActorRange<AFarmAnimal>(GetWorld()))
+	{
+		if (Other->GetAnimal() == Animal && FVector::Dist2D(Other->GetActorLocation(), Piece->GetActorLocation()) <= Piece->GetPiece()->GetRange())
+		{
+			++Nearby;
+		}
+	}
+	bFull = Nearby >= Animal->MaxNearby * 3;
+	if (bFull || !TakeFuel())
+	{
+		return false;
+	}
+	Storage->RemoveItem(Animal->Produce, 1);
+	const FVector Spot = Piece->GetActorLocation() + FVector(FMath::FRandRange(-150.f, 150.f), FMath::FRandRange(-150.f, 150.f), 0.f);
+	AFarmAnimal::Spawn(GetWorld(), Animal, Spot, FMath::FRandRange(0.f, 360.f), true, true);
+	++JobsDone;
+	return true;
+}
+
 FText UFarmMachineComponent::GetStatus() const
 {
 	const ABuildPiece* Piece = GetPiece();
@@ -227,7 +299,8 @@ FText UFarmMachineComponent::GetStatus() const
 	}
 	if (bFull)
 	{
-		return LOCTEXT("Full", "full: empty it");
+		return Piece->GetPiece()->Machine == EFarmMachine::Incubator ? LOCTEXT("Crowded", "too many nearby to hatch more")
+			: LOCTEXT("Full", "full: empty it, or build a chest beside it");
 	}
 	if (bOutOfFuel && Fuel <= 0)
 	{

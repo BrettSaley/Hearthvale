@@ -62,6 +62,10 @@ ITEMS = {
 }
 
 
+# Crops stack now that machines harvest them by the hundred.
+STACKING = ["Potato", "Onion", "Cabbage", "Pumpkin"]
+
+
 def create_items():
     factory = unreal.DataAssetFactory()
     factory.set_editor_property("data_asset_class", unreal.ItemDefinition)
@@ -71,7 +75,7 @@ def create_items():
                             ("category", data["category"]), ("stackable", data.get("stackable", False)),
                             ("value", data["value"]), ("heal_amount", data.get("heal", 0))]:
             made.set_editor_property(prop, value)
-        if "tool" in data:
+        if "tool" in data:  # (Sickles.)
             made.set_editor_property("tool_type", unreal.ToolType.SICKLE)
             made.set_editor_property("tool_power", data["tool"])
             made.set_editor_property("requirements", {unreal.Skill.FARMING: data["requires"]} if "requires" in data else {})
@@ -240,6 +244,10 @@ def place_wild(animals):
 
 
 create_items()
+for produce in STACKING:
+    crop = item(produce)
+    crop.set_editor_property("stackable", True)
+    save(crop)
 create_recipes()
 create_materials()
 place_wild(create_animals())

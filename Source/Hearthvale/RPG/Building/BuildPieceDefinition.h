@@ -7,6 +7,8 @@
 #include "RPG/Skills.h"
 #include "BuildPieceDefinition.generated.h"
 
+class UAnimalDefinition;
+
 class UCraftingStationDefinition;
 
 /** How a piece lines up when placed. Structural pieces share a 2 m grid, so they meet cleanly. */
@@ -31,7 +33,9 @@ enum class EFarmMachine : uint8
 	/** Harvests ready plots into its storage, and replants them from seeds in it. Burns fuel. */
 	Harvester,
 	/** Shears sheep and gathers what's lying on the ground into its storage (hens lay into it too). Burns fuel. */
-	Collector
+	Collector,
+	/** Hatches HatchAnimal young from their produce (eggs) in its storage. Burns fuel. */
+	Incubator
 };
 
 UENUM(BlueprintType)
@@ -120,7 +124,11 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Machine", meta = (ClampMin = 1))
 	float GrowthBoost = 1.f;
 
-	/** Seconds between a harvester's or collector's jobs. */
+	/** An incubator: what it hatches (from that animal's produce). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Machine")
+	TObjectPtr<UAnimalDefinition> HatchAnimal;
+
+	/** Seconds between a harvester's, collector's or incubator's jobs. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Machine", meta = (ClampMin = 0.1))
 	float WorkSeconds = 2.f;
 
