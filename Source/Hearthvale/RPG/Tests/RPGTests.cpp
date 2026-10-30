@@ -358,13 +358,13 @@ bool FFarmMachinesTest::RunTest(const FString& Parameters)
 		{
 			TestTrue(FString::Printf(TEXT("%s speeds crops up"), *Name), Piece->GrowthBoost > 1.f);
 		}
-		if (Piece->Machine == EFarmMachine::Incubator)
-		{
-			TestTrue(FString::Printf(TEXT("%s hatches something from what it lays"), *Name), Piece->HatchAnimal && Piece->HatchAnimal->Produce);
-		}
 		else
 		{
 			TestTrue(FString::Printf(TEXT("%s has storage for fuel and its work"), *Name), Piece->StorageSlots > 0);
+		}
+		if (Piece->Machine == EFarmMachine::Incubator)
+		{
+			TestTrue(FString::Printf(TEXT("%s hatches something from what it lays"), *Name), Piece->HatchAnimal && Piece->HatchAnimal->Produce);
 		}
 	}
 	TestTrue(TEXT("There are farm machines"), Machines >= 5);
