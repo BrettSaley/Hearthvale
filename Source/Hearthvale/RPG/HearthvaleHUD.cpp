@@ -319,7 +319,9 @@ void AHearthvaleHUD::DrawBuildMenu(AHearthvaleCharacter* Character)
 	{
 		const UBuildPieceDefinition* Piece = Pieces[Index];
 		const bool bSelected = Index == SelectedIndex;
-		const bool bAffordable = Building->CanAfford(Piece);
+		// Machines need a Smithing level: until then the box says so instead of the cost.
+		const bool bLocked = Piece->RequiredSkill != ESkill::Count && Character->GetSkills()->GetLevel(Piece->RequiredSkill) < Piece->RequiredLevel;
+		const bool bAffordable = !bLocked && Building->CanAfford(Piece);
 		const float X = Left + (Index - First) * (BoxWidth + Gap);
 		if (bSelected)
 		{
@@ -333,6 +335,12 @@ void AHearthvaleHUD::DrawBuildMenu(AHearthvaleCharacter* Character)
 		const FLinearColor NameColor = bAffordable ? FLinearColor::White : FLinearColor(0.6f, 0.6f, 0.6f);
 		DrawText(Piece->DisplayName.ToString(), NameColor, X + 6.f, Top + 4.f, Font);
 		float Y = Top + 24.f;
+		if (bLocked)
+		{
+			DrawText(FString::Printf(TEXT("%s %d"), *USkillLibrary::GetSkillName(Piece->RequiredSkill).ToString(), Piece->RequiredLevel),
+				FLinearColor(1.f, 0.3f, 0.25f), X + 6.f, Y, Font);
+			continue;
+		}
 		for (const FItemAmount& Part : Piece->Cost)
 		{
 			if (!Part.Item)
