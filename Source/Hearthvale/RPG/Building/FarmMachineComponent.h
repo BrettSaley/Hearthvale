@@ -25,6 +25,7 @@ public:
 	UFarmMachineComponent();
 
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	/** Jobs left before it needs to burn more fuel. */
@@ -43,6 +44,9 @@ public:
 	/** Does one job now if there's one to do (for testing); true if it did. */
 	bool WorkOnce();
 
+	/** Pays the player the XP it's banked straight away (it does every 10 s anyway). */
+	void PayOut() { PayXP(); }
+
 private:
 	ABuildPiece* GetPiece() const;
 	UInventoryComponent* GetStorage() const;
@@ -54,11 +58,15 @@ private:
 	void Unload();
 	/** Takes one job's fuel, burning a log from storage if needed; false if there's none. */
 	bool TakeFuel();
-	void GiveXP(int32 XP) const;
+	/** Banks the player's XP for a job; it's paid out every so often, so a busy machine doesn't flood the screen. */
+	void GiveXP(int32 XP);
+	void PayXP();
 
 	int32 Fuel = 0;
 	int32 JobsDone = 0;
 	float Work = 0.f;
+	int32 PendingXP = 0;
+	float SincePaid = 0.f;
 	bool bOutOfFuel = false;
 	bool bFull = false;
 };

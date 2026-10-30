@@ -71,6 +71,11 @@ void UFarmMachineComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		}
 		return;
 	}
+	SincePaid += DeltaTime;
+	if (SincePaid >= 10.f)
+	{
+		PayXP();
+	}
 	Work += DeltaTime;
 	if (Work >= Definition->WorkSeconds)
 	{
@@ -135,13 +140,27 @@ bool UFarmMachineComponent::TakeFuel()
 	return false;
 }
 
-void UFarmMachineComponent::GiveXP(int32 XP) const
+void UFarmMachineComponent::GiveXP(int32 XP)
+{
+	PendingXP += FMath::Max(0, XP);
+}
+
+void UFarmMachineComponent::PayXP()
 {
 	// The player gets the credit for what their machines do.
-	if (const AHearthvaleCharacter* Character = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)); Character && XP > 0)
+	SincePaid = 0.f;
+	if (const AHearthvaleCharacter* Character = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)); Character && PendingXP > 0)
 	{
-		Character->GetSkills()->AddXP(ESkill::Farming, XP);
+		Character->GetSkills()->AddXP(ESkill::Farming, PendingXP);
 	}
+	PendingXP = 0;
+}
+
+void UFarmMachineComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// Taken down or the game's ending: nothing earned is lost.
+	PayXP();
+	Super::EndPlay(EndPlayReason);
 }
 
 bool UFarmMachineComponent::Harvest()

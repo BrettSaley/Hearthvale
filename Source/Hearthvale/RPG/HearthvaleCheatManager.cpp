@@ -440,6 +440,7 @@ void UHearthvaleCheatManager::WorkMachines(int32 Jobs)
 			{
 				++Done;
 			}
+			Machine->PayOut();
 		}
 	}
 	Say(FString::Printf(TEXT("Machines did %d job(s)."), Done));
