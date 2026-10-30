@@ -103,7 +103,10 @@ bool UFarmMachineComponent::TakeFuel()
 	{
 		if (!Slots[Index].IsEmpty() && Slots[Index].Item->FuelValue > 0)
 		{
-			Fuel = Storage->RemoveFromSlot(Index, 1).Item->FuelValue - 1;
+			// A better smith builds a thriftier burner: twice the jobs from a log at Smithing 50.
+			const AHearthvaleCharacter* Character = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0));
+			const float Thrift = 1.f + (Character ? Character->GetSkills()->GetLevel(ESkill::Smithing) : 1) / 50.f;
+			Fuel = FMath::RoundToInt(Storage->RemoveFromSlot(Index, 1).Item->FuelValue * Thrift) - 1;
 			bOutOfFuel = false;
 			return true;
 		}

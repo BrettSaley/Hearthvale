@@ -1,4 +1,4 @@
-﻿#include "RPG/UI/CharacterPanelWidget.h"
+#include "RPG/UI/CharacterPanelWidget.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/CanvasPanel.h"
@@ -369,6 +369,8 @@ void UCharacterPanelWidget::RefreshGuide()
 		case EUnlockKind::Resource: Kind = LOCTEXT("KindResource", "Gather"); break;
 		case EUnlockKind::Tool:     Kind = LOCTEXT("KindTool", "Tool"); break;
 		case EUnlockKind::Crop:     Kind = LOCTEXT("KindCrop", "Crop"); break;
+		case EUnlockKind::Recipe:   Kind = LOCTEXT("KindRecipe", "Make"); break;
+		case EUnlockKind::Building: Kind = LOCTEXT("KindBuilding", "Build"); break;
 		default:                    Kind = LOCTEXT("KindPerk", "Perk"); break;
 		}
 		UVerticalBox* Texts = WidgetTree->ConstructWidget<UVerticalBox>();

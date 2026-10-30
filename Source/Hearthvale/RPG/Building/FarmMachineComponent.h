@@ -12,7 +12,7 @@ class UInventoryComponent;
  * sprinklers water plots in range; harvesters pick and replant them; collectors
  * shear sheep and sweep up what's on the ground; incubators hatch eggs. All but
  * sprinklers burn fuel (logs, from their own storage): each log is good for its
- * FuelValue jobs. Harvesters and collectors unload what they make into the nearest
+ * FuelValue jobs, more the higher the player's Smithing. Harvesters and collectors unload what they make into the nearest
  * chest (or trough) in range, so they can run unattended.
  * The work they do earns the player Farming XP, as if they'd done it themselves.
  */
