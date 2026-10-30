@@ -7,6 +7,7 @@
 #include "HearthvaleCharacter.h"
 #include "HearthvalePlayerController.h"
 #include "RPG/CraftingStationDefinition.h"
+#include "RPG/FarmPatch.h"
 #include "RPG/InventoryComponent.h"
 
 #define LOCTEXT_NAMESPACE "BuildPiece"
@@ -32,6 +33,18 @@ ABuildPiece* ABuildPiece::Spawn(UWorld* World, UBuildPieceDefinition* InPiece, c
 			Built->Storage = NewObject<UInventoryComponent>(Built, TEXT("Storage"));
 			Built->Storage->SetCapacity(InPiece->StorageSlots);
 			Built->Storage->RegisterComponent();
+		}
+		if (!InPiece->PlotSize.IsZero())
+		{
+			// The soil sits inside the plot's frame and rises with it.
+			FActorSpawnParameters Params;
+			Params.Owner = Built;
+			Built->Patch = World->SpawnActor<AFarmPatch>(AFarmPatch::StaticClass(), Transform, Params);
+			if (Built->Patch)
+			{
+				Built->Patch->SetSize(InPiece->PlotSize, InPiece->PlotSoil);
+				Built->Patch->AttachToActor(Built, FAttachmentTransformRules::KeepWorldTransform);
+			}
 		}
 	}
 	return Built;
@@ -65,6 +78,15 @@ void ABuildPiece::ApplyLook()
 	{
 		ApplyLight(0.f, FLinearColor::White, FVector::ZeroVector, 0.f);
 	}
+}
+
+void ABuildPiece::Destroyed()
+{
+	if (Patch)
+	{
+		Patch->Destroy();
+	}
+	Super::Destroyed();
 }
 
 FVector ABuildPiece::GetWakeSpot() const

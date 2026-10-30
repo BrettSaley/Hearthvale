@@ -25,7 +25,8 @@ enum class EBuildCategory : uint8
 {
 	Structure,
 	Crafting,
-	Furniture
+	Furniture,
+	Farm
 };
 
 /**
@@ -82,6 +83,21 @@ public:
 	/** A chest: how many slots it holds (0 for none). */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece", meta = (ClampMin = 0))
 	int32 StorageSlots = 0;
+
+	/** A nest box: hens nearby lay their eggs in its storage. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")
+	bool bNestBox = false;
+
+	/** A feeding trough: hungry tame animals nearby eat what's in its storage. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")
+	bool bTrough = false;
+
+	/** A garden plot: a farm patch of this size (cm) to grow crops in. Zero for none. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")
+	FVector2D PlotSize = FVector2D::ZeroVector;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")
+	TObjectPtr<UMaterialInterface> PlotSoil;
 
 	/** A door: this part swings open and shut about DoorHinge. -1 for none. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Door")

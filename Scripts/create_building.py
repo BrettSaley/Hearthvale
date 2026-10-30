@@ -4,8 +4,9 @@
 - M_BuildGhost: the see-through green/red preview in build mode
 - Build pieces in /Game/Building/Pieces (UBuildPieceDefinition): wooden and
   stone floors, foundations and walls, a window wall, a door, stairs, a roof and gable ends, a fence, log poles and beams, a chest, a bed (where you wake), a table and stool, a hearth (an indoor fire), the crafting stations, a torch
+- The Farm tab: a garden plot (a farm patch you build), a fence and gate (animals can't get through), a nest box (hens lay in it), a feeding trough (tame animals eat from it), a wool rug
 
-Run after create_crafting.py and create_world.py (the stations' looks come
+Run after create_crafting.py, create_world.py and create_farming.py (for wool) (the stations' looks come
 from their definitions), headless with the editor closed:
     UnrealEditor-Cmd.exe Hearthvale.uproject -run=pythonscript -script="<path>/Scripts/create_building.py"
 
@@ -190,7 +191,8 @@ MATERIALS.update(create_surfaces())
 def create_cloth():
     """Plain-coloured cloth for the bed (the basic shape material, tinted)."""
     parent = unreal.load_asset("/Engine/BasicShapes/BasicShapeMaterial")
-    for name, color in {"Blanket": (0.32, 0.06, 0.045), "Linen": (0.72, 0.66, 0.55)}.items():
+    for name, color in {"Blanket": (0.32, 0.06, 0.045), "Linen": (0.72, 0.66, 0.55), "Straw": (0.62, 0.48, 0.18),
+                        "Wool": (0.8, 0.77, 0.7)}.items():
         mi, _ = create(f"MI_Build{name}", "/Game/Building", unreal.MaterialInstanceConstant,
                        unreal.MaterialInstanceConstantFactoryNew())
         mel.set_material_instance_parent(mi, parent)
@@ -260,8 +262,44 @@ def stairs():
 
 
 def fence():
+    # An unseen panel fills the gaps between the rails, so animals stay penned.
     return ([part("Cylinder", "Bark", (x, 0, 55), (0.12, 0.12, 1.1)) for x in (-92, 0, 92)]
-            + [part("Cube", "Planks", (0, 0, z), (1.95, 0.05, 0.12)) for z in (40, 88)])
+            + [part("Cube", "Planks", (0, 0, z), (1.95, 0.05, 0.12)) for z in (40, 88)]
+            + [part("Cube", "Planks", (0, 0, 50), (1.95, 0.05, 1.0), visible=False)])
+
+
+def gate():
+    # Posts at the ends, and a plank gate between them (index 2) swinging on its left edge.
+    return [part("Cylinder", "Bark", (x, 0, 55), (0.12, 0.12, 1.1)) for x in (-92, 92)] + [
+        part("Cube", "Planks", (0, 0, 52), (1.68, 0.05, 0.84))]
+
+
+def garden_plot():
+    # A low log frame round the soil (the soil itself is the farm patch the piece makes).
+    return ([part("Cylinder", "Bark", (0, y, 7), (0.14, 0.14, 2.0), (0, 90, 0)) for y in (-94, 94)]
+            + [part("Cylinder", "Bark", (x, 0, 7), (0.14, 0.14, 1.74), (90, 0, 0)) for x in (-94, 94)])
+
+
+def nest_box():
+    # An open plank box with straw in it.
+    return ([part("Cube", "Planks", (0, 0, 4), (0.6, 0.5, 0.08))]
+            + [part("Cube", "WallPlanks", (x, 0, 18), (0.04, 0.5, 0.3)) for x in (-28, 28)]
+            + [part("Cube", "WallPlanks", (0, y, 18), (0.6, 0.04, 0.3)) for y in (-23, 23)]
+            + [part("Sphere", "Straw", (0, 0, 14), (0.52, 0.42, 0.14), collides=False)])
+
+
+def trough():
+    # A long open plank box on legs, with feed in it.
+    return ([part("Cube", "Planks", (0, 0, 22), (1.4, 0.5, 0.06))]
+            + [part("Cube", "WallPlanks", (x, 0, 34), (0.04, 0.5, 0.3)) for x in (-68, 68)]
+            + [part("Cube", "WallPlanks", (0, y, 34), (1.4, 0.04, 0.3)) for y in (-23, 23)]
+            + [part("Cube", "Bark", (x, y, 10), (0.08, 0.08, 0.2)) for x in (-60, 60) for y in (-18, 18)]
+            + [part("Sphere", "Straw", (0, 0, 32), (1.3, 0.42, 0.12), collides=False)])
+
+
+def rug():
+    return [part("Cube", "Wool", (0, 0, 1), (2.4, 1.6, 0.02), collides=False),
+            part("Cube", "Blanket", (0, 0, 1.5), (1.8, 1.0, 0.02), collides=False)]
 
 
 def chest():
@@ -322,6 +360,7 @@ def station_parts(name):
 S = Category.STRUCTURE
 C = Category.CRAFTING
 F = Category.FURNITURE
+A = Category.FARM
 PIECES = {
     "WoodFloor": ("Wood floor", S, Snap.CELL, [("Logs", 2)], [part("Cube", "Planks", (0, 0, 10), (2.0, 2.0, 0.2))],
                   (100, 100, 10), 20, 0, {}),
@@ -339,7 +378,14 @@ PIECES = {
                         [part("Cube", "Masonry", (0, 0, -45), (2.0, 2.0, 1.1)), part("Cube", "Flagstone", (0, 0, 15), (2.02, 2.02, 0.1))],
                         (100, 100, 10), 20, 7, {}),
     "StoneWall": ("Stone wall", S, Snap.EDGE, [("Stone", 6)], wall("Masonry", 0.3), (86, 15, 100), 200, 8, {}),
-    "WoodFence": ("Fence", F, Snap.EDGE, [("Logs", 1)], fence(), (88, 6, 55), 110, 9, {}),
+    "WoodFence": ("Fence", A, Snap.EDGE, [("Logs", 1)], fence(), (88, 6, 55), 110, 31, {}),
+    "WoodGate": ("Gate", A, Snap.EDGE, [("Logs", 2)], gate(), (88, 6, 55), 110, 32,
+                 {"door_part": 2, "door_hinge": V(-84, 0, 0)}),
+    "GardenPlot": ("Garden plot", A, Snap.CELL, [("Logs", 2)], garden_plot(), (98, 98, 8), 14, 30,
+                   {"plot": (176, 176)}),
+    "NestBox": ("Nest box", A, Snap.FREE, [("Logs", 2)], nest_box(), (32, 27, 18), 36, 33, {"storage": 6, "nest": True}),
+    "FeedTrough": ("Feeding trough", A, Snap.FREE, [("Logs", 3)], trough(), (72, 27, 25), 50, 34, {"storage": 9, "trough": True}),
+    "WoolRug": ("Wool rug", F, Snap.FREE, [("Wool", 4)], rug(), (120, 80, 2), 3, 25, {}),
     # Timber framing: an upright log anywhere, and a log lying along a cell's edge (on a wall, poles or the ground).
     "WoodPole": ("Log pole", S, Snap.FREE, [("Logs", 1)], [part("Cylinder", "Bark", (0, 0, 100), (0.22, 0.22, 2.0))],
                  (10, 10, 100), 200, 9, {}),
@@ -384,7 +430,11 @@ def create_pieces():
                             ("light_offset", extras.get("light_offset", V(0, 0, 100))),
                             ("needs_workbench", extras.get("workbench", True)),
                             ("storage_slots", extras.get("storage", 0)),
-                            ("is_bed", extras.get("bed", False))]:
+                            ("is_bed", extras.get("bed", False)),
+                            ("nest_box", extras.get("nest", False)),
+                            ("trough", extras.get("trough", False)),
+                            ("plot_size", unreal.Vector2D(*extras.get("plot", (0, 0)))),
+                            ("plot_soil", unreal.load_asset("/Game/Farming/Materials/MI_Soil") if "plot" in extras else None)]:
             piece.set_editor_property(prop, value)
         station = extras.get("station")
         piece.set_editor_property("station", unreal.load_asset(f"/Game/Crafting/Stations/{station}") if station else None)

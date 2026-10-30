@@ -15,8 +15,8 @@
 
 namespace
 {
-	/** Where the plants sit on the 240 x 160 cm patch: two rows of three. */
-	const FVector PlantSpots[] = {{-75.f, -38.f, 0.f}, {0.f, -38.f, 0.f}, {75.f, -38.f, 0.f}, {-75.f, 38.f, 0.f}, {0.f, 38.f, 0.f}, {75.f, 38.f, 0.f}};
+	/** Where the plants sit on a patch, as a share of its size: two rows of three. */
+	const FVector2D PlantSpots[] = {{-0.3125f, -0.2375f}, {0.f, -0.2375f}, {0.3125f, -0.2375f}, {-0.3125f, 0.2375f}, {0.f, 0.2375f}, {0.3125f, 0.2375f}};
 	const FLinearColor PatchWarning(1.f, 0.45f, 0.4f);
 
 	FText FormatTimeLeft(float Seconds)
@@ -94,6 +94,18 @@ float AFarmPatch::GetSecondsLeft() const
 		return 0.f;
 	}
 	return FMath::Max(0.f, Crop->GrowSeconds - static_cast<float>((FDateTime::UtcNow() - PlantedAt).GetTotalSeconds()));
+}
+
+void AFarmPatch::SetSize(FVector2D Size, UMaterialInterface* Material)
+{
+	PatchSize = Size;
+	Soil->SetRelativeScale3D(FVector(Size.X / 100.f, Size.Y / 100.f, 0.06f));
+	if (Material)
+	{
+		SoilMaterial = Material;
+		Soil->SetMaterial(0, Material);
+	}
+	RefreshLook();
 }
 
 void AFarmPatch::FinishGrowing()
@@ -296,7 +308,7 @@ void AFarmPatch::RefreshLook()
 	for (int32 PlantIndex = 0; PlantIndex < PlantCount; ++PlantIndex)
 	{
 		// Each plant turned a little differently so the rows don't look stamped.
-		const FTransform Spot(FRotator(0.f, PlantIndex * 67.f, 0.f), PlantSpots[PlantIndex] + FVector(0.f, 0.f, 6.f));
+		const FTransform Spot(FRotator(0.f, PlantIndex * 67.f, 0.f), FVector(PlantSpots[PlantIndex] * PatchSize, 6.f));
 		for (int32 Part = 0; Part < PartsPerPlant; ++Part)
 		{
 			UStaticMeshComponent* Mesh = PlantMeshes[PlantIndex * PartsPerPlant + Part];

@@ -4,6 +4,7 @@
 
 #include "Misc/AutomationTest.h"
 #include "RPG/Building/BuildingComponent.h"
+#include "RPG/AnimalDefinition.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/CraftingComponent.h"
 #include "RPG/CropDefinition.h"
@@ -296,6 +297,42 @@ bool FSkillUnlocksTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Oak at Woodcutting 15"), Woodcutting.ContainsByPredicate([](const FSkillUnlock& U) { return U.Kind == EUnlockKind::Resource && U.Level == 15; }));
 	TestTrue(TEXT("Woodcutting unlocks a tool"), Woodcutting.ContainsByPredicate([](const FSkillUnlock& U) { return U.Kind == EUnlockKind::Tool; }));
 	TestTrue(TEXT("Farming unlocks a crop at 1"), USkillUnlocks::GetUnlocks(ESkill::Farming).ContainsByPredicate([](const FSkillUnlock& U) { return U.Kind == EUnlockKind::Crop && U.Level == 1; }));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAnimalsTest, "Hearthvale.Animals", TestFlags)
+
+bool FAnimalsTest::RunTest(const FString& Parameters)
+{
+	// Each animal eats something, gives something and can be tamed in a few feedings.
+	for (const TCHAR* Name : {TEXT("Chicken"), TEXT("Sheep")})
+	{
+		const UAnimalDefinition* Animal = LoadObject<UAnimalDefinition>(nullptr, *FString::Printf(TEXT("/Game/Farming/Animals/%s.%s"), Name, Name));
+		if (!TestNotNull(FString::Printf(TEXT("%s exists"), Name), Animal))
+		{
+			continue;
+		}
+		TestTrue(FString::Printf(TEXT("%s eats something"), Name), !Animal->Food.IsEmpty() && !Animal->Food.Contains(nullptr));
+		TestNotNull(FString::Printf(TEXT("%s gives something"), Name), Animal->Produce.Get());
+		TestTrue(FString::Printf(TEXT("%s has a look"), Name), !Animal->Parts.IsEmpty());
+		TestTrue(FString::Printf(TEXT("%s's grown produce part exists"), Name),
+			Animal->ProducePart == INDEX_NONE || Animal->Parts.IsValidIndex(Animal->ProducePart));
+		TestTrue(FString::Printf(TEXT("%s tames in a few feedings"), Name), Animal->TameFeedings >= 1 && Animal->TameFeedings <= 5);
+	}
+	// Hens lay; sheep grow wool to shear.
+	const UAnimalDefinition* Chicken = LoadObject<UAnimalDefinition>(nullptr, TEXT("/Game/Farming/Animals/Chicken.Chicken"));
+	const UAnimalDefinition* Sheep = LoadObject<UAnimalDefinition>(nullptr, TEXT("/Game/Farming/Animals/Sheep.Sheep"));
+	TestTrue(TEXT("Chickens lay"), Chicken && Chicken->bLaysProduce);
+	TestTrue(TEXT("Sheep are sheared"), Sheep && !Sheep->bLaysProduce && Sheep->ProducePart != INDEX_NONE);
+
+	// The farm pieces: a plot grows crops, a nest box and a trough hold things.
+	const UBuildPieceDefinition* Plot = UBuildPieceDefinition::FindPiece(TEXT("GardenPlot"));
+	TestTrue(TEXT("A garden plot makes a patch that fits its cell"), Plot && !Plot->PlotSize.IsZero()
+		&& Plot->PlotSize.X <= UBuildPieceDefinition::GridSize && Plot->PlotSize.Y <= UBuildPieceDefinition::GridSize);
+	const UBuildPieceDefinition* Nest = UBuildPieceDefinition::FindPiece(TEXT("NestBox"));
+	TestTrue(TEXT("A nest box holds eggs"), Nest && Nest->bNestBox && Nest->StorageSlots > 0);
+	const UBuildPieceDefinition* Trough = UBuildPieceDefinition::FindPiece(TEXT("FeedTrough"));
+	TestTrue(TEXT("A trough holds feed"), Trough && Trough->bTrough && Trough->StorageSlots > 0);
 	return true;
 }
 

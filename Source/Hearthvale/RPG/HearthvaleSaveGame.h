@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/SaveGame.h"
+#include "RPG/FarmAnimal.h"
 #include "RPG/FarmPatch.h"
 #include "RPG/Skills.h"
 #include "HearthvaleSaveGame.generated.h"
@@ -44,6 +45,10 @@ struct FSavedBuildPiece
 	/** Chests: what's in them. */
 	UPROPERTY()
 	TArray<FSavedItemStack> Items;
+
+	/** Garden plots: what's growing. */
+	UPROPERTY()
+	FSavedFarmPatch Patch;
 };
 
 /**
@@ -81,6 +86,13 @@ public:
 
 	UPROPERTY()
 	TArray<FSavedBuildPiece> BuildPieces;
+
+	/** Every animal, wild and tame; only replaces the world's when bHasAnimals (older saves have none). */
+	UPROPERTY()
+	bool bHasAnimals = false;
+
+	UPROPERTY()
+	TArray<FSavedFarmAnimal> Animals;
 
 	/** Write a character's progress (and the farm patches in their world) to disk. */
 	static bool SaveProgress(const AHearthvaleCharacter* Character);

@@ -74,6 +74,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Farming")
 	float GetSecondsLeft() const;
 
+	/** Resizes it (a garden plot's), spreading the plants to fit, with its own soil if given. */
+	void SetSize(FVector2D Size, UMaterialInterface* Material = nullptr);
+
 	/** Finishes growing straight away (for testing). */
 	void FinishGrowing();
 
@@ -117,5 +120,7 @@ private:
 	FDateTime PlantedAt;
 	int32 HarvestsLeft = 0;
 	EPatchState ShownState = EPatchState::Empty;
+	/** Its soil's length and width, cm. */
+	FVector2D PatchSize = FVector2D(240.f, 160.f);
 	FTimerHandle GrowTimer;
 };

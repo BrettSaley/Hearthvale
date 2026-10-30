@@ -4,6 +4,7 @@
 #include "RPG/CraftingStation.h"
 #include "BuildPiece.generated.h"
 
+class AFarmPatch;
 class UBuildPieceDefinition;
 class UInventoryComponent;
 class UMaterialInstanceDynamic;
@@ -56,6 +57,11 @@ public:
 	/** A chest's contents; null for anything else. */
 	UInventoryComponent* GetStorage() const { return Storage; }
 
+	/** A garden plot's patch; null for anything else. */
+	AFarmPatch* GetPatch() const { return Patch; }
+
+	virtual void Destroyed() override;
+
 protected:
 	virtual void ApplyLook() override;
 
@@ -70,6 +76,9 @@ protected:
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Building")
 	bool bClaimed = false;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Building")
+	TObjectPtr<AFarmPatch> Patch;
 
 private:
 	static constexpr float RiseSeconds = 0.18f;

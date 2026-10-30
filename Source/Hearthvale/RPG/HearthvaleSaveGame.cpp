@@ -30,7 +30,19 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 	{
 		for (const AFarmPatch* Patch : TActorRange<AFarmPatch>(World))
 		{
-			Save->FarmPatches.Add(Patch->GetName(), Patch->SaveState());
+			// Garden plots' patches are saved with their plot.
+			if (!Patch->GetOwner())
+			{
+				Save->FarmPatches.Add(Patch->GetName(), Patch->SaveState());
+			}
+		}
+		Save->bHasAnimals = true;
+		for (const AFarmAnimal* Animal : TActorRange<AFarmAnimal>(World))
+		{
+			if (Animal->GetAnimal() && !Animal->IsActorBeingDestroyed())
+			{
+				Save->Animals.Add(Animal->SaveState());
+			}
 		}
 		for (const ABuildPiece* Built : TActorRange<ABuildPiece>(World))
 		{
@@ -41,6 +53,10 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 				Transform.SetScale3D(FVector::OneVector);
 				FSavedBuildPiece& Saved = Save->BuildPieces.Add_GetRef(FSavedBuildPiece{Built->GetPiece()->GetPieceId(), Transform, Built->IsOpen()});
 				Saved.bClaimed = Built->IsClaimed();
+				if (const AFarmPatch* Patch = Built->GetPatch())
+				{
+					Saved.Patch = Patch->SaveState();
+				}
 				if (const UInventoryComponent* Storage = Built->GetStorage())
 				{
 					for (const FItemStack& Slot : Storage->GetSlots())
@@ -99,7 +115,8 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 	{
 		for (AFarmPatch* Patch : TActorRange<AFarmPatch>(World))
 		{
-			if (const FSavedFarmPatch* Saved = Save->FarmPatches.Find(Patch->GetName()))
+			const FSavedFarmPatch* Saved = Patch->GetOwner() ? nullptr : Save->FarmPatches.Find(Patch->GetName());
+			if (Saved)
 			{
 				Patch->LoadState(*Saved);
 			}
@@ -119,6 +136,10 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 				{
 					Character->TeleportTo(Built->GetWakeSpot(), FRotator(0.f, Built->GetActorRotation().Yaw - 90.f, 0.f));
 				}
+				if (AFarmPatch* Patch = Built ? Built->GetPatch() : nullptr)
+				{
+					Patch->LoadState(Saved.Patch);
+				}
 				UInventoryComponent* Storage = Built ? Built->GetStorage() : nullptr;
 				for (int32 Index = 0; Storage && Index < Saved.Items.Num() && Index < Storage->GetCapacity(); ++Index)
 				{
@@ -132,6 +153,20 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 			else
 			{
 				UE_LOG(LogHearthvale, Warning, TEXT("Save has an unknown build piece '%s'; dropping it."), *Saved.PieceId.ToString());
+			}
+		}
+		if (Save->bHasAnimals)
+		{
+			for (AFarmAnimal* Animal : TActorRange<AFarmAnimal>(World))
+			{
+				Animal->Destroy();
+			}
+			for (const FSavedFarmAnimal& Saved : Save->Animals)
+			{
+				if (!AFarmAnimal::SpawnSaved(World, Saved))
+				{
+					UE_LOG(LogHearthvale, Warning, TEXT("Save has an unknown animal '%s'; dropping it."), *Saved.Animal);
+				}
 			}
 		}
 	}

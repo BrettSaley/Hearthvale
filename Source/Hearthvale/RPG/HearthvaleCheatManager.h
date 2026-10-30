@@ -117,6 +117,30 @@ public:
 	UFUNCTION(Exec)
 	void ClearBuilt();
 
+	/** Puts an animal (Chicken, Sheep) a couple of metres ahead; Tame 1 for a tame one, Young 1 for a young one. */
+	UFUNCTION(Exec)
+	void SpawnAnimal(FName Kind, int32 Tame = 0, int32 Young = 0);
+
+	/** Brings every animal's produce, breeding and growing up to just before they happen; Hungry 1 makes them hungry instead. */
+	UFUNCTION(Exec)
+	void HurryAnimals(int32 Hungry = 0);
+
+	/** Puts items in the nearest feeding trough. */
+	UFUNCTION(Exec)
+	void StockTrough(FName ItemId, int32 Quantity = 1);
+
+	/** Uses the nearest animal (tame, feed or collect from it), wherever it is; of one kind (Sheep) if given. */
+	UFUNCTION(Exec)
+	void UseAnimal(FName Kind = NAME_None);
+
+	/** Uses the nearest garden plot (plant or harvest), wherever it is. */
+	UFUNCTION(Exec)
+	void UsePlot();
+
+	/** Logs every animal: kind, tame, fed, produce. */
+	UFUNCTION(Exec)
+	void ListAnimals();
+
 private:
 	AHearthvaleCharacter* GetHearthvaleCharacter() const;
 	void Say(const FString& Message) const;

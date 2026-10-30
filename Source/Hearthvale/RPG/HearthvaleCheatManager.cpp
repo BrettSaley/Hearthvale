@@ -11,6 +11,8 @@
 #include "RPG/CraftingStation.h"
 #include "RPG/UI/ChestWidget.h"
 #include "RPG/CraftingStationDefinition.h"
+#include "RPG/AnimalDefinition.h"
+#include "RPG/FarmAnimal.h"
 #include "RPG/FarmPatch.h"
 #include "RPG/HearthvaleSaveGame.h"
 #include "RPG/GatheringNodeDefinition.h"
@@ -332,6 +334,93 @@ void UHearthvaleCheatManager::ClearBuilt()
 		{
 			Character->GetBuilding()->Remove(Built);
 		}
+	}
+}
+
+void UHearthvaleCheatManager::SpawnAnimal(FName Kind, int32 Tame, int32 Young)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	UAnimalDefinition* Animal = LoadObject<UAnimalDefinition>(nullptr, *FString::Printf(TEXT("/Game/Farming/Animals/%s.%s"), *Kind.ToString(), *Kind.ToString()));
+	if (!Character || !Animal)
+	{
+		Say(FString::Printf(TEXT("No animal called %s."), *Kind.ToString()));
+		return;
+	}
+	const FVector Spot = Character->GetActorLocation() + Character->GetActorForwardVector() * 250.f;
+	AFarmAnimal::Spawn(GetWorld(), Animal, Spot, Character->GetActorRotation().Yaw + 180.f, Tame != 0, Young != 0);
+	Say(FString::Printf(TEXT("Spawned a %s%s."), Tame ? TEXT("tame ") : TEXT("wild "), *Kind.ToString()));
+}
+
+void UHearthvaleCheatManager::StockTrough(FName ItemId, int32 Quantity)
+{
+	UItemDefinition* Item = UItemDefinition::FindItem(ItemId);
+	for (ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		if (Item && Built->GetPiece() && Built->GetPiece()->bTrough && Built->GetStorage())
+		{
+			Say(FString::Printf(TEXT("Put %d x %s in the trough."), Built->GetStorage()->AddItem(Item, Quantity), *ItemId.ToString()));
+			return;
+		}
+	}
+	Say(TEXT("No trough (or no such item)."));
+}
+
+void UHearthvaleCheatManager::HurryAnimals(int32 Hungry)
+{
+	int32 Count = 0;
+	for (AFarmAnimal* Animal : TActorRange<AFarmAnimal>(GetWorld()))
+	{
+		Animal->Hurry(Hungry != 0);
+		++Count;
+	}
+	Say(FString::Printf(TEXT("Hurried %d animal(s)."), Count));
+}
+
+void UHearthvaleCheatManager::UseAnimal(FName Kind)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	AFarmAnimal* Nearest = nullptr;
+	for (AFarmAnimal* Animal : TActorRange<AFarmAnimal>(GetWorld()))
+	{
+		if (!Kind.IsNone() && (!Animal->GetAnimal() || Animal->GetAnimal()->GetFName() != Kind))
+		{
+			continue;
+		}
+		if (Character && (!Nearest || FVector::Dist(Animal->GetActorLocation(), Character->GetActorLocation())
+			< FVector::Dist(Nearest->GetActorLocation(), Character->GetActorLocation())))
+		{
+			Nearest = Animal;
+		}
+	}
+	if (Nearest)
+	{
+		Nearest->Interact(Character);
+	}
+}
+
+void UHearthvaleCheatManager::UsePlot()
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	for (ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		if (Character && Built->GetPatch())
+		{
+			Built->GetPatch()->Interact(Character);
+			return;
+		}
+	}
+	Say(TEXT("No garden plot."));
+}
+
+void UHearthvaleCheatManager::ListAnimals()
+{
+	for (const AFarmAnimal* Animal : TActorRange<AFarmAnimal>(GetWorld()))
+	{
+		const FSavedFarmAnimal State = Animal->SaveState();
+		Say(FString::Printf(TEXT("%s at (%.0f, %.0f, %.0f): %s%s, fed %.0fs, produce %.0fs%s, breed %.0fs"),
+			*FPaths::GetBaseFilename(State.Animal), State.Location.X, State.Location.Y, State.Location.Z,
+			State.bTame ? TEXT("tame") : TEXT("wild"), Animal->IsYoung() ? TEXT(" young") : TEXT(""),
+			State.Fed, State.Produce, State.bProduceReady ? TEXT(" (ready)") : TEXT(""), State.Breed));
 	}
 }
 
