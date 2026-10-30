@@ -61,6 +61,9 @@ public:
 	/** A farm machine's workings; null for anything else. */
 	UFarmMachineComponent* GetMachine() const { return Machine; }
 
+	/** Its parts, in the order its definition lists them (for machines that move them). */
+	const TArray<TObjectPtr<UStaticMeshComponent>>& GetPartMeshes() const { return PartMeshes; }
+
 	/** A garden plot's patch; null for anything else. */
 	AFarmPatch* GetPatch() const { return Patch; }
 

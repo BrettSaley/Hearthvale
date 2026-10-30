@@ -24,6 +24,7 @@ class HEARTHVALE_API UFarmMachineComponent : public UActorComponent
 public:
 	UFarmMachineComponent();
 
+	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	/** Jobs left before it needs to burn more fuel. */

@@ -1,6 +1,7 @@
 #include "RPG/Building/FarmMachineComponent.h"
 #include "EngineUtils.h"
 #include "HearthvaleCharacter.h"
+#include "Components/StaticMeshComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
@@ -37,6 +38,16 @@ bool UFarmMachineComponent::NeedsFuel() const
 	return Piece && Piece->GetPiece() && Piece->GetPiece()->Machine != EFarmMachine::Sprinkler;
 }
 
+void UFarmMachineComponent::BeginPlay()
+{
+	Super::BeginPlay();
+	// Sprinklers spin every frame; the rest work on a slower beat.
+	if (!NeedsFuel())
+	{
+		SetComponentTickInterval(0.f);
+	}
+}
+
 void UFarmMachineComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -49,6 +60,15 @@ void UFarmMachineComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	if (Definition->Machine == EFarmMachine::Sprinkler)
 	{
 		Water(DeltaTime);
+		// The head (everything above the pipe, part 0) turns about the pipe.
+		const TArray<TObjectPtr<UStaticMeshComponent>>& Parts = Piece->GetPartMeshes();
+		for (int32 Index = 1; Index < Parts.Num(); ++Index)
+		{
+			if (Parts[Index] && Parts[Index]->GetStaticMesh())
+			{
+				Parts[Index]->AddRelativeRotation(FRotator(0.f, 180.f * DeltaTime, 0.f));
+			}
+		}
 		return;
 	}
 	Work += DeltaTime;
