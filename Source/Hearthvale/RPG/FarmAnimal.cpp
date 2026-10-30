@@ -603,9 +603,19 @@ bool AFarmAnimal::GetInteractionPrompt(const AHearthvaleCharacter* Character, FI
 		OutPrompt.Requirement = Food;
 		return true;
 	}
+	// Fed: lead it about, with how it's doing alongside its name ("Sheep (fed 3:20, wool in 1:05)").
 	OutPrompt.Action = Leader.Get() == Character ? LOCTEXT("LetGo", "Let go") : LOCTEXT("Lead", "Lead");
-	OutPrompt.Status = IsYoung() ? LOCTEXT("GrowingUp", "growing up")
-		: FText::Format(LOCTEXT("FedFor", "fed for {0}"), FormatTime(Fed));
+	FText Detail = FText::Format(LOCTEXT("FedFor", "fed {0}"), FormatTime(Fed));
+	if (IsYoung())
+	{
+		Detail = FText::Format(LOCTEXT("GrowingUp", "{0}, growing up"), Detail);
+	}
+	else if (Animal->Produce && !Animal->bLaysProduce)
+	{
+		Detail = FText::Format(LOCTEXT("ProduceIn", "{0}, {1} in {2}"), Detail, Animal->Produce->DisplayName.ToLower(),
+			FormatTime(Animal->ProduceSeconds - Produce));
+	}
+	OutPrompt.Target = FText::Format(LOCTEXT("WithDetail", "{0}  ({1})"), GetName(), Detail);
 	return true;
 }
 

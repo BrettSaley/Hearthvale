@@ -346,7 +346,7 @@ void UHearthvaleCheatManager::SpawnAnimal(FName Kind, int32 Tame, int32 Young)
 		Say(FString::Printf(TEXT("No animal called %s."), *Kind.ToString()));
 		return;
 	}
-	const FVector Spot = Character->GetActorLocation() + Character->GetActorForwardVector() * 250.f;
+	const FVector Spot = Character->GetActorLocation() + Character->GetActorForwardVector() * 160.f;
 	AFarmAnimal::Spawn(GetWorld(), Animal, Spot, Character->GetActorRotation().Yaw + 180.f, Tame != 0, Young != 0);
 	Say(FString::Printf(TEXT("Spawned a %s%s."), Tame ? TEXT("tame ") : TEXT("wild "), *Kind.ToString()));
 }

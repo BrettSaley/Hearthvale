@@ -117,7 +117,7 @@ public:
 	UFUNCTION(Exec)
 	void ClearBuilt();
 
-	/** Puts an animal (Chicken, Sheep) a couple of metres ahead; Tame 1 for a tame one, Young 1 for a young one. */
+	/** Puts an animal (Chicken, Sheep) just ahead, in reach; Tame 1 for a tame one, Young 1 for a young one. */
 	UFUNCTION(Exec)
 	void SpawnAnimal(FName Kind, int32 Tame = 0, int32 Young = 0);
 
