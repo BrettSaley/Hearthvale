@@ -191,7 +191,8 @@ float AFarmAnimal::GroundAt(const FVector2D& Spot, float Near) const
 
 bool AFarmAnimal::IsBlocked(const FVector& From, const FVector2D& To) const
 {
-	// Fences, walls, rocks and cliffs: anything upright at shin and knee height. Gentle slopes aren't.
+	// Fences, walls, rocks and cliffs: anything upright at shin and knee height that would stop
+	// someone walking (not an open gate). Gentle slopes aren't.
 	const FVector2D Direction = (To - FVector2D(From)).GetSafeNormal();
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(AnimalBlocked), false, this);
 	FCollisionObjectQueryParams Objects;
@@ -206,7 +207,8 @@ bool AFarmAnimal::IsBlocked(const FVector& From, const FVector2D& To) const
 		for (const FHitResult& Hit : Hits)
 		{
 			if (!Cast<AFarmAnimal>(Hit.GetActor()) && !Cast<AGroundItem>(Hit.GetActor()) && Hit.ImpactNormal.Z < 0.6f
-				&& Hit.Component.IsValid() && Hit.Component->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Block)
+				&& Hit.Component.IsValid() && CollisionEnabledHasPhysics(Hit.Component->GetCollisionEnabled())
+				&& Hit.Component->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Block)
 			{
 				return true;
 			}
@@ -252,13 +254,25 @@ void AFarmAnimal::Wander(float DeltaSeconds)
 		}
 		else if (Distance > FollowGap)
 		{
-			const FVector2D Next = Position + ToLeader / Distance * FMath::Min(FollowSpeed * DeltaSeconds, Distance - FollowGap);
-			if (UWorldGenerator::GetGroundHeight(Next.X, Next.Y) >= ShoreHeight && !IsBlocked(Location, Next))
+			// Straight for them, or if that's blocked, slide along what's in the way (a fence, to its gate),
+			// keeping to the side it last slid towards so it doesn't dither.
+			const float Move = FMath::Min(FollowSpeed * DeltaSeconds, Distance - FollowGap);
+			for (const float Turn : {0.f, 40.f, -40.f, 80.f, -80.f, 120.f, -120.f})
 			{
-				Yaw = FMath::FixedTurn(Yaw, FMath::RadiansToDegrees(FMath::Atan2(ToLeader.Y, ToLeader.X)), 540.f * DeltaSeconds);
-				Step += DeltaSeconds * FollowSpeed / 12.f;
-				Lift = Animal->Bob * FMath::Abs(FMath::Sin(Step));
-				Location = FVector(Next, GroundAt(Next, Location.Z));
+				const FVector2D Direction = (ToLeader / Distance).GetRotated(Turn * SlideSide);
+				const FVector2D Next = Position + Direction * Move;
+				if (UWorldGenerator::GetGroundHeight(Next.X, Next.Y) >= ShoreHeight && !IsBlocked(Location, Next))
+				{
+					if (Turn != 0.f)
+					{
+						SlideSide *= FMath::Sign(Turn);
+					}
+					Yaw = FMath::FixedTurn(Yaw, FMath::RadiansToDegrees(FMath::Atan2(Direction.Y, Direction.X)), 540.f * DeltaSeconds);
+					Step += DeltaSeconds * FollowSpeed / 12.f;
+					Lift = Animal->Bob * FMath::Abs(FMath::Sin(Step));
+					Location = FVector(Next, GroundAt(Next, Location.Z));
+					break;
+				}
 			}
 		}
 		Target = FVector2D(Location);

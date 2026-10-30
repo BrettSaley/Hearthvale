@@ -148,6 +148,8 @@ private:
 	TArray<TObjectPtr<UStaticMeshComponent>> PartMeshes;
 
 	TWeakObjectPtr<AHearthvaleCharacter> Leader;
+	/** Which way (1 or -1) it slides along something blocking it while following. */
+	float SlideSide = 1.f;
 	/** Seconds until it next looks for a trough. */
 	float TroughCheck = 0.f;
 
