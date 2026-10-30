@@ -5,6 +5,8 @@
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/RecipeDefinition.h"
+#include "RPG/SkillUnlocks.h"
+#include "RPG/SkillsComponent.h"
 
 #define LOCTEXT_NAMESPACE "Crafting"
 
@@ -58,6 +60,12 @@ bool UCraftingComponent::StartCrafting(ACraftingStation* Station, URecipeDefinit
 		return false;
 	}
 	Character->StopActions();
+	if (Recipe->TrainsSkill() && Character->GetSkills()->GetLevel(Recipe->Skill) < Recipe->RequiredLevel)
+	{
+		Character->ShowMessage(FText::Format(LOCTEXT("NeedLevel", "You need a {0} level of {1} to make {2}."),
+			USkillLibrary::GetSkillName(Recipe->Skill), Recipe->RequiredLevel, Recipe->Output->DisplayName.ToLower()), CraftWarning);
+		return false;
+	}
 	const int32 Craftable = CountCraftable(Character->GetInventory(), Recipe);
 	if (Craftable < 1)
 	{
@@ -96,7 +104,7 @@ void UCraftingComponent::StopCrafting()
 
 float UCraftingComponent::GetProgress() const
 {
-	return CurrentRecipe ? FMath::Clamp(Elapsed / CurrentRecipe->Seconds, 0.f, 1.f) : 0.f;
+	return CurrentRecipe ? FMath::Clamp(Elapsed / GetSeconds(CurrentRecipe), 0.f, 1.f) : 0.f;
 }
 
 void UCraftingComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -114,11 +122,22 @@ void UCraftingComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAc
 		return;
 	}
 	Elapsed += DeltaTime;
-	if (Elapsed >= CurrentRecipe->Seconds)
+	if (Elapsed >= GetSeconds(CurrentRecipe))
 	{
 		Elapsed = 0.f;
 		MakeOne();
 	}
+}
+
+float UCraftingComponent::GetSeconds(const URecipeDefinition* Recipe) const
+{
+	// The Speed perk of the skill it trains makes it quicker.
+	const AHearthvaleCharacter* Character = GetCharacter();
+	if (!Recipe->TrainsSkill() || !Character)
+	{
+		return Recipe->Seconds;
+	}
+	return Recipe->Seconds / (1.f + USkillUnlocks::GetPerk(Recipe->Skill, Character->GetSkills()->GetLevel(Recipe->Skill), ESkillPerk::Speed));
 }
 
 void UCraftingComponent::MakeOne()
@@ -130,6 +149,17 @@ void UCraftingComponent::MakeOne()
 	{
 		StopCrafting();
 		return;
+	}
+	if (CurrentRecipe->TrainsSkill())
+	{
+		USkillsComponent* Skills = Character->GetSkills();
+		// The ExtraYield perk: sometimes one more for the same materials.
+		if (FMath::FRand() < USkillUnlocks::GetPerk(CurrentRecipe->Skill, Skills->GetLevel(CurrentRecipe->Skill), ESkillPerk::ExtraYield)
+			&& Inventory->AddItem(CurrentRecipe->Output, 1) > 0)
+		{
+			Character->ShowMessage(FText::Format(LOCTEXT("Extra", "Good work: you make an extra {0}."), CurrentRecipe->Output->DisplayName.ToLower()));
+		}
+		Skills->AddXP(CurrentRecipe->Skill, CurrentRecipe->XP);
 	}
 	const FText Name = CurrentRecipe->Output->DisplayName.ToLower();
 	Character->ShowMessage(FText::Format(CurrentRecipe->MadeMessage.IsEmpty() ? LOCTEXT("Made", "You make: {0}.") : CurrentRecipe->MadeMessage, Name));

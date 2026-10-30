@@ -137,6 +137,18 @@ public:
 	UFUNCTION(Exec)
 	void UsePlot();
 
+	/** Logs every farm machine: what it is, its status, what's in it and the jobs it's done. */
+	UFUNCTION(Exec)
+	void ListMachines();
+
+	/** Has every harvester and collector do up to Jobs jobs straight away. */
+	UFUNCTION(Exec)
+	void WorkMachines(int32 Jobs = 1);
+
+	/** Puts items in the nearest build piece that stores things of a kind (Harvester, Collector, AutoFeeder...). */
+	UFUNCTION(Exec)
+	void StockPiece(FName PieceId, FName ItemId, int32 Quantity = 1);
+
 	/** Logs every animal: kind, tame, fed, produce. */
 	UFUNCTION(Exec)
 	void ListAnimals();

@@ -191,7 +191,7 @@ UWidget* UCharacterPanelWidget::BuildSkillsPage()
 	BarStyle.SetMarqueeImage(HearthvaleUI::RoundedBrush(FLinearColor::White, 3.f));
 	for (ESkill Skill : TEnumRange<ESkill>())
 	{
-		if (!USkillLibrary::IsGatheringSkill(Skill))
+		if (!USkillLibrary::IsSkillingSkill(Skill))
 		{
 			continue;
 		}
@@ -463,7 +463,7 @@ void UCharacterPanelWidget::RefreshSkills()
 	int32 TotalLevel = 0;
 	for (ESkill Skill : TEnumRange<ESkill>())
 	{
-		if (!USkillLibrary::IsGatheringSkill(Skill))
+		if (!USkillLibrary::IsSkillingSkill(Skill))
 		{
 			continue;
 		}

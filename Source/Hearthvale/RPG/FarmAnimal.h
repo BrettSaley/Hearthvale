@@ -6,6 +6,7 @@
 #include "FarmAnimal.generated.h"
 
 class UAnimalDefinition;
+class UInventoryComponent;
 class USphereComponent;
 class UStaticMeshComponent;
 
@@ -95,6 +96,9 @@ public:
 
 	/** Takes grown produce; false if there's none. */
 	bool Collect(AHearthvaleCharacter* Character);
+
+	/** A collector's shearing: grown produce into Into. False if there's none or no room. */
+	bool CollectInto(UInventoryComponent* Into, int32& OutXP);
 
 	/** Starts following a character (tame ones only), or stops and settles where it is (null). */
 	void SetLeader(AHearthvaleCharacter* Character);

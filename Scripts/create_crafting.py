@@ -209,6 +209,17 @@ RECIPES = {
 }
 
 
+# Smelting and smithing train Smithing: recipe -> (Smithing level needed, XP each).
+SMITHING = {
+    "SmeltCopper": (1, 25), "SmeltIron": (5, 45), "SmeltSilver": (15, 60), "SmeltSteel": (20, 80),
+    "SmithCopperAxe": (1, 50), "SmithCopperPickaxe": (1, 50), "SmithCopperSword": (3, 60),
+    "SmithIronAxe": (8, 100), "SmithIronPickaxe": (8, 100), "SmithIronSword": (10, 120),
+    "SmithSteelAxe": (25, 180), "SmithSteelPickaxe": (25, 180), "SmithSteelSword": (28, 200),
+    "SmithSilverRing": (15, 90), "SmithJadeRing": (20, 130), "SmithAmberRing": (30, 180),
+    "SmithSapphireRing": (40, 250), "SmithRubyRing": (50, 400),
+}
+
+
 def create_recipes():
     factory = unreal.DataAssetFactory()
     factory.set_editor_property("data_asset_class", unreal.RecipeDefinition)
@@ -223,6 +234,11 @@ def create_recipes():
         for prop, value in [("station", kind), ("inputs", amounts), ("output", item(output)), ("output_quantity", count),
                             ("seconds", seconds), ("made_message", unreal.Text(message)), ("sort_order", order)]:
             recipe.set_editor_property(prop, value)
+        level, xp = SMITHING.get(asset_name, (1, 0))
+        if asset_name in SMITHING:  # (No skill is the default, and Python can't name it.)
+            recipe.set_editor_property("skill", unreal.Skill.SMITHING)
+        recipe.set_editor_property("required_level", level)
+        recipe.set_editor_property("xp", xp)
         save(recipe)
 
 

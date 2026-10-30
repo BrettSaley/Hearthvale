@@ -5,6 +5,7 @@
 #include "BuildPiece.generated.h"
 
 class AFarmPatch;
+class UFarmMachineComponent;
 class UBuildPieceDefinition;
 class UInventoryComponent;
 class UMaterialInstanceDynamic;
@@ -57,6 +58,9 @@ public:
 	/** A chest's contents; null for anything else. */
 	UInventoryComponent* GetStorage() const { return Storage; }
 
+	/** A farm machine's workings; null for anything else. */
+	UFarmMachineComponent* GetMachine() const { return Machine; }
+
 	/** A garden plot's patch; null for anything else. */
 	AFarmPatch* GetPatch() const { return Patch; }
 
@@ -79,6 +83,9 @@ protected:
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Building")
 	TObjectPtr<AFarmPatch> Patch;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Building")
+	TObjectPtr<UFarmMachineComponent> Machine;
 
 private:
 	static constexpr float RiseSeconds = 0.18f;

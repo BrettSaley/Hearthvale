@@ -58,7 +58,8 @@ bool FSkillsComponentTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Vitality starts at 10"), Skills->GetLevel(ESkill::Vitality), USkillLibrary::VitalityStartLevel);
 	TestEqual(TEXT("Other skills start at 1"), Skills->GetLevel(ESkill::Mining), 1);
 	TestEqual(TEXT("A new character is combat level 3"), Skills->GetCombatLevel(), 3);
-	TestEqual(TEXT("Total level of a new character"), Skills->GetTotalLevel(), 17);
+	// Every skill at 1 but Vitality.
+	TestEqual(TEXT("Total level of a new character"), Skills->GetTotalLevel(), static_cast<int32>(ESkill::Count) - 1 + USkillLibrary::VitalityStartLevel);
 
 	Skills->AddXP(ESkill::Woodcutting, USkillLibrary::XPForLevel(5));
 	TestEqual(TEXT("Adding XP raises the level"), Skills->GetLevel(ESkill::Woodcutting), 5);
@@ -172,8 +173,8 @@ bool FFarmingTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("A held seed wins if it can be planted"), AFarmPatch::FindSeedSlot(Inventory, Skills, Potato), 1);
 	TestEqual(TEXT("A held seed that's too high doesn't"), AFarmPatch::FindSeedSlot(Inventory, Skills, Cabbage), 2);
 
-	TestTrue(TEXT("Farming is a gathering skill"), USkillLibrary::IsGatheringSkill(ESkill::Farming));
-	TestFalse(TEXT("Might isn't"), USkillLibrary::IsGatheringSkill(ESkill::Might));
+	TestTrue(TEXT("Farming is a skilling skill"), USkillLibrary::IsSkillingSkill(ESkill::Farming));
+	TestFalse(TEXT("Might isn't"), USkillLibrary::IsSkillingSkill(ESkill::Might));
 	TestEqual(TEXT("Old raw fish load as fish"), UHearthvaleSaveGame::UpgradeItemId(TEXT("RawTrout")), FName(TEXT("Trout")));
 	TestEqual(TEXT("Other IDs are unchanged"), UHearthvaleSaveGame::UpgradeItemId(TEXT("Logs")), FName(TEXT("Logs")));
 	return true;
@@ -333,6 +334,46 @@ bool FAnimalsTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("A nest box holds eggs"), Nest && Nest->bNestBox && Nest->StorageSlots > 0);
 	const UBuildPieceDefinition* Trough = UBuildPieceDefinition::FindPiece(TEXT("FeedTrough"));
 	TestTrue(TEXT("A trough holds feed"), Trough && Trough->bTrough && Trough->StorageSlots > 0);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFarmMachinesTest, "Hearthvale.Machines", TestFlags)
+
+bool FFarmMachinesTest::RunTest(const FString& Parameters)
+{
+	// Every machine needs Smithing to build, says what it does, and those that burn and store have somewhere to put fuel.
+	int32 Machines = 0;
+	for (const UBuildPieceDefinition* Piece : UBuildPieceDefinition::GetAllPieces())
+	{
+		if (Piece->Machine == EFarmMachine::None)
+		{
+			continue;
+		}
+		++Machines;
+		const FString Name = Piece->GetName();
+		TestEqual(FString::Printf(TEXT("%s needs Smithing"), *Name), Piece->RequiredSkill, ESkill::Smithing);
+		TestFalse(FString::Printf(TEXT("%s says what it does"), *Name), Piece->Description.IsEmpty());
+		TestTrue(FString::Printf(TEXT("%s reaches somewhere"), *Name), Piece->Range > 0.f);
+		if (Piece->Machine == EFarmMachine::Sprinkler)
+		{
+			TestTrue(FString::Printf(TEXT("%s speeds crops up"), *Name), Piece->GrowthBoost > 1.f);
+		}
+		else
+		{
+			TestTrue(FString::Printf(TEXT("%s has storage for fuel and its work"), *Name), Piece->StorageSlots > 0);
+		}
+	}
+	TestTrue(TEXT("There are farm machines"), Machines >= 5);
+
+	// Logs burn, the better ones for longer; smelting trains Smithing and steel needs some.
+	const UItemDefinition* Logs = UItemDefinition::FindItem(TEXT("Logs"));
+	const UItemDefinition* AshLogs = UItemDefinition::FindItem(TEXT("AshLogs"));
+	TestTrue(TEXT("Logs are fuel, ash logs more so"), Logs && AshLogs && Logs->FuelValue > 0 && AshLogs->FuelValue > Logs->FuelValue);
+	const URecipeDefinition* Steel = LoadObject<URecipeDefinition>(nullptr, TEXT("/Game/Crafting/Recipes/SmeltSteel.SmeltSteel"));
+	TestTrue(TEXT("Smelting steel trains Smithing and needs a level"), Steel && Steel->Skill == ESkill::Smithing && Steel->RequiredLevel > 1 && Steel->XP > 0);
+	TestTrue(TEXT("Smithing is shown with the other skills"), USkillLibrary::IsSkillingSkill(ESkill::Smithing));
+	TestTrue(TEXT("Smithing unlocks machines in the guide"), USkillUnlocks::GetUnlocks(ESkill::Smithing).ContainsByPredicate(
+		[](const FSkillUnlock& Unlock) { return Unlock.Kind == EUnlockKind::Building; }));
 	return true;
 }
 

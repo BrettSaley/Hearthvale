@@ -4,6 +4,7 @@
 #include "HearthvaleCharacter.h"
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
+#include "RPG/Building/FarmMachineComponent.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
@@ -56,6 +57,10 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 				if (const AFarmPatch* Patch = Built->GetPatch())
 				{
 					Saved.Patch = Patch->SaveState();
+				}
+				if (const UFarmMachineComponent* Machine = Built->GetMachine())
+				{
+					Saved.Fuel = Machine->GetFuel();
 				}
 				if (const UInventoryComponent* Storage = Built->GetStorage())
 				{
@@ -139,6 +144,10 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 				if (AFarmPatch* Patch = Built ? Built->GetPatch() : nullptr)
 				{
 					Patch->LoadState(Saved.Patch);
+				}
+				if (UFarmMachineComponent* Machine = Built ? Built->GetMachine() : nullptr)
+				{
+					Machine->SetFuel(Saved.Fuel);
 				}
 				UInventoryComponent* Storage = Built ? Built->GetStorage() : nullptr;
 				for (int32 Index = 0; Storage && Index < Saved.Items.Num() && Index < Storage->GetCapacity(); ++Index)

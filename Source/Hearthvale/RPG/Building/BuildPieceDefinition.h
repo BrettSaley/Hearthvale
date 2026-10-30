@@ -4,6 +4,7 @@
 #include "Engine/DataAsset.h"
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/RecipeDefinition.h"
+#include "RPG/Skills.h"
 #include "BuildPieceDefinition.generated.h"
 
 class UCraftingStationDefinition;
@@ -18,6 +19,19 @@ enum class EBuildSnap : uint8
 	Edge,
 	/** Anywhere, turned in small steps: fires, benches, torches. */
 	Free
+};
+
+/** What a farm machine does, every so often, to what's in its range. */
+UENUM(BlueprintType)
+enum class EFarmMachine : uint8
+{
+	None,
+	/** Waters plots: their crops grow GrowthBoost times as fast. */
+	Sprinkler,
+	/** Harvests ready plots into its storage, and replants them from seeds in it. Burns fuel. */
+	Harvester,
+	/** Shears sheep and gathers what's lying on the ground into its storage (hens lay into it too). Burns fuel. */
+	Collector
 };
 
 UENUM(BlueprintType)
@@ -48,6 +62,17 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")
 	EBuildCategory Category = EBuildCategory::Structure;
+
+	/** What it does, for the skill guide (machines). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")
+	FText Description;
+
+	/** A skill level needed to build it (Count for none). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")
+	ESkill RequiredSkill = ESkill::Count;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece", meta = (ClampMin = 1, ClampMax = 99))
+	int32 RequiredLevel = 1;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")
 	EBuildSnap Snap = EBuildSnap::Free;
@@ -83,6 +108,24 @@ public:
 	/** A chest: how many slots it holds (0 for none). */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece", meta = (ClampMin = 0))
 	int32 StorageSlots = 0;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Machine")
+	EFarmMachine Machine = EFarmMachine::None;
+
+	/** How far (cm) it reaches: a machine's work, a trough's feeding, a nest's laying. 0 for the usual 15 m. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Machine", meta = (ClampMin = 0))
+	float Range = 0.f;
+
+	/** A sprinkler: how many times as fast crops in range grow. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Machine", meta = (ClampMin = 1))
+	float GrowthBoost = 1.f;
+
+	/** Seconds between a harvester's or collector's jobs. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Machine", meta = (ClampMin = 0.1))
+	float WorkSeconds = 2.f;
+
+	/** Its reach, or the usual 15 m when it doesn't set one. */
+	float GetRange() const { return Range > 0.f ? Range : 1500.f; }
 
 	/** A nest box: hens nearby lay their eggs in its storage. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")

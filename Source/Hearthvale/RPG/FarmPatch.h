@@ -77,6 +77,15 @@ public:
 	/** Resizes it (a garden plot's), spreading the plants to fit, with its own soil if given. */
 	void SetSize(FVector2D Size, UMaterialInterface* Material = nullptr);
 
+	/** A sprinkler's watering: the crop grows this many seconds more. Several sprinklers don't add up: the best counts. */
+	void Water(float ExtraSeconds);
+
+	/** A harvester's pick: one produce (and any seed or rare find) into Into. False if it isn't ready or Into is full. */
+	bool MachineHarvest(UInventoryComponent* Into, int32& OutXP);
+
+	/** A harvester's planting from its own seeds, of crops Skills allows (any if null). False if it's not empty or there are none. */
+	bool MachinePlant(UInventoryComponent* From, const USkillsComponent* Skills, int32& OutXP);
+
 	/** Finishes growing straight away (for testing). */
 	void FinishGrowing();
 
@@ -120,6 +129,9 @@ private:
 	FDateTime PlantedAt;
 	int32 HarvestsLeft = 0;
 	EPatchState ShownState = EPatchState::Empty;
+	/** The frame watering was last given and how much, so the best sprinkler counts, not every one. */
+	uint64 WateredFrame = 0;
+	float WateredThisFrame = 0.f;
 	/** Its soil's length and width, cm. */
 	FVector2D PatchSize = FVector2D(240.f, 160.f);
 	FTimerHandle GrowTimer;

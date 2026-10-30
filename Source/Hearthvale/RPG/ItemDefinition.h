@@ -86,6 +86,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
 	TMap<ESkill, int32> Requirements;
 
+	/** How many jobs a farm machine gets out of burning one (logs); 0 if it doesn't burn. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item", meta = (ClampMin = 0))
+	int32 FuelValue = 0;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tool")
 	EToolType ToolType = EToolType::None;
 

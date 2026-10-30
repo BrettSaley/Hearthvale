@@ -8,6 +8,7 @@
 #include "RPG/Building/BuildingComponent.h"
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
+#include "RPG/Building/FarmMachineComponent.h"
 #include "RPG/CraftingStation.h"
 #include "RPG/UI/ChestWidget.h"
 #include "RPG/CraftingStationDefinition.h"
@@ -396,6 +397,66 @@ void UHearthvaleCheatManager::UseAnimal(FName Kind)
 	{
 		Nearest->Interact(Character);
 	}
+}
+
+void UHearthvaleCheatManager::ListMachines()
+{
+	for (const ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		const UFarmMachineComponent* Machine = Built->GetMachine();
+		if (!Machine)
+		{
+			continue;
+		}
+		TArray<FString> Contents;
+		if (const UInventoryComponent* Storage = Built->GetStorage())
+		{
+			TMap<FString, int32> Counts;
+			for (const FItemStack& Stack : Storage->GetSlots())
+			{
+				if (!Stack.IsEmpty())
+				{
+					Counts.FindOrAdd(Stack.Item->GetItemId().ToString()) += Stack.Quantity;
+				}
+			}
+			for (const TPair<FString, int32>& Count : Counts)
+			{
+				Contents.Add(FString::Printf(TEXT("%d %s"), Count.Value, *Count.Key));
+			}
+		}
+		Say(FString::Printf(TEXT("%s: %s; %d jobs; holds %s"), *Built->GetPiece()->GetPieceId().ToString(), *Machine->GetStatus().ToString(),
+			Machine->GetJobsDone(), Contents.IsEmpty() ? TEXT("nothing") : *FString::Join(Contents, TEXT(", "))));
+	}
+}
+
+void UHearthvaleCheatManager::WorkMachines(int32 Jobs)
+{
+	int32 Done = 0;
+	for (ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		if (UFarmMachineComponent* Machine = Built->GetMachine())
+		{
+			for (int32 Job = 0; Job < Jobs && Machine->WorkOnce(); ++Job)
+			{
+				++Done;
+			}
+		}
+	}
+	Say(FString::Printf(TEXT("Machines did %d job(s)."), Done));
+}
+
+void UHearthvaleCheatManager::StockPiece(FName PieceId, FName ItemId, int32 Quantity)
+{
+	UItemDefinition* Item = UItemDefinition::FindItem(ItemId);
+	for (ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		if (Item && Built->GetPiece() && Built->GetPiece()->GetPieceId() == PieceId && Built->GetStorage())
+		{
+			Say(FString::Printf(TEXT("Put %d x %s in the %s."), Built->GetStorage()->AddItem(Item, Quantity), *ItemId.ToString(), *PieceId.ToString()));
+			return;
+		}
+	}
+	Say(TEXT("No such piece built (or no such item)."));
 }
 
 void UHearthvaleCheatManager::UsePlot()

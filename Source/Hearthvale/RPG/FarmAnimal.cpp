@@ -21,10 +21,8 @@ namespace
 	const FLinearColor AnimalWarning(1.f, 0.45f, 0.4f);
 	/** Young start this big and grow to full size. */
 	constexpr float YoungScale = 0.45f;
-	/** How close (cm) two need to be to breed, and a nest box to be laid in. */
+	/** How close (cm) two need to be to breed. */
 	constexpr float PartnerRange = 700.f;
-	constexpr float NestRange = 1500.f;
-	constexpr float TroughRange = 1500.f;
 	/** Following someone: how close it keeps (cm), how fast it can go (cm/s), and how far behind it gives up. */
 	constexpr float FollowGap = 220.f;
 	constexpr float FollowSpeed = 480.f;
@@ -387,11 +385,12 @@ void AFarmAnimal::LayProduce()
 {
 	// Into the nearest nest box with room, or on the ground (where it won't keep).
 	ABuildPiece* Nest = nullptr;
-	float NestDistance = NestRange;
+	float NestDistance = TNumericLimits<float>::Max();
 	for (ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
 	{
 		const float Distance = FVector::Dist(Built->GetActorLocation(), GetActorLocation());
 		if (Built->GetPiece() && Built->GetPiece()->bNestBox && Built->GetStorage() && Distance < NestDistance
+			&& Distance < Built->GetPiece()->GetRange()
 			&& Built->GetStorage()->CanFit(Animal->Produce, Animal->ProduceQuantity))
 		{
 			Nest = Built;
@@ -414,7 +413,7 @@ void AFarmAnimal::EatFromTrough()
 	{
 		UInventoryComponent* Storage = Built->GetStorage();
 		if (!Storage || !Built->GetPiece() || !Built->GetPiece()->bTrough
-			|| FVector::Dist(Built->GetActorLocation(), GetActorLocation()) > TroughRange)
+			|| FVector::Dist(Built->GetActorLocation(), GetActorLocation()) > Built->GetPiece()->GetRange())
 		{
 			continue;
 		}
@@ -529,6 +528,19 @@ bool AFarmAnimal::Feed(AHearthvaleCharacter* Character)
 	Home = GetActorLocation();
 	Character->GetSkills()->AddXP(ESkill::Farming, Animal->TameXP);
 	Character->ShowMessage(FText::Format(LOCTEXT("Tamed", "The {0} trusts you now. It'll stay around here."), Animal->DisplayName.ToLower()));
+	return true;
+}
+
+bool AFarmAnimal::CollectInto(UInventoryComponent* Into, int32& OutXP)
+{
+	if (!Animal || !bTame || !bProduceReady || !Animal->Produce || !Into->CanFit(Animal->Produce, Animal->ProduceQuantity))
+	{
+		return false;
+	}
+	bProduceReady = false;
+	UpdateScale();
+	Into->AddItem(Animal->Produce, Animal->ProduceQuantity);
+	OutXP = Animal->CollectXP;
 	return true;
 }
 

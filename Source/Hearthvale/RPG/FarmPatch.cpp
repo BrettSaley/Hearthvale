@@ -108,6 +108,69 @@ void AFarmPatch::SetSize(FVector2D Size, UMaterialInterface* Material)
 	RefreshLook();
 }
 
+void AFarmPatch::Water(float ExtraSeconds)
+{
+	if (!Crop || GetState() == EPatchState::Ready)
+	{
+		return;
+	}
+	if (WateredFrame != GFrameCounter)
+	{
+		WateredFrame = GFrameCounter;
+		WateredThisFrame = 0.f;
+	}
+	if (ExtraSeconds > WateredThisFrame)
+	{
+		PlantedAt -= FTimespan::FromSeconds(ExtraSeconds - WateredThisFrame);
+		WateredThisFrame = ExtraSeconds;
+	}
+}
+
+bool AFarmPatch::MachineHarvest(UInventoryComponent* Into, int32& OutXP)
+{
+	if (GetState() != EPatchState::Ready || !Crop->Produce || !Into->CanFit(Crop->Produce))
+	{
+		return false;
+	}
+	Into->AddItem(Crop->Produce, 1);
+	for (const FBonusDrop& Drop : Crop->BonusDrops)
+	{
+		if (Drop.Item && FMath::RandRange(1, FMath::Max(1, Drop.OneIn)) == 1)
+		{
+			Into->AddItem(Drop.Item, Drop.Quantity);
+		}
+	}
+	if (Crop->Seed && Crop->SeedBackOneIn > 0 && FMath::RandRange(1, Crop->SeedBackOneIn) == 1)
+	{
+		Into->AddItem(Crop->Seed, 1);
+	}
+	OutXP = Crop->HarvestXP;
+	if (--HarvestsLeft <= 0)
+	{
+		Clear();
+	}
+	return true;
+}
+
+bool AFarmPatch::MachinePlant(UInventoryComponent* From, const USkillsComponent* Skills, int32& OutXP)
+{
+	if (Crop)
+	{
+		return false;
+	}
+	const int32 Slot = FindSeedSlot(From, Skills, nullptr);
+	if (Slot == INDEX_NONE)
+	{
+		return false;
+	}
+	Crop = From->RemoveFromSlot(Slot, 1).Item->Crop;
+	PlantedAt = FDateTime::UtcNow();
+	HarvestsLeft = FMath::RandRange(Crop->MinHarvests, FMath::Max(Crop->MinHarvests, Crop->MaxHarvests));
+	OutXP = Crop->PlantXP;
+	RefreshLook();
+	return true;
+}
+
 void AFarmPatch::FinishGrowing()
 {
 	if (Crop)

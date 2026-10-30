@@ -30,6 +30,10 @@ enum class EUnlockKind : uint8
 	Tool,
 	/** A crop you can now plant. */
 	Crop,
+	/** Something you can now make at a station. */
+	Recipe,
+	/** Something you can now build (farm machines). */
+	Building,
 	/** A permanent bonus. */
 	Perk
 };

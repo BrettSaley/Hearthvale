@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+#include "RPG/Skills.h"
 #include "RecipeDefinition.generated.h"
 
 class UItemDefinition;
@@ -35,8 +36,9 @@ struct HEARTHVALE_API FItemAmount
 
 /**
  * Turns gathered things into better things at a station: fish into meals,
- * ore into bars, bars into tools. No skill or level needed; anyone can make
- * anything they have the ingredients for. Recipes live in /Game/Crafting/Recipes.
+ * ore into bars, bars into tools. A recipe may train a skill (smelting and
+ * smithing train Smithing), and then may need a level of it; the skill's perks
+ * make it quicker and sometimes give one more. Recipes live in /Game/Crafting/Recipes.
  */
 UCLASS(BlueprintType)
 class HEARTHVALE_API URecipeDefinition : public UPrimaryDataAsset
@@ -65,6 +67,20 @@ public:
 	/** Said when one is made; {0} is the output in lower case. Empty means "You make: {0}." */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recipe")
 	FText MadeMessage;
+
+	/** The skill it trains; Count for none. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+	ESkill Skill = ESkill::Count;
+
+	/** Level of that skill needed to make it. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill", meta = (ClampMin = 1, ClampMax = 99))
+	int32 RequiredLevel = 1;
+
+	/** XP in that skill for each one made. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill", meta = (ClampMin = 0))
+	int32 XP = 0;
+
+	bool TrainsSkill() const { return Skill != ESkill::Count; }
 
 	/** Lower comes first in the station's list. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recipe")

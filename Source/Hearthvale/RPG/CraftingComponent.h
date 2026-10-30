@@ -69,6 +69,8 @@ public:
 
 private:
 	void MakeOne();
+	/** Seconds to make one of a recipe, quicker with the skill it trains. */
+	float GetSeconds(const URecipeDefinition* Recipe) const;
 	AHearthvaleCharacter* GetCharacter() const;
 
 	TWeakObjectPtr<ACraftingStation> CurrentStation;

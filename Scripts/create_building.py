@@ -4,6 +4,9 @@
 - M_BuildGhost: the see-through green/red preview in build mode
 - Build pieces in /Game/Building/Pieces (UBuildPieceDefinition): wooden and
   stone floors, foundations and walls, a window wall, a door, stairs, a roof and gable ends, a fence, log poles and beams, a chest, a bed (where you wake), a table and stool, a hearth (an indoor fire), the crafting stations, a torch
+- Farm machines (built with bars; each needs a Smithing level): sprinklers that speed crops up, an
+  auto-feeder, harvesters that pick and replant plots, a collector that shears sheep and gathers eggs.
+  Logs are their fuel (better logs last longer).
 - The Farm tab: a garden plot (a farm patch you build), a fence and gate (animals can't get through), a nest box (hens lay in it), a feeding trough (tame animals eat from it), a wool rug
 
 Run after create_crafting.py, create_world.py and create_farming.py (for wool) (the stations' looks come
@@ -189,10 +192,11 @@ MATERIALS.update(create_surfaces())
 
 
 def create_cloth():
-    """Plain-coloured cloth for the bed (the basic shape material, tinted)."""
+    """Plain colours for cloth and the machines' metal (the basic shape material, tinted)."""
     parent = unreal.load_asset("/Engine/BasicShapes/BasicShapeMaterial")
     for name, color in {"Blanket": (0.32, 0.06, 0.045), "Linen": (0.72, 0.66, 0.55), "Straw": (0.62, 0.48, 0.18),
-                        "Wool": (0.8, 0.77, 0.7)}.items():
+                        "Wool": (0.8, 0.77, 0.7), "Copper": (0.72, 0.36, 0.18), "Iron": (0.2, 0.2, 0.22),
+                        "Steel": (0.55, 0.58, 0.63), "Water": (0.25, 0.5, 0.85)}.items():
         mi, _ = create(f"MI_Build{name}", "/Game/Building", unreal.MaterialInstanceConstant,
                        unreal.MaterialInstanceConstantFactoryNew())
         mel.set_material_instance_parent(mi, parent)
@@ -297,6 +301,40 @@ def trough():
             + [part("Sphere", "Straw", (0, 0, 32), (1.3, 0.42, 0.12), collides=False)])
 
 
+def sprinkler(metal, height):
+    # A pipe up from the ground with a head of four arms and a blue spray.
+    return ([part("Cylinder", metal, (0, 0, height / 2), (0.08, 0.08, height / 100)),
+             part("Sphere", metal, (0, 0, height + 4), (0.18, 0.18, 0.18), collides=False)]
+            + [part("Cylinder", metal, (0, 0, height + 4), (0.04, 0.04, 0.7), rot, collides=False) for rot in ((90, 0, 0), (0, 90, 0))]
+            + [part("Cone", "Water", (0, 0, height + 22), (0.5, 0.5, 0.3), collides=False)])
+
+
+def harvester(metal, trim, s):
+    # A metal box on wheels with a cutter in front and a chimney behind; s scales it.
+    return ([part("Cube", metal, (0, 0, 60 * s), (1.3 * s, 0.9 * s, 0.9 * s)),
+             part("Cube", "Planks", (0, 0, 108 * s), (1.2 * s, 0.85 * s, 0.08)),
+             part("Cube", trim, (78 * s, 0, 22 * s), (0.12, 1.0 * s, 0.34 * s)),
+             part("Cylinder", metal, (-48 * s, 25 * s, 140 * s), (0.14, 0.14, 0.7 * s), collides=False)]
+            + [part("Cylinder", "Iron", (x * s, y * s, 22 * s), (0.44 * s, 0.44 * s, 0.08), (90, 0, 0), collides=False)
+               for x in (-42, 42) for y in (-48, 48)])
+
+
+def collector():
+    # A steel drum with a funnel on top.
+    return [part("Cylinder", "Steel", (0, 0, 60), (0.9, 0.9, 1.2)),
+            part("Cone", "Steel", (0, 0, 140), (1.1, 1.1, 0.45), (180, 0, 0), collides=False),
+            part("Cylinder", "Copper", (0, 0, 30), (0.94, 0.94, 0.08), collides=False),
+            part("Cylinder", "Copper", (0, 0, 90), (0.94, 0.94, 0.08), collides=False)]
+
+
+def feeder():
+    # A big iron hopper on legs over a long trough.
+    return ([part("Cube", "Planks", (0, 0, 22), (1.9, 0.9, 0.1)),
+             part("Cube", "Iron", (0, 0, 95), (1.6, 0.7, 0.8)),
+             part("Cone", "Iron", (0, 0, 48), (0.9, 0.6, 0.25), (180, 0, 0), collides=False)]
+            + [part("Cylinder", "Iron", (x, y, 50), (0.07, 0.07, 1.0)) for x in (-75, 75) for y in (-30, 30)])
+
+
 def rug():
     return [part("Cube", "Wool", (0, 0, 1), (2.4, 1.6, 0.02), collides=False),
             part("Cube", "Blanket", (0, 0, 1.5), (1.8, 1.0, 0.02), collides=False)]
@@ -385,6 +423,30 @@ PIECES = {
                    {"plot": (176, 176)}),
     "NestBox": ("Nest box", A, Snap.FREE, [("Logs", 2)], nest_box(), (32, 27, 18), 36, 33, {"storage": 6, "nest": True}),
     "FeedTrough": ("Feeding trough", A, Snap.FREE, [("Logs", 3)], trough(), (72, 27, 25), 50, 34, {"storage": 9, "trough": True}),
+    # Farm machines: as above, plus the Smithing level to build one, what it does and its workings.
+    "CopperSprinkler": ("Copper sprinkler", A, Snap.FREE, [("CopperBar", 2), ("Logs", 1)], sprinkler("Copper", 100), (12, 12, 55), 120, 40,
+                        {"smithing": 5, "machine": unreal.FarmMachine.SPRINKLER, "range": 500, "boost": 2.0,
+                         "about": "Waters plots within 5 m: crops grow twice as fast."}),
+    "AutoFeeder": ("Auto-feeder", A, Snap.FREE, [("IronBar", 2), ("Logs", 3)], feeder(), (95, 45, 65), 135, 41,
+                   {"smithing": 10, "storage": 27, "trough": True, "range": 3500,
+                    "about": "A big hopper: tame animals within 35 m eat from it when they get hungry."}),
+    "Harvester": ("Harvester", A, Snap.FREE, [("IronBar", 4), ("CopperBar", 2), ("Logs", 2)], harvester("Iron", "Copper", 1.0),
+                  (80, 55, 60), 120, 42,
+                  {"smithing": 15, "storage": 18, "machine": unreal.FarmMachine.HARVESTER, "range": 700, "work": 2.0,
+                   "about": "Harvests plots within 7 m into itself and replants them from its seeds. Burns logs; you get the Farming XP."}),
+    "IronSprinkler": ("Iron sprinkler", A, Snap.FREE, [("IronBar", 3), ("CopperBar", 1)], sprinkler("Iron", 150), (14, 14, 80), 170, 43,
+                      {"smithing": 20, "machine": unreal.FarmMachine.SPRINKLER, "range": 900, "boost": 4.0,
+                       "about": "Waters plots within 9 m: crops grow four times as fast."}),
+    "Collector": ("Collector", A, Snap.FREE, [("SteelBar", 3), ("IronBar", 2)], collector(), (50, 50, 80), 160, 44,
+                  {"smithing": 25, "storage": 27, "nest": True, "machine": unreal.FarmMachine.COLLECTOR, "range": 1500, "work": 1.5,
+                   "about": "Shears sheep and sweeps up eggs and wool within 15 m; hens lay into it. Burns logs; you get the Farming XP."}),
+    "SteelHarvester": ("Steam harvester", A, Snap.FREE, [("SteelBar", 5), ("SilverBar", 1), ("IronBar", 2)],
+                       harvester("Steel", "Steel", 1.4), (112, 77, 84), 168, 45,
+                       {"smithing": 35, "storage": 36, "machine": unreal.FarmMachine.HARVESTER, "range": 1400, "work": 0.5,
+                        "about": "Harvests and replants plots within 14 m, four times as fast as the iron one. Burns logs."}),
+    "SteelSprinkler": ("Steel irrigator", A, Snap.FREE, [("SteelBar", 4), ("SilverBar", 2)], sprinkler("Steel", 220), (16, 16, 115), 240, 46,
+                       {"smithing": 45, "machine": unreal.FarmMachine.SPRINKLER, "range": 1500, "boost": 8.0,
+                        "about": "Waters plots within 15 m: crops grow eight times as fast."}),
     "WoolRug": ("Wool rug", F, Snap.FREE, [("Wool", 4)], rug(), (120, 80, 2), 3, 25, {}),
     # Timber framing: an upright log anywhere, and a log lying along a cell's edge (on a wall, poles or the ground).
     "WoodPole": ("Log pole", S, Snap.FREE, [("Logs", 1)], [part("Cylinder", "Bark", (0, 0, 100), (0.22, 0.22, 2.0))],
@@ -433,15 +495,35 @@ def create_pieces():
                             ("is_bed", extras.get("bed", False)),
                             ("nest_box", extras.get("nest", False)),
                             ("trough", extras.get("trough", False)),
+                            ("required_level", extras.get("smithing", 1)),
+                            ("description", unreal.Text(extras.get("about", ""))),
+                            ("machine", extras.get("machine", unreal.FarmMachine.NONE)),
+                            ("range", float(extras.get("range", 0))),
+                            ("growth_boost", extras.get("boost", 1.0)),
+                            ("work_seconds", extras.get("work", 2.0)),
                             ("plot_size", unreal.Vector2D(*extras.get("plot", (0, 0)))),
                             ("plot_soil", unreal.load_asset("/Game/Farming/Materials/MI_Soil") if "plot" in extras else None)]:
             piece.set_editor_property(prop, value)
+        if "smithing" in extras:  # (No skill is the default, and Python can't name it.)
+            piece.set_editor_property("required_skill", unreal.Skill.SMITHING)
         station = extras.get("station")
         piece.set_editor_property("station", unreal.load_asset(f"/Game/Crafting/Stations/{station}") if station else None)
         save(piece)
     unreal.log(f"create_building: wrote {len(PIECES)} pieces.")
 
 
+# Logs are the machines' fuel: the better the wood, the more jobs a log runs.
+FUEL = {"Logs": 10, "OakLogs": 25, "AshLogs": 50}
+
+
+def set_fuel():
+    for item_id, jobs in FUEL.items():
+        log = item(item_id)
+        log.set_editor_property("fuel_value", jobs)
+        save(log)
+
+
 create_stone()
+set_fuel()
 create_ghost_material()
 create_pieces()

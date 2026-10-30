@@ -3,6 +3,8 @@
 #include "RPG/CropDefinition.h"
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/ItemDefinition.h"
+#include "RPG/RecipeDefinition.h"
+#include "RPG/Building/BuildPieceDefinition.h"
 
 #define LOCTEXT_NAMESPACE "SkillUnlocks"
 
@@ -59,6 +61,13 @@ namespace
 			{70, ESkillPerk::Speed, 0.05f, TEXT("Swift sickle")}, {75, ESkillPerk::RareFinds, 0.25f, TEXT("Seed collector")},
 			{80, ESkillPerk::ExtraYield, 0.08f, TEXT("Bountiful fields")}, {90, ESkillPerk::Sustain, 0.15f, TEXT("Perennial")},
 			{99, ESkillPerk::Speed, 0.1f, TEXT("Master farmer")}};
+		static const TArray<FPerkStep> Smithing = {
+			{5, ESkillPerk::Speed, 0.1f, TEXT("Steady hammer")}, {10, ESkillPerk::ExtraYield, 0.05f, TEXT("Thrifty smith")},
+			{20, ESkillPerk::Speed, 0.1f, TEXT("Hot forge")}, {30, ESkillPerk::ExtraYield, 0.05f, TEXT("Nothing wasted")},
+			{40, ESkillPerk::Speed, 0.15f, TEXT("Bellows")}, {50, ESkillPerk::ExtraYield, 0.07f, TEXT("Master's measure")},
+			{60, ESkillPerk::Speed, 0.15f, TEXT("Foundry")}, {70, ESkillPerk::ExtraYield, 0.08f, TEXT("Alchemy of iron")},
+			{80, ESkillPerk::Speed, 0.2f, TEXT("Production line")}, {90, ESkillPerk::ExtraYield, 0.1f, TEXT("Forge of plenty")},
+			{99, ESkillPerk::Speed, 0.25f, TEXT("Master smith")}};
 		static const TArray<FPerkStep> None;
 		switch (Skill)
 		{
@@ -66,6 +75,7 @@ namespace
 		case ESkill::Mining:      return Mining;
 		case ESkill::Fishing:     return Fishing;
 		case ESkill::Farming:     return Farming;
+		case ESkill::Smithing:    return Smithing;
 		default:                  return None;
 		}
 	}
@@ -79,6 +89,7 @@ namespace
 		case ESkill::Mining:      return LOCTEXT("AnOre", "an extra ore");
 		case ESkill::Fishing:     return LOCTEXT("AFish", "an extra fish");
 		case ESkill::Farming:     return LOCTEXT("AProduce", "an extra crop");
+		case ESkill::Smithing:    return LOCTEXT("ABar", "an extra bar or item");
 		default:                  return LOCTEXT("AnExtra", "an extra one");
 		}
 	}
@@ -174,6 +185,23 @@ namespace
 				Add(Crop->RequiredLevel, EUnlockKind::Crop, Crop->DisplayName,
 					FText::Format(LOCTEXT("CropDesc", "Plant {0}: {1} XP to plant, {2} XP each harvest"),
 						Crop->Seed ? Crop->Seed->DisplayName.ToLower() : FText::GetEmpty(), Crop->PlantXP, Crop->HarvestXP));
+			}
+		}
+
+		// Recipes that train it, and what it lets you build.
+		for (const URecipeDefinition* Recipe : LoadAll<URecipeDefinition>())
+		{
+			if (Recipe->Skill == Skill && Recipe->Output)
+			{
+				Add(Recipe->RequiredLevel, EUnlockKind::Recipe, Recipe->Output->DisplayName,
+					FText::Format(LOCTEXT("RecipeDesc", "Make {0} ({1} XP)"), Recipe->Output->DisplayName.ToLower(), Recipe->XP));
+			}
+		}
+		for (const UBuildPieceDefinition* Piece : LoadAll<UBuildPieceDefinition>())
+		{
+			if (Piece->RequiredSkill == Skill)
+			{
+				Add(Piece->RequiredLevel, EUnlockKind::Building, Piece->DisplayName, Piece->Description);
 			}
 		}
 

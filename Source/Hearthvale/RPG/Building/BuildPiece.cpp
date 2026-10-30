@@ -8,6 +8,7 @@
 #include "HearthvalePlayerController.h"
 #include "RPG/CraftingStationDefinition.h"
 #include "RPG/FarmPatch.h"
+#include "RPG/Building/FarmMachineComponent.h"
 #include "RPG/InventoryComponent.h"
 
 #define LOCTEXT_NAMESPACE "BuildPiece"
@@ -33,6 +34,11 @@ ABuildPiece* ABuildPiece::Spawn(UWorld* World, UBuildPieceDefinition* InPiece, c
 			Built->Storage = NewObject<UInventoryComponent>(Built, TEXT("Storage"));
 			Built->Storage->SetCapacity(InPiece->StorageSlots);
 			Built->Storage->RegisterComponent();
+		}
+		if (InPiece->Machine != EFarmMachine::None)
+		{
+			Built->Machine = NewObject<UFarmMachineComponent>(Built, TEXT("Machine"));
+			Built->Machine->RegisterComponent();
 		}
 		if (!InPiece->PlotSize.IsZero())
 		{
@@ -163,6 +169,10 @@ bool ABuildPiece::GetInteractionPrompt(const AHearthvaleCharacter* Character, FI
 	{
 		OutPrompt.Action = LOCTEXT("OpenChest", "Open");
 		OutPrompt.Target = Piece->DisplayName;
+		if (Machine && !Machine->GetStatus().IsEmpty())
+		{
+			OutPrompt.Target = FText::Format(LOCTEXT("MachineStatus", "{0}  ({1})"), Piece->DisplayName, Machine->GetStatus());
+		}
 		return true;
 	}
 	// Stations work like the camp's; plain walls and floors aren't used.

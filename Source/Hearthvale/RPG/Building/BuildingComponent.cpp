@@ -7,6 +7,7 @@
 #include "HearthvaleCharacter.h"
 #include "Landscape.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "RPG/SkillsComponent.h"
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/CraftingStationDefinition.h"
@@ -445,6 +446,11 @@ FBuildPlacement UBuildingComponent::EvaluatePlacement(const UBuildPieceDefinitio
 	else if (GroundZ(Result.Transform.GetLocation(), Result.Transform.GetLocation().Z) < WaterLevel)
 	{
 		Result.Problem = LOCTEXT("Water", "Can't build in the water");
+	}
+	else if (Piece->RequiredSkill != ESkill::Count && Character
+		&& Character->GetSkills()->GetLevel(Piece->RequiredSkill) < Piece->RequiredLevel)
+	{
+		Result.Problem = FText::Format(LOCTEXT("NeedLevel", "Needs {0} {1}"), USkillLibrary::GetSkillName(Piece->RequiredSkill), Piece->RequiredLevel);
 	}
 	else if (Piece->bNeedsWorkbench && !IsNearWorkbench(Result.Transform.GetLocation()))
 	{

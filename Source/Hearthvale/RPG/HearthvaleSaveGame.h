@@ -46,6 +46,10 @@ struct FSavedBuildPiece
 	UPROPERTY()
 	TArray<FSavedItemStack> Items;
 
+	/** Farm machines: fuel left in the burner. */
+	UPROPERTY()
+	int32 Fuel = 0;
+
 	/** Garden plots: what's growing. */
 	UPROPERTY()
 	FSavedFarmPatch Patch;
