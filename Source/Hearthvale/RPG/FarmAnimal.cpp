@@ -57,6 +57,8 @@ AFarmAnimal::AFarmAnimal()
 	RootComponent = Bounds;
 	Body = CreateDefaultSubobject<USceneComponent>(TEXT("Body"));
 	Body->SetupAttachment(RootComponent);
+	Head = CreateDefaultSubobject<USceneComponent>(TEXT("Head"));
+	Head->SetupAttachment(Body);
 }
 
 AFarmAnimal* AFarmAnimal::Spawn(UWorld* World, UAnimalDefinition* InAnimal, const FVector& Location, float InYaw, bool bInTame, bool bYoung)
@@ -126,11 +128,13 @@ void AFarmAnimal::BuildLook()
 		return;
 	}
 	Bounds->SetSphereRadius(Animal->Radius);
+	Head->SetRelativeLocationAndRotation(Animal->HeadPivot, FRotator::ZeroRotator);
 	for (int32 Index = 0; Index < Animal->Parts.Num(); ++Index)
 	{
 		const FNodeMeshPart& Part = Animal->Parts[Index];
+		const bool bHeadPart = Animal->FirstHeadPart != INDEX_NONE && Index >= Animal->FirstHeadPart;
 		UStaticMeshComponent* Mesh = NewObject<UStaticMeshComponent>(this, NAME_None, RF_Transient);
-		Mesh->SetupAttachment(Body);
+		Mesh->SetupAttachment(bHeadPart ? Head.Get() : Body.Get());
 		Mesh->SetStaticMesh(Part.Mesh);
 		if (Part.Material)
 		{
@@ -139,7 +143,8 @@ void AFarmAnimal::BuildLook()
 				Mesh->SetMaterial(Slot, Part.Material);
 			}
 		}
-		Mesh->SetRelativeTransform(Part.Transform);
+		// Head parts are given about the neck, so they turn with it.
+		Mesh->SetRelativeTransform(bHeadPart ? Part.Transform * FTransform(-Animal->HeadPivot) : Part.Transform);
 		Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		Mesh->SetCastShadow(true);
 		Mesh->SetVisibility(Part.bVisible && (Index != Animal->ProducePart || bProduceReady));
@@ -212,11 +217,16 @@ bool AFarmAnimal::IsBlocked(const FVector& From, const FVector2D& To) const
 
 void AFarmAnimal::PickTarget()
 {
-	// Somewhere dry near home; stay put if every try is wet.
+	// A short stroll to somewhere dry, staying near home (heading back if it's strayed); stay put if every try is wet.
 	const float Roam = bTame ? Animal->TameRoam : Animal->WildRoam;
+	const FVector2D Position(GetActorLocation());
 	for (int32 Attempt = 0; Attempt < 8; ++Attempt)
 	{
-		const FVector2D Try = FVector2D(Home) + FVector2D(FMath::FRandRange(-1.f, 1.f), FMath::FRandRange(-1.f, 1.f)) * Roam;
+		const FVector2D Try = Position + FVector2D(1.f, 0.f).GetRotated(FMath::FRandRange(0.f, 360.f)) * FMath::FRandRange(150.f, 600.f);
+		if (FVector2D::Distance(Try, FVector2D(Home)) > FMath::Max(Roam, FVector2D::Distance(Position, FVector2D(Home))))
+		{
+			continue;
+		}
 		if (UWorldGenerator::GetGroundHeight(Try.X, Try.Y) > ShoreHeight + 20.f)
 		{
 			Target = Try;
@@ -274,8 +284,8 @@ void AFarmAnimal::Wander(float DeltaSeconds)
 		const FVector2D Next = Distance <= Move ? Target : Position + ToTarget / Distance * Move;
 		if (Distance <= Move || UWorldGenerator::GetGroundHeight(Next.X, Next.Y) < ShoreHeight || IsBlocked(Location, Next))
 		{
-			// There, or something's in the way: stand about a while, then try somewhere else.
-			Idle = FMath::FRandRange(2.f, 7.f);
+			// There, or something's in the way: stand about (grazing, pecking) a while, then try somewhere else.
+			Idle = FMath::FRandRange(4.f, 12.f);
 		}
 		else
 		{
@@ -287,6 +297,15 @@ void AFarmAnimal::Wander(float DeltaSeconds)
 	}
 	SetActorLocationAndRotation(Location, FRotator(0.f, Yaw, 0.f));
 	Body->SetRelativeLocation(FVector(0.f, 0.f, Lift));
+	// Standing about: birds peck in quick bursts; grazers keep their heads down, nibbling.
+	float Dip = 0.f;
+	if (Idle > 0.f && !Leader.IsValid())
+	{
+		const float Time = GetWorld()->GetTimeSeconds() + GetUniqueID() * 0.37f;
+		Dip = Animal->bPecks ? FMath::Pow(FMath::Max(0.f, FMath::Sin(Time * 2.3f)), 6.f) * FMath::Abs(FMath::Sin(Time * 16.f))
+			: FMath::Clamp(Idle * 2.f, 0.f, 1.f) * (0.85f + 0.15f * FMath::Sin(Time * 7.f));
+	}
+	Head->SetRelativeRotation(FRotator(-Animal->HeadDip * Dip, 0.f, 0.f));
 }
 
 void AFarmAnimal::UpdateFarming(float DeltaSeconds)
@@ -589,6 +608,11 @@ void AFarmAnimal::Interact(AHearthvaleCharacter* Character)
 		return;
 	}
 	Feed(Character);
+}
+
+float AFarmAnimal::GetHeadPitch() const
+{
+	return Head->GetRelativeRotation().Pitch;
 }
 
 void AFarmAnimal::Hurry(bool bHungry)

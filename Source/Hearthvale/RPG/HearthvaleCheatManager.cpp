@@ -417,10 +417,11 @@ void UHearthvaleCheatManager::ListAnimals()
 	for (const AFarmAnimal* Animal : TActorRange<AFarmAnimal>(GetWorld()))
 	{
 		const FSavedFarmAnimal State = Animal->SaveState();
-		Say(FString::Printf(TEXT("%s at (%.0f, %.0f, %.0f): %s%s, fed %.0fs, produce %.0fs%s, breed %.0fs"),
+		Say(FString::Printf(TEXT("%s at (%.0f, %.0f, %.0f): %s%s, fed %.0fs, produce %.0fs%s, breed %.0fs, head %.0f"),
 			*FPaths::GetBaseFilename(State.Animal), State.Location.X, State.Location.Y, State.Location.Z,
 			State.bTame ? TEXT("tame") : TEXT("wild"), Animal->IsYoung() ? TEXT(" young") : TEXT(""),
-			State.Fed, State.Produce, State.bProduceReady ? TEXT(" (ready)") : TEXT(""), State.Breed));
+			State.Fed, State.Produce, State.bProduceReady ? TEXT(" (ready)") : TEXT(""), State.Breed,
+			Animal->GetHeadPitch()));
 	}
 }
 

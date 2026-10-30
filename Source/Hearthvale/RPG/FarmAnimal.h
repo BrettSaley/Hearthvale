@@ -102,6 +102,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Animal")
 	AHearthvaleCharacter* GetLeader() const { return Leader.Get(); }
 
+	/** How far its head is tipped (degrees, negative is down), as it pecks or grazes. */
+	float GetHeadPitch() const;
+
 	/** Brings its produce, breeding and growing up to just before they happen, or (bHungry) makes it hungry (for testing). */
 	void Hurry(bool bHungry = false);
 
@@ -137,6 +140,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Animal")
 	TObjectPtr<USceneComponent> Body;
+
+	UPROPERTY(VisibleAnywhere, Category = "Animal")
+	TObjectPtr<USceneComponent> Head;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> PartMeshes;

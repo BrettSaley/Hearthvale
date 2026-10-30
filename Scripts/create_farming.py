@@ -118,34 +118,37 @@ def part(shape, material, location, scale, rotation=(0, 0, 0)):
     return p
 
 
+# Head parts go last (from "first_head_part" on), so they dip together about the neck.
 def chicken():
     return ([part("Sphere", "Feathers", (0, 0, 28), (0.36, 0.28, 0.3)),
-             part("Cone", "Feathers", (-17, 0, 36), (0.14, 0.12, 0.18), (0, 40, 0)),
-             part("Sphere", "Feathers", (15, 0, 46), (0.16, 0.14, 0.17)),
-             part("Cone", "Beak", (24, 0, 45), (0.05, 0.05, 0.08), (0, -90, 0)),
-             part("Cube", "Comb", (14, 0, 56), (0.08, 0.02, 0.06))]
-            + [part("Cylinder", "Face", (16, y, 49), (0.025, 0.025, 0.01), (90, 0, 0)) for y in (-6.5, 6.5)]
-            + [part("Cylinder", "Beak", (0, y, 8), (0.025, 0.025, 0.16)) for y in (-6, 6)])
+             part("Cone", "Feathers", (-17, 0, 36), (0.14, 0.12, 0.18), (0, 40, 0))]
+            + [part("Cylinder", "Beak", (0, y, 8), (0.025, 0.025, 0.16)) for y in (-6, 6)]
+            + [part("Sphere", "Feathers", (15, 0, 46), (0.16, 0.14, 0.17)),
+               part("Cone", "Beak", (24, 0, 45), (0.05, 0.05, 0.08), (0, -90, 0)),
+               part("Cube", "Comb", (14, 0, 56), (0.08, 0.02, 0.06))]
+            + [part("Cylinder", "Face", (16, y, 49), (0.025, 0.025, 0.01), (90, 0, 0)) for y in (-6.5, 6.5)])
 
 
 # The sheep's fleece is its first part: shown only while there's wool to shear.
 def sheep():
     return ([part("Sphere", "Fleece", (0, 0, 70), (1.12, 0.74, 0.7)),
-             part("Sphere", "Skin", (0, 0, 68), (0.95, 0.5, 0.48)),
-             part("Sphere", "Face", (58, 0, 88), (0.3, 0.2, 0.24)),
-             part("Sphere", "Face", (50, 0, 98), (0.18, 0.2, 0.14))]
-            + [part("Cube", "Face", (50, y, 96), (0.06, 0.14, 0.04), (0, 0, y)) for y in (-12, 12)]
-            + [part("Cylinder", "Face", (x, y, 22), (0.08, 0.08, 0.44)) for x in (-30, 30) for y in (-16, 16)])
+             part("Sphere", "Skin", (0, 0, 68), (0.95, 0.5, 0.48))]
+            + [part("Cylinder", "Face", (x, y, 22), (0.08, 0.08, 0.44)) for x in (-30, 30) for y in (-16, 16)]
+            + [part("Sphere", "Face", (58, 0, 88), (0.3, 0.2, 0.24)),
+               part("Sphere", "Face", (50, 0, 98), (0.18, 0.2, 0.14))]
+            + [part("Cube", "Face", (50, y, 96), (0.06, 0.14, 0.04), (0, 0, y)) for y in (-12, 12)])
 
 
 # ID: name, young, food, produce, laid, verb, look, sizes and timings
 ANIMALS = {
     "Chicken": dict(name="Chicken", young="Chick", food=["PotatoSeed", "OnionSeed", "CabbageSeed", "PumpkinSeed"],
                     produce="Egg", laid=True, verb="Collect", parts=chicken, produce_part=-1,
+                    head=(4, (10, 0, 38), 55.0, True),
                     tame_feedings=2, tame_xp=20, collect_xp=8, fed=240.0, produce_seconds=60.0, breed=120.0, grow=180.0,
                     max_nearby=10, speed=110.0, wild_roam=1200.0, tame_roam=450.0, bob=3.0, radius=25.0),
     "Sheep": dict(name="Sheep", young="Lamb", food=["Potato", "Cabbage", "Pumpkin"],
                   produce="Wool", laid=False, verb="Shear", parts=sheep, produce_part=0, quantity=2,
+                  head=(6, (40, 0, 82), 50.0, False),
                   tame_feedings=3, tame_xp=40, collect_xp=15, fed=300.0, produce_seconds=120.0, breed=180.0, grow=300.0,
                   max_nearby=8, speed=90.0, wild_roam=1800.0, tame_roam=600.0, bob=2.0, radius=55.0),
 }
@@ -166,7 +169,8 @@ def create_animals():
                             ("produce_seconds", a["produce_seconds"]), ("breed_seconds", a["breed"]),
                             ("grow_seconds", a["grow"]), ("max_nearby", a["max_nearby"]), ("speed", a["speed"]),
                             ("wild_roam", a["wild_roam"]), ("tame_roam", a["tame_roam"]), ("bob", a["bob"]),
-                            ("radius", a["radius"])]:
+                            ("radius", a["radius"]), ("first_head_part", a["head"][0]),
+                            ("head_pivot", V(*a["head"][1])), ("head_dip", a["head"][2]), ("pecks", a["head"][3])]:
             animal.set_editor_property(prop, value)
         save(animal)
         made[animal_id] = animal

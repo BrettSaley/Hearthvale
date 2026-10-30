@@ -101,4 +101,20 @@ public:
 	/** Its look, facing +X with its feet at the origin; collision is ignored. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visuals")
 	TArray<FNodeMeshPart> Parts;
+
+	/** Parts from this one on are its head, which dips to peck or graze while it stands about. -1 for none. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visuals")
+	int32 FirstHeadPart = INDEX_NONE;
+
+	/** Where the head turns about (its neck), in the same space as the parts. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visuals")
+	FVector HeadPivot = FVector::ZeroVector;
+
+	/** How far (degrees) the head dips. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visuals")
+	float HeadDip = 40.f;
+
+	/** Quick pecks (birds) rather than a slow graze. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visuals")
+	bool bPecks = false;
 };
