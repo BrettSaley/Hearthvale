@@ -80,11 +80,17 @@ public:
 	/** A sprinkler's watering: the crop grows this many seconds more. Several sprinklers don't add up: the best counts. */
 	void Water(float ExtraSeconds);
 
-	/** A harvester's pick: one produce (and any seed or rare find) into Into. False if it isn't ready or Into is full. */
-	bool MachineHarvest(UInventoryComponent* Into, int32& OutXP);
+	/**
+	 * A harvester's pick: one produce (and any seed or rare find) into Into, with the Farming perks of
+	 * Skills (its owner's) for extra produce and finds. False if it isn't ready or Into is full.
+	 */
+	bool MachineHarvest(UInventoryComponent* Into, const USkillsComponent* Skills, int32& OutXP);
 
 	/** A harvester's planting from its own seeds, of crops Skills allows (any if null). False if it's not empty or there are none. */
 	bool MachinePlant(UInventoryComponent* From, const USkillsComponent* Skills, int32& OutXP);
+
+	/** Takes one fertiliser from an inventory, if there is any (planting with it doubles the harvests). */
+	static bool UseFertiliser(UInventoryComponent* From);
 
 	/** Finishes growing straight away (for testing). */
 	void FinishGrowing();

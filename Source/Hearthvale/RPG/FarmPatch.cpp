@@ -6,6 +6,7 @@
 #include "RPG/CropDefinition.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/InventoryComponent.h"
+#include "RPG/ItemDefinition.h"
 #include "RPG/SkillUnlocks.h"
 #include "RPG/SkillsComponent.h"
 #include "TimerManager.h"
@@ -126,21 +127,30 @@ void AFarmPatch::Water(float ExtraSeconds)
 	}
 }
 
-bool AFarmPatch::MachineHarvest(UInventoryComponent* Into, int32& OutXP)
+bool AFarmPatch::UseFertiliser(UInventoryComponent* From)
+{
+	UItemDefinition* Fertiliser = UItemDefinition::FindItem(TEXT("Fertiliser"));
+	return Fertiliser && From && From->RemoveItem(Fertiliser, 1) > 0;
+}
+
+bool AFarmPatch::MachineHarvest(UInventoryComponent* Into, const USkillsComponent* Skills, int32& OutXP)
 {
 	if (GetState() != EPatchState::Ready || !Crop->Produce || !Into->CanFit(Crop->Produce))
 	{
 		return false;
 	}
-	Into->AddItem(Crop->Produce, 1);
+	// The owner's Farming perks work through their machines too.
+	const int32 Level = Skills ? Skills->GetLevel(ESkill::Farming) : 1;
+	Into->AddItem(Crop->Produce, FMath::FRand() < USkillUnlocks::GetPerk(ESkill::Farming, Level, ESkillPerk::ExtraYield) ? 2 : 1);
+	const float Rare = 1.f + USkillUnlocks::GetPerk(ESkill::Farming, Level, ESkillPerk::RareFinds);
 	for (const FBonusDrop& Drop : Crop->BonusDrops)
 	{
-		if (Drop.Item && FMath::RandRange(1, FMath::Max(1, Drop.OneIn)) == 1)
+		if (Drop.Item && FMath::FRand() * FMath::Max(1, Drop.OneIn) < Rare)
 		{
 			Into->AddItem(Drop.Item, Drop.Quantity);
 		}
 	}
-	if (Crop->Seed && Crop->SeedBackOneIn > 0 && FMath::RandRange(1, Crop->SeedBackOneIn) == 1)
+	if (Crop->Seed && Crop->SeedBackOneIn > 0 && FMath::FRand() * Crop->SeedBackOneIn < Rare)
 	{
 		Into->AddItem(Crop->Seed, 1);
 	}
@@ -166,6 +176,10 @@ bool AFarmPatch::MachinePlant(UInventoryComponent* From, const USkillsComponent*
 	Crop = From->RemoveFromSlot(Slot, 1).Item->Crop;
 	PlantedAt = FDateTime::UtcNow();
 	HarvestsLeft = FMath::RandRange(Crop->MinHarvests, FMath::Max(Crop->MinHarvests, Crop->MaxHarvests));
+	if (UseFertiliser(From))
+	{
+		HarvestsLeft *= 2;
+	}
 	OutXP = Crop->PlantXP;
 	RefreshLook();
 	return true;
@@ -239,8 +253,18 @@ bool AFarmPatch::Plant(AHearthvaleCharacter* Character)
 	PlantedAt = FDateTime::UtcNow();
 	HarvestsLeft = FMath::RandRange(Crop->MinHarvests, FMath::Max(Crop->MinHarvests, Crop->MaxHarvests));
 	Skills->AddXP(ESkill::Farming, Crop->PlantXP);
-	Character->ShowMessage(FText::Format(LOCTEXT("Planted", "You plant the {0}. Ready in {1}."), Seed->DisplayName.ToLower(),
-		FormatTimeLeft(Crop->GrowSeconds)));
+	// Fertiliser (made from fish) in the pack goes in with the seed: twice the harvests.
+	if (UseFertiliser(Inventory))
+	{
+		HarvestsLeft *= 2;
+		Character->ShowMessage(FText::Format(LOCTEXT("PlantedFertilised", "You plant the {0} with fertiliser: a double crop. Ready in {1}."),
+			Seed->DisplayName.ToLower(), FormatTimeLeft(Crop->GrowSeconds)));
+	}
+	else
+	{
+		Character->ShowMessage(FText::Format(LOCTEXT("Planted", "You plant the {0}. Ready in {1}."), Seed->DisplayName.ToLower(),
+			FormatTimeLeft(Crop->GrowSeconds)));
+	}
 	RefreshLook();
 	return true;
 }
@@ -304,7 +328,8 @@ bool AFarmPatch::GetGatherInfo(FGatherInfo& OutInfo) const
 	OutInfo.SuccessMessage = Crop->HarvestMessage;
 	OutInfo.Skill = ESkill::Farming;
 	OutInfo.RequiredLevel = Crop->RequiredLevel;
-	OutInfo.Tool = EToolType::None;
+	OutInfo.Tool = EToolType::Sickle;
+	OutInfo.bToolOptional = true;
 	OutInfo.Item = Crop->Produce;
 	OutInfo.XP = Crop->HarvestXP;
 	OutInfo.AttemptInterval = Crop->HarvestInterval;

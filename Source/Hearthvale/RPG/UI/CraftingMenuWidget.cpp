@@ -18,6 +18,7 @@
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/RecipeDefinition.h"
+#include "RPG/SkillsComponent.h"
 #include "RPG/UI/HearthvaleUIStyle.h"
 #include "RPG/UI/MenuButtonWidget.h"
 
@@ -74,7 +75,7 @@ void UCraftingMenuWidget::NativeOnInitialized()
 	Layout->AddChildToVerticalBox(ListSize);
 
 	UTextBlock* Hint = HearthvaleUI::MakeText(WidgetTree,
-		LOCTEXT("Hint", "Anyone can make anything here; all it takes is the ingredients.  ·  E or X to close"), 9, HearthvaleUI::MutedColor);
+		LOCTEXT("Hint", "Smelting and smithing train Smithing; the rest just takes the ingredients.  ·  E or X to close"), 9, HearthvaleUI::MutedColor);
 	Hint->SetAutoWrapText(true);
 	Layout->AddChildToVerticalBox(Hint)->SetPadding(FMargin(0.f, 8.f, 0.f, 0.f));
 }
@@ -134,7 +135,9 @@ void UCraftingMenuWidget::Rebuild()
 	for (int32 Index = 0; Index < Recipes.Num(); ++Index)
 	{
 		const URecipeDefinition* Recipe = Recipes[Index];
-		const int32 Craftable = UCraftingComponent::CountCraftable(Inventory, Recipe);
+		// Smithing and the like: too low a level and it's locked, whatever you carry.
+		const bool bLocked = Recipe->TrainsSkill() && Owner->GetSkills()->GetLevel(Recipe->Skill) < Recipe->RequiredLevel;
+		const int32 Craftable = bLocked ? 0 : UCraftingComponent::CountCraftable(Inventory, Recipe);
 		UBorder* Row = WidgetTree->ConstructWidget<UBorder>();
 		Row->SetBrush(HearthvaleUI::RoundedBrush(Craftable > 0 ? HearthvaleUI::SlotColor : FLinearColor::Transparent, 4.f));
 		Row->SetPadding(FMargin(8.f, 5.f));
@@ -164,6 +167,14 @@ void UCraftingMenuWidget::Rebuild()
 			const FText Text = FText::Format(LOCTEXT("Input", "{0} {1} ({2})"), Input.Quantity, Input.Item->DisplayName, Have);
 			Inputs->AddChildToHorizontalBox(HearthvaleUI::MakeText(WidgetTree, Text, 10,
 				Have >= Input.Quantity ? HearthvaleUI::GoodColor : HearthvaleUI::BadColor))->SetPadding(FMargin(0.f, 1.f, 12.f, 0.f));
+		}
+		if (Recipe->TrainsSkill())
+		{
+			const FText SkillName = USkillLibrary::GetSkillName(Recipe->Skill);
+			const FText Note = bLocked
+				? FText::Format(LOCTEXT("NeedsLevel", "Needs {0} {1}"), SkillName, Recipe->RequiredLevel)
+				: FText::Format(LOCTEXT("TrainsSkill", "{0} {1} XP"), Recipe->XP, SkillName);
+			Info->AddChildToVerticalBox(HearthvaleUI::MakeText(WidgetTree, Note, 10, bLocked ? HearthvaleUI::BadColor : HearthvaleUI::MutedColor));
 		}
 
 		// Make 1, 5 or all.

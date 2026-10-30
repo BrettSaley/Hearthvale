@@ -28,7 +28,9 @@ enum class EToolType : uint8
 	None,
 	Axe,
 	Pickaxe,
-	FishingNet
+	FishingNet,
+	/** For harvesting crops: optional, but a better one picks much faster. */
+	Sickle
 };
 
 UENUM(BlueprintType)

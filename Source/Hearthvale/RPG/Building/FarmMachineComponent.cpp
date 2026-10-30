@@ -150,7 +150,7 @@ bool UFarmMachineComponent::Harvest()
 		return false;
 	}
 	int32 XP = 0;
-	const bool bDone = Ready ? Ready->MachineHarvest(Storage, XP) : Empty->MachinePlant(Storage, Character ? Character->GetSkills() : nullptr, XP);
+	const bool bDone = Ready ? Ready->MachineHarvest(Storage, Character ? Character->GetSkills() : nullptr, XP) : Empty->MachinePlant(Storage, Character ? Character->GetSkills() : nullptr, XP);
 	bFull = Ready && !bDone;
 	if (!bDone)
 	{

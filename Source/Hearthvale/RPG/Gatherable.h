@@ -40,6 +40,8 @@ struct FGatherInfo
 	int32 RequiredLevel = 1;
 	/** None means bare hands. */
 	EToolType Tool = EToolType::None;
+	/** Bare hands do too (power 1), but each point of the tool's power makes attempts come round that much faster. */
+	bool bToolOptional = false;
 	UItemDefinition* Item = nullptr;
 	int32 XP = 0;
 	float AttemptInterval = 2.4f;

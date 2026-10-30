@@ -17,6 +17,7 @@ namespace
 		case EToolType::Axe:        return LOCTEXT("Axe", "an axe");
 		case EToolType::Pickaxe:    return LOCTEXT("Pickaxe", "a pickaxe");
 		case EToolType::FishingNet: return LOCTEXT("Net", "a fishing net");
+		case EToolType::Sickle:     return LOCTEXT("Sickle", "a sickle");
 		default:                    return LOCTEXT("Tool", "a tool");
 		}
 	}
@@ -81,7 +82,7 @@ int32 UGatheringComponent::GetToolPower(const FGatherInfo& Info) const
 	}
 	const AHearthvaleCharacter* Character = GetCharacter();
 	const UItemDefinition* Tool = FindBestTool(Character->GetInventory(), Character->GetSkills(), Info.Tool, Character->GetHeldItem());
-	return Tool ? FMath::Max(1, Tool->ToolPower) : 0;
+	return Tool ? FMath::Max(1, Tool->ToolPower) : Info.bToolOptional ? 1 : 0;
 }
 
 bool UGatheringComponent::StartGathering(AActor* Source)
@@ -154,6 +155,11 @@ bool UGatheringComponent::GetCurrentInfo(FGatherInfo& OutInfo) const
 	{
 		const float Speed = USkillUnlocks::GetPerk(OutInfo.Skill, Character->GetSkills()->GetLevel(OutInfo.Skill), ESkillPerk::Speed);
 		OutInfo.AttemptInterval /= 1.f + Speed;
+		// An optional tool (a sickle) speeds the work by its power.
+		if (OutInfo.bToolOptional)
+		{
+			OutInfo.AttemptInterval /= GetToolPower(OutInfo);
+		}
 	}
 	return true;
 }

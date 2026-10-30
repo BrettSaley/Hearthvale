@@ -372,7 +372,13 @@ bool FFarmMachinesTest::RunTest(const FString& Parameters)
 	const URecipeDefinition* Steel = LoadObject<URecipeDefinition>(nullptr, TEXT("/Game/Crafting/Recipes/SmeltSteel.SmeltSteel"));
 	TestTrue(TEXT("Smelting steel trains Smithing and needs a level"), Steel && Steel->Skill == ESkill::Smithing && Steel->RequiredLevel > 1 && Steel->XP > 0);
 	TestTrue(TEXT("Smithing is shown with the other skills"), USkillLibrary::IsSkillingSkill(ESkill::Smithing));
-	TestTrue(TEXT("Smithing unlocks machines in the guide"), USkillUnlocks::GetUnlocks(ESkill::Smithing).ContainsByPredicate(
+
+	// Sickles get better with the metal; fish make fertiliser.
+	const UItemDefinition* IronSickle = UItemDefinition::FindItem(TEXT("IronSickle"));
+	const UItemDefinition* SteelSickle = UItemDefinition::FindItem(TEXT("SteelSickle"));
+	TestTrue(TEXT("Sickles are tools, steel the best"), IronSickle && SteelSickle && SteelSickle->ToolType == EToolType::Sickle
+		&& SteelSickle->ToolPower > IronSickle->ToolPower);
+	TestNotNull(TEXT("Fertiliser exists"), UItemDefinition::FindItem(TEXT("Fertiliser")));	TestTrue(TEXT("Smithing unlocks machines in the guide"), USkillUnlocks::GetUnlocks(ESkill::Smithing).ContainsByPredicate(
 		[](const FSkillUnlock& Unlock) { return Unlock.Kind == EUnlockKind::Building; }));
 	return true;
 }

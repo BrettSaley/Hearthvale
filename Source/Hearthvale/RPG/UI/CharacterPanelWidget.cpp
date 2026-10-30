@@ -37,6 +37,7 @@ namespace
 		case EToolType::Axe:        return LOCTEXT("Axe", "Axe");
 		case EToolType::Pickaxe:    return LOCTEXT("Pickaxe", "Pickaxe");
 		case EToolType::FishingNet: return LOCTEXT("FishingNet", "Fishing net");
+		case EToolType::Sickle:     return LOCTEXT("Sickle", "Sickle");
 		default:                    return LOCTEXT("Tool", "Tool");
 		}
 	}

@@ -1,6 +1,8 @@
 ﻿"""Sets up animal husbandry: farm animals, what they give and what it cooks into.
 
 - Egg and Wool (items), and Fried egg and Omelette (cooked at a fire)
+- Fertiliser, made from fish at a workbench: planting with it doubles a crop's harvests
+- Sickles (copper, iron, steel), smithed at an anvil: crops are harvested faster the better the sickle
 - Animals in /Game/Farming/Animals (UAnimalDefinition): a chicken that eats seeds
   and lays eggs, and a sheep that eats vegetables and grows wool to shear
 - Wild chickens and sheep placed around the start of the island, to tame
@@ -47,6 +49,15 @@ ITEMS = {
     "Egg": dict(name="Egg", examine="Still warm.", category=unreal.ItemCategory.FOOD, stackable=True, value=6, heal=1),
     "Wool": dict(name="Wool", examine="Soft, greasy and smells of sheep.", category=unreal.ItemCategory.RESOURCE, stackable=True, value=12),
     "FriedEgg": dict(name="Fried egg", examine="Sunny side up.", category=unreal.ItemCategory.FOOD, value=12, heal=4),
+    "Fertiliser": dict(name="Fertiliser", examine="Fish, ground up and left to rot. Plants love it.",
+                       category=unreal.ItemCategory.RESOURCE, stackable=True, value=5),
+    # Sickles: optional for harvesting, but each point of power makes it that much quicker.
+    "CopperSickle": dict(name="Copper sickle", examine="Takes the drudgery out of harvesting.", category=unreal.ItemCategory.TOOL,
+                         value=20, tool=2),
+    "IronSickle": dict(name="Iron sickle", examine="Fields fall before it.", category=unreal.ItemCategory.TOOL,
+                       value=70, tool=3, requires=10),
+    "SteelSickle": dict(name="Steel sickle", examine="A harvest a second. Nearly.", category=unreal.ItemCategory.TOOL,
+                        value=240, tool=5, requires=25),
     "Omelette": dict(name="Omelette", examine="Eggs and onion, folded over.", category=unreal.ItemCategory.FOOD, value=40, heal=9),
 }
 
@@ -60,21 +71,36 @@ def create_items():
                             ("category", data["category"]), ("stackable", data.get("stackable", False)),
                             ("value", data["value"]), ("heal_amount", data.get("heal", 0))]:
             made.set_editor_property(prop, value)
+        if "tool" in data:
+            made.set_editor_property("tool_type", unreal.ToolType.SICKLE)
+            made.set_editor_property("tool_power", data["tool"])
+            made.set_editor_property("requirements", {unreal.Skill.FARMING: data["requires"]} if "requires" in data else {})
         save(made)
 
 
-# --- Recipes: name: ([(item, count)], output, seconds, message), all at a fire ---
+# --- Recipes: name: (station, [(item, count)], output, count, seconds, message) ---
 
 RECIPES = {
-    "FryEgg": ([("Egg", 1)], "FriedEgg", 1.8, "You fry an egg."),
-    "MakeOmelette": ([("Egg", 2), ("Onion", 1)], "Omelette", 2.4, "You make an omelette."),
+    "FryEgg": (unreal.CraftStation.FIRE, [("Egg", 1)], "FriedEgg", 1, 1.8, "You fry an egg."),
+    "MakeOmelette": (unreal.CraftStation.FIRE, [("Egg", 2), ("Onion", 1)], "Omelette", 1, 2.4, "You make an omelette."),
+    # Fishing feeds farming: the bigger the fish, the more fertiliser.
+    "GrindPerch": (unreal.CraftStation.WORKBENCH, [("Perch", 1)], "Fertiliser", 2, 1.8, "You grind a perch into fertiliser."),
+    "GrindTrout": (unreal.CraftStation.WORKBENCH, [("Trout", 1)], "Fertiliser", 4, 1.8, "You grind a trout into fertiliser."),
+    "GrindPike": (unreal.CraftStation.WORKBENCH, [("Pike", 1)], "Fertiliser", 7, 1.8, "You grind a pike into fertiliser."),
+    # Sickles train Smithing: (Smithing level, XP) on the end.
+    "SmithCopperSickle": (unreal.CraftStation.ANVIL, [("CopperBar", 1), ("Plank", 1)], "CopperSickle", 1, 3.0,
+                          "You hammer out a copper sickle.", (3, 50)),
+    "SmithIronSickle": (unreal.CraftStation.ANVIL, [("IronBar", 2), ("OakPlank", 1)], "IronSickle", 1, 3.0,
+                        "You hammer out an iron sickle.", (12, 110)),
+    "SmithSteelSickle": (unreal.CraftStation.ANVIL, [("SteelBar", 2), ("AshPlank", 1)], "SteelSickle", 1, 3.0,
+                         "You hammer out a steel sickle.", (30, 200)),
 }
 
 
 def create_recipes():
     factory = unreal.DataAssetFactory()
     factory.set_editor_property("data_asset_class", unreal.RecipeDefinition)
-    for order, (asset_name, (inputs, output, seconds, message)) in enumerate(RECIPES.items()):
+    for order, (asset_name, (station, inputs, output, count, seconds, message, *smithing)) in enumerate(RECIPES.items()):
         recipe, _ = create(asset_name, "/Game/Crafting/Recipes", unreal.RecipeDefinition, factory)
         amounts = []
         for name, quantity in inputs:
@@ -82,10 +108,14 @@ def create_recipes():
             a.set_editor_property("item", item(name))
             a.set_editor_property("quantity", quantity)
             amounts.append(a)
-        for prop, value in [("station", unreal.CraftStation.FIRE), ("inputs", amounts), ("output", item(output)),
-                            ("output_quantity", 1), ("seconds", seconds), ("made_message", unreal.Text(message)),
+        for prop, value in [("station", station), ("inputs", amounts), ("output", item(output)),
+                            ("output_quantity", count), ("seconds", seconds), ("made_message", unreal.Text(message)),
                             ("sort_order", 50 + order)]:
             recipe.set_editor_property(prop, value)
+        if smithing:
+            recipe.set_editor_property("skill", unreal.Skill.SMITHING)
+            recipe.set_editor_property("required_level", smithing[0][0])
+            recipe.set_editor_property("xp", smithing[0][1])
         save(recipe)
 
 
