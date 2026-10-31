@@ -200,7 +200,8 @@ def create_cloth():
     parent = unreal.load_asset("/Engine/BasicShapes/BasicShapeMaterial")
     for name, color in {"Blanket": (0.32, 0.06, 0.045), "Linen": (0.72, 0.66, 0.55), "Straw": (0.62, 0.48, 0.18),
                         "Wool": (0.8, 0.77, 0.7), "Copper": (0.72, 0.36, 0.18), "Iron": (0.2, 0.2, 0.22),
-                        "Steel": (0.55, 0.58, 0.63), "Water": (0.25, 0.5, 0.85)}.items():
+                        "Steel": (0.55, 0.58, 0.63), "Water": (0.25, 0.5, 0.85),
+                        "Scales": (0.12, 0.2, 0.34), "Belly": (0.75, 0.75, 0.7), "SharkSkin": (0.3, 0.33, 0.37)}.items():
         mi, _ = create(f"MI_Build{name}", "/Game/Building", unreal.MaterialInstanceConstant,
                        unreal.MaterialInstanceConstantFactoryNew())
         mel.set_material_instance_parent(mi, parent)
@@ -407,6 +408,30 @@ def crab_pot():
             part("Cube", "Iron", (0, 0, -160), (0.8, 0.6, 0.45), collides=False)]
 
 
+def trophy(skin, length, bill=False):
+    # A fish on a plaque, on a post: body along Y, tail at +Y, facing +X.
+    half = length / 2
+    parts = [part("Cylinder", "Bark", (-6, 0, 60), (0.1, 0.1, 1.2)),
+             part("Cube", "WallPlanks", (0, 0, 145), (0.06, (length + 40) / 100, 0.7)),
+             part("Sphere", skin, (14, 0, 145), (0.22, length / 100, 0.36), collides=False),
+             part("Sphere", "Belly", (16, 0, 136), (0.2, length * 0.8 / 100, 0.16), collides=False),
+             part("Cone", skin, (14, half + 4, 145), (0.06, 0.45, 0.3), (90, 0, 0), collides=False),
+             part("Cone", skin, (14, 0, 172), (0.04, 0.3, 0.2), collides=False)]
+    if bill:
+        parts.append(part("Cylinder", skin, (14, -half - 40, 147), (0.03, 0.03, 0.8), (90, 0, 0), collides=False))
+    return parts
+
+
+def shark_jaws():
+    # A ring of gum with white teeth round it, on a plaque.
+    return ([part("Cylinder", "Bark", (-6, 0, 60), (0.1, 0.1, 1.2)),
+             part("Cube", "WallPlanks", (0, 0, 150), (0.06, 1.1, 1.0)),
+             part("Cylinder", "Blanket", (8, 0, 150), (0.85, 0.85, 0.06), (0, 90, 0), collides=False),
+             part("Cylinder", "WallPlanks", (10, 0, 150), (0.55, 0.55, 0.06), (0, 90, 0), collides=False)]
+            + [part("Cone", "Linen", (12, 34 * math.cos(a), 150 + 34 * math.sin(a)), (0.08, 0.08, 0.16),
+                    (0, 0, 0), collides=False) for a in [i * math.pi / 4 for i in range(8)]])
+
+
 def rug():
     return [part("Cube", "Wool", (0, 0, 1), (2.4, 1.6, 0.02), collides=False),
             part("Cube", "Blanket", (0, 0, 1.5), (1.8, 1.0, 0.02), collides=False)]
@@ -545,6 +570,13 @@ PIECES = {
                  "machine": unreal.FarmMachine.CRAB_POT, "range": 100, "work": 20.0, "work_xp": 30,
                  "bait": "Bait", "catch": "Crab", "deep_catch": "Lobster",
                  "about": "Sink it in water up to 12 m deep and bait it: it catches a crab every 20 s while the bait lasts (lobsters too, over 6 m deep). You get the Fishing XP."}),
+    # Trophies for the big catches: a fish of your own, mounted.
+    "TunaTrophy": ("Mounted tuna", F, Snap.FREE, [("Tuna", 1), ("OakPlank", 2)], trophy("Scales", 110), (20, 75, 90), 180, 26,
+                   {"fishing": 55, "about": "A tuna you caught, mounted on a plaque."}),
+    "SwordfishTrophy": ("Mounted swordfish", F, Snap.FREE, [("Swordfish", 1), ("OakPlank", 2)], trophy("Scales", 130, bill=True),
+                        (20, 110, 90), 180, 27, {"fishing": 70, "about": "A swordfish you caught, bill and all."}),
+    "SharkJaws": ("Shark jaws", F, Snap.FREE, [("Shark", 1), ("AshPlank", 2)], shark_jaws(), (20, 55, 100), 200, 28,
+                  {"fishing": 85, "about": "The jaws of a shark you caught. Guests will be impressed, or leave."}),
     "WoolRug": ("Wool rug", F, Snap.FREE, [("Wool", 4)], rug(), (120, 80, 2), 3, 25, {}),
     # Timber framing: an upright log anywhere, and a log lying along a cell's edge (on a wall, poles or the ground).
     "WoodPole": ("Log pole", S, Snap.FREE, [("Logs", 1)], [part("Cylinder", "Bark", (0, 0, 100), (0.22, 0.22, 2.0))],

@@ -5,6 +5,8 @@
 - Harpoons (iron, steel), smithed at an anvil: the big sea fish need one
 - Better nets, knotted from wool at a workbench: a stout net and a trawl net catch more
 - A pearl (a rare find out at sea) and a pearl ring to set it in
+- Smoked fish (over a fire with logs: they keep, stack and heal more) and two seafood suppers
+  made with the farm's vegetables and eggs
 - Crabs and lobsters (caught by crab pots, built in create_building.py) and bait for them, cut from fish
 - More fish ground into fertiliser at the workbench
 - Fishing spot definitions in /Game/Gathering/Nodes for the deep-water grounds.
@@ -83,6 +85,16 @@ ITEMS = {
                      value=60, net=2, requires=25),
     "TrawlNet": dict(name="Trawl net", examine="A great weighted net. Hardly anything gets away.", category=Cat.TOOL,
                      value=220, net=4, requires=55),
+    # Smoked over a fire: they stack and heal more than fresh.
+    "SmokedMackerel": dict(name="Smoked mackerel", examine="Golden and oily. It'll keep for ages.", category=Cat.FOOD,
+                           stackable=True, value=90, heal=12),
+    "SmokedSalmon": dict(name="Smoked salmon", examine="Thin pink slices, oak-smoked.", category=Cat.FOOD,
+                         stackable=True, value=160, heal=17),
+    "SmokedChar": dict(name="Smoked char", examine="Cold-water fish, smoked over ash.", category=Cat.FOOD,
+                       stackable=True, value=230, heal=19),
+    "SeafoodStew": dict(name="Seafood stew", examine="Crab, mackerel, potato and onion.", category=Cat.FOOD, value=160, heal=24),
+    "LobsterSupper": dict(name="Lobster supper", examine="Lobster baked with egg and cabbage. Fit for a lord.", category=Cat.FOOD,
+                          value=320, heal=32),
     "Bait": dict(name="Bait", examine="Chopped-up fish. Crabs love it; nobody else does.", category=Cat.RESOURCE,
                  stackable=True, value=2),
     "Pearl": dict(name="Pearl", examine="A perfect pearl, found out at sea.", category=Cat.VALUABLE, stackable=True, value=400),
@@ -130,6 +142,14 @@ RECIPES.update({
     "GrindCarp": (Station.WORKBENCH, [("Carp", 1)], "Fertiliser", 6, 1.8, "You grind a carp into fertiliser."),
     "GrindMackerel": (Station.WORKBENCH, [("Mackerel", 1)], "Fertiliser", 6, 1.8, "You grind a mackerel into fertiliser."),
     "GrindShark": (Station.WORKBENCH, [("Shark", 1)], "Fertiliser", 25, 3.0, "You grind a whole shark into fertiliser. Grim, but the crops will love it."),
+    # Smoking (the better the wood, the better the fish it'll smoke) and suppers from the farm.
+    "SmokeMackerel": (Station.FIRE, [("Mackerel", 1), ("Logs", 1)], "SmokedMackerel", 1, 3.0, "You smoke the mackerel."),
+    "SmokeSalmon": (Station.FIRE, [("Salmon", 1), ("OakLogs", 1)], "SmokedSalmon", 1, 3.0, "You smoke the salmon over oak."),
+    "SmokeChar": (Station.FIRE, [("Char", 1), ("AshLogs", 1)], "SmokedChar", 1, 3.0, "You smoke the char over ash."),
+    "MakeSeafoodStew": (Station.FIRE, [("Crab", 1), ("Mackerel", 1), ("Potato", 1), ("Onion", 1)], "SeafoodStew", 1, 3.6,
+                        "You make a seafood stew."),
+    "MakeLobsterSupper": (Station.FIRE, [("Lobster", 1), ("Egg", 2), ("Cabbage", 1)], "LobsterSupper", 1, 3.6,
+                          "You bake a lobster supper."),
     # Nets from the farm's wool.
     "KnotStoutNet": (Station.WORKBENCH, [("Wool", 4)], "StoutNet", 1, 3.0, "You knot a stout net."),
     "KnotTrawlNet": (Station.WORKBENCH, [("Wool", 10), ("IronBar", 1)], "TrawlNet", 1, 4.0, "You knot a trawl net and weight it with iron."),
