@@ -412,6 +412,9 @@ bool FBoatsTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Each boat is faster than the last"), Raft->BoatSpeed < Rowboat->BoatSpeed && Rowboat->BoatSpeed < Skiff->BoatSpeed);
 	TestTrue(TEXT("Each boat goes deeper than the last"), Raft->BoatMaxDepth > 0.f && Rowboat->BoatMaxDepth > Raft->BoatMaxDepth && Skiff->BoatMaxDepth == 0.f);
 	TestTrue(TEXT("The bigger boats have holds"), Rowboat->StorageSlots > 0 && Skiff->StorageSlots > Rowboat->StorageSlots);
+	const UBuildPieceDefinition* Launch = UBuildPieceDefinition::FindPiece(TEXT("SteamLaunch"));
+	TestTrue(TEXT("The steam launch is the fastest, goes anywhere and burns logs from its hold"), Launch && Launch->IsBoat()
+		&& Launch->BoatSpeed > Skiff->BoatSpeed && Launch->BoatMaxDepth == 0.f && Launch->SteamPerFuel > 0.f && Launch->StorageSlots > 0);
 	const UBuildPieceDefinition* Pot = UBuildPieceDefinition::FindPiece(TEXT("CrabPot"));
 	TestTrue(TEXT("A crab pot goes in the water and turns bait into crabs"), Pot && Pot->IsOnWater() && !Pot->IsBoat() && Pot->Machine == EFarmMachine::CrabPot
 		&& Pot->TrapBait && Pot->TrapCatch && Pot->TrapDeepCatch && Pot->StorageSlots > 0 && Pot->WorkXP > 0);

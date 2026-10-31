@@ -8,6 +8,8 @@
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/GatheringComponent.h"
+#include "RPG/InventoryComponent.h"
+#include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
 
 #define LOCTEXT_NAMESPACE "Boat"
@@ -166,6 +168,59 @@ bool UBoatComponent::FindFooting(const FVector& Spot, float& OutZ) const
 	return false;
 }
 
+bool UBoatComponent::Stoke()
+{
+	const ABuildPiece* Piece = GetPiece();
+	UInventoryComponent* Hold = Piece ? Piece->GetStorage() : nullptr;
+	const UBuildPieceDefinition* Definition = GetDefinition();
+	if (!Hold || !Definition)
+	{
+		return false;
+	}
+	// The worst log first: save the good wood.
+	int32 Best = INDEX_NONE;
+	const TArray<FItemStack>& Slots = Hold->GetSlots();
+	for (int32 Index = 0; Index < Slots.Num(); ++Index)
+	{
+		if (!Slots[Index].IsEmpty() && Slots[Index].Item->FuelValue > 0 && (Best == INDEX_NONE || Slots[Index].Item->FuelValue < Slots[Best].Item->FuelValue))
+		{
+			Best = Index;
+		}
+	}
+	if (Best == INDEX_NONE)
+	{
+		return false;
+	}
+	Steam += Slots[Best].Item->FuelValue * Definition->SteamPerFuel;
+	Hold->RemoveFromSlot(Best, 1);
+	return true;
+}
+
+FText UBoatComponent::GetStatus() const
+{
+	const UBuildPieceDefinition* Definition = GetDefinition();
+	if (!Definition || Definition->SteamPerFuel <= 0.f)
+	{
+		return FText::GetEmpty();
+	}
+	// Steam left now, plus what the logs in the hold will make.
+	float Total = FMath::Max(0.f, Steam);
+	const ABuildPiece* Piece = GetPiece();
+	if (const UInventoryComponent* Hold = Piece ? Piece->GetStorage() : nullptr)
+	{
+		for (const FItemStack& Stack : Hold->GetSlots())
+		{
+			if (!Stack.IsEmpty() && Stack.Item->FuelValue > 0)
+			{
+				Total += Stack.Item->FuelValue * Definition->SteamPerFuel * Stack.Quantity;
+			}
+		}
+	}
+	const int32 Seconds = FMath::FloorToInt(Total);
+	return Seconds <= 0 ? LOCTEXT("Cold", "boiler cold: put logs in the hold")
+		: FText::Format(LOCTEXT("SteamLeft", "steam for {0}:{1}"), Seconds / 60, FText::FromString(FString::Printf(TEXT("%02d"), Seconds % 60)));
+}
+
 void UBoatComponent::AddInput(const FVector& Direction)
 {
 	Input += FVector(Direction.X, Direction.Y, 0.f);
@@ -200,7 +255,17 @@ void UBoatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 	// Speeds up and slows down gently, like a boat; drops anchor while its rider fishes. The better a
 	// fisher its rider, the faster it goes (up to 40% at 99).
 	const float Seamanship = Rider.IsValid() ? 1.f + 0.004f * Rider->GetSkills()->GetLevel(ESkill::Fishing) : 1.f;
-	const FVector Wanted = Rider.IsValid() ? Input.GetClampedToMaxSize(1.f) * Definition->BoatSpeed * Seamanship : FVector::ZeroVector;
+	FVector Wanted = Rider.IsValid() ? Input.GetClampedToMaxSize(1.f) * Definition->BoatSpeed * Seamanship : FVector::ZeroVector;
+	// A steam boat burns logs from its hold while under way; with none, it barely makes headway.
+	if (Definition->SteamPerFuel > 0.f && !Wanted.IsNearlyZero())
+	{
+		if (Steam <= 0.f && !Stoke())
+		{
+			Wanted *= 0.25f;
+			Warn(LOCTEXT("NoFuel", "The boiler's gone cold: put logs in the hold to get up steam."), SaidNoFuel);
+		}
+		Steam -= DeltaTime;
+	}
 	Input = FVector::ZeroVector;
 	Velocity = FMath::VInterpTo(Velocity, Wanted, DeltaTime, Wanted.IsNearlyZero() ? 0.9f : 1.3f);
 	if (Rider.IsValid() && Rider->GetGathering()->IsGathering())
@@ -244,7 +309,7 @@ void UBoatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 
 	// The oars pull, faster the faster it goes, and rest level when it stops.
 	const ABuildPiece* Piece = GetPiece();
-	if (Piece && Piece->GetPartMeshes().IsValidIndex(Definition->OarPart + 1) && Definition->Parts.IsValidIndex(Definition->OarPart + 1))
+	if (Piece && Definition->OarPart >= 0 && Piece->GetPartMeshes().IsValidIndex(Definition->OarPart + 1) && Definition->Parts.IsValidIndex(Definition->OarPart + 1))
 	{
 		const float Pull = FMath::Clamp(Velocity.Size2D() / FMath::Max(1.f, Definition->BoatSpeed), 0.f, 1.f);
 		Stroke += DeltaTime * (2.f + 3.f * Pull);

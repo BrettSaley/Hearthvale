@@ -10,7 +10,7 @@
   Logs are their fuel (better logs last longer).
 - The Boats tab (each needs a Fishing level; built on the water, anywhere): a log raft for lakes
   and the shallows, a rowboat with a hold, and a fishing skiff with a wool sail that goes anywhere;
-  a pier (a floor on piles over the water) and a crab pot, which catches crabs (lobsters out deep) with bait while you're away
+  a steam launch that burns logs, a pier (a floor on piles over the water) and a crab pot, which catches crabs (lobsters out deep) with bait while you're away
 - The Farm tab: a garden plot (a farm patch you build), a fence and gate (animals can't get through), a nest box (hens lay in it), a feeding trough (tame animals eat from it), a wool rug
 
 Run after create_crafting.py, create_world.py, create_farming.py (for wool) and create_fishing.py (the stations' looks come
@@ -390,6 +390,14 @@ def pier():
             + [part("Cube", "Bark", (0, y, 14), (2.0, 0.12, 0.12), collides=False) for y in (-90, 90)])
 
 
+def launch():
+    # A steel-trimmed hull with a boiler amidships, its funnel, and an awning over the wheel.
+    return (hull(560, 200, "Planks", "Steel")
+            + [part("Cylinder", "Iron", (40, 0, 60), (0.9, 0.9, 0.9)),
+               part("Cylinder", "Steel", (40, 0, 165), (0.22, 0.22, 1.4), collides=False),
+               part("Cube", "Linen", (-120, 0, 265), (1.3, 1.9, 0.05), collides=False)])
+
+
 def crab_pot():
     # A copper float with a little flag, its line running down to an iron cage on the bottom.
     return [part("Sphere", "Copper", (0, 0, 4), (0.36, 0.36, 0.3)),
@@ -526,6 +534,9 @@ PIECES = {
     "Skiff": ("Fishing skiff", B, Snap.FREE, [("AshPlank", 10), ("IronBar", 4), ("Wool", 8)], skiff(), (240, 90, 30), 22, 62,
               {"fishing": 40, "workbench": False, "storage": 27, "boat_speed": 850.0, "boat_bonus": 0.06,
                "about": "A sailing boat with a 27-slot hold: fast, steady to fish from, and fit for the open sea."}),
+    "SteamLaunch": ("Steam launch", B, Snap.FREE, [("SteelBar", 6), ("IronBar", 4), ("AshPlank", 8)], launch(), (280, 100, 35), 22, 64,
+                    {"fishing": 60, "workbench": False, "storage": 36, "boat_speed": 1300.0, "boat_bonus": 0.08, "steam": 6.0,
+                     "about": "A steam-driven launch with a 36-slot hold: the fastest thing afloat, and steady as a pier. Burns logs from its hold (a plain log steams a minute, ash five); cold, it barely moves."}),
     "Pier": ("Pier", B, Snap.CELL, [("Logs", 3)], pier(), (100, 100, 12), 30, 59,
              {"workbench": False, "on_water": True, "boat_depth": 4.0,
               "about": "A plank deck on piles: build out from the bank over water up to 4 m deep, to fish from or tie a boat up at."}),
@@ -591,6 +602,7 @@ def create_pieces():
                             ("boat_catch_bonus", extras.get("boat_bonus", 0.0)),
                             ("on_water", extras.get("on_water", False)),
                             ("oar_part", extras.get("oars", -1)),
+                            ("steam_per_fuel", extras.get("steam", 0.0)),
                             ("work_xp", extras.get("work_xp", 0)),
                             ("trap_bait", item(extras["bait"]) if "bait" in extras else None),
                             ("trap_catch", item(extras["catch"]) if "catch" in extras else None),

@@ -159,7 +159,8 @@ bool ABuildPiece::GetInteractionPrompt(const AHearthvaleCharacter* Character, FI
 	// A boat is boarded from outside; aboard, its hold is opened.
 	if (Piece && Boat)
 	{
-		OutPrompt.Target = Piece->DisplayName;
+		OutPrompt.Target = Boat->GetStatus().IsEmpty() ? Piece->DisplayName
+			: FText::Format(LOCTEXT("BoatStatus", "{0}  ({1})"), Piece->DisplayName, Boat->GetStatus());
 		if (Boat->GetRider() == Character)
 		{
 			OutPrompt.Action = LOCTEXT("OpenHold", "Open the hold of");

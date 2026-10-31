@@ -47,6 +47,9 @@ public:
 
 	const UBuildPieceDefinition* GetDefinition() const;
 
+	/** A word on how it's doing, for its prompt (a steam boat's fuel); empty when there's nothing to say. */
+	FText GetStatus() const;
+
 	/**
 	 * How deep the water is (m) at a spot: below 0 for dry land. False if there's
 	 * no ground there at all (off the edge of the world).
@@ -78,6 +81,11 @@ private:
 	float SaidAground = -100.f;
 	float SaidRough = -100.f;
 	float SaidEdge = -100.f;
+	/** A steam boat: seconds of steaming left from the log it's burning. */
+	float Steam = 0.f;
+	float SaidNoFuel = -100.f;
+	/** Burns a log from the hold for more steam; false if there's none. */
+	bool Stoke();
 	/** How far through a stroke the oars are, in radians. */
 	float Stroke = 0.f;
 };

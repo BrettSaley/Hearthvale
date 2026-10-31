@@ -200,6 +200,13 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boat", meta = (ClampMin = 0, ClampMax = 1))
 	float BoatCatchBonus = 0.f;
 
+	/**
+	 * A steam boat: seconds of steaming each point of a log's FuelValue gives, burning logs from its hold.
+	 * Out of logs it only crawls along. 0 for boats that are rowed or sailed.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boat", meta = (ClampMin = 0))
+	float SteamPerFuel = 0.f;
+
 	/** A rowing boat's oars: the first of its two oar parts (they swing as it goes). -1 for none. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boat")
 	int32 OarPart = INDEX_NONE;
