@@ -95,6 +95,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gathering", meta = (ClampMin = 0))
 	float RespawnSeconds = 10.f;
 
+	/** A shoal at sea: once fished out it turns up again somewhere else up to this far away (m), in water about as deep. 0 stays put. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gathering", meta = (ClampMin = 0))
+	float WanderMeters = 0.f;
+
 	/** Rare extra finds rolled on each success (seeds from trees, gems from rocks). */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gathering")
 	TArray<FBonusDrop> BonusDrops;

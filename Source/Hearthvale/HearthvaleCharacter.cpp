@@ -234,6 +234,7 @@ void AHearthvaleCharacter::BeginPlay()
 		GetMesh()->SetSkeletalMeshAsset(Look);
 	}
 	LastWadeable = GetActorLocation();
+	DryWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
 }
 
 UBoatComponent* AHearthvaleCharacter::GetBoat() const
@@ -257,6 +258,9 @@ void AHearthvaleCharacter::Tick(float DeltaSeconds)
 	const float Feet = GetActorLocation().Z - GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 	if (Feet > UBoatComponent::WaterLevel - WadeDepth)
 	{
+		// Wading is slow going: down to under half speed at the deepest.
+		const float Wading = FMath::Clamp((UBoatComponent::WaterLevel - Feet) / WadeDepth, 0.f, 1.f);
+		GetCharacterMovement()->MaxWalkSpeed = DryWalkSpeed * (1.f - 0.55f * Wading);
 		LastWadeable = GetActorLocation();
 		return;
 	}

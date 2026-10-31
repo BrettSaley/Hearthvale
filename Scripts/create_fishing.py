@@ -191,6 +191,7 @@ def pool(size):
 
 Skill, Tool = unreal.Skill, unreal.ToolType
 # kind: (name, verb, start message, level, tool, fish, xp, difficulty, look size, [(rare find, 1 in)])
+# Lake spots stay put; sea shoals are fished out now and then and turn up again further off.
 NODES = {
     "CarpSpot": ("Deep water", "Net", "You cast your net out over the deep water.", 15, Tool.FISHING_NET, "Carp", 35, 0.05, 1.2, []),
     "MackerelSpot": ("Shoal", "Net", "You cast your net over the shoal.", 25, Tool.FISHING_NET, "Mackerel", 45, 0.05, 1.4,
@@ -213,6 +214,7 @@ def create_nodes():
     factory.set_editor_property("data_asset_class", unreal.GatheringNodeDefinition)
     for kind, (name, verb, start, level, tool, fish, xp, difficulty, size, rare) in NODES.items():
         node, _ = create(kind, "/Game/Gathering/Nodes", unreal.GatheringNodeDefinition, factory)
+        sea = name != "Deep water"
         drops = []
         for drop_item, one_in in rare:
             d = unreal.BonusDrop()
@@ -223,8 +225,9 @@ def create_nodes():
         for prop, value in [("display_name", unreal.Text(name)), ("action_verb", unreal.Text(verb)),
                             ("start_message", unreal.Text(start)), ("success_message", unreal.Text("You catch a {0}.")),
                             ("skill", Skill.FISHING), ("required_level", level), ("tool", tool), ("item", item(fish)),
-                            ("xp", xp), ("attempt_interval", 3.0), ("difficulty", difficulty), ("deplete_chance", 0.0),
-                            ("respawn_seconds", 0.0), ("bonus_drops", drops), ("blocks_movement", False),
+                            ("xp", xp), ("attempt_interval", 3.0), ("difficulty", difficulty), ("deplete_chance", 0.08 if sea else 0.0),
+                            ("wander_meters", 60.0 if sea else 0.0),
+                            ("respawn_seconds", 20.0 if sea else 0.0), ("bonus_drops", drops), ("blocks_movement", False),
                             ("parts", pool(size)), ("depleted_parts", [])]:
             node.set_editor_property(prop, value)
         save(node)

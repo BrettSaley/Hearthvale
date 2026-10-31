@@ -4,6 +4,7 @@
 #include "TimerManager.h"
 #include "HearthvaleCharacter.h"
 #include "RPG/GatheringComponent.h"
+#include "RPG/Building/BoatComponent.h"
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/SkillUnlocks.h"
 #include "RPG/SkillsComponent.h"
@@ -103,6 +104,10 @@ bool AResourceNode::OnGathered(AHearthvaleCharacter* Character)
 	const float Sustain = Definition ? USkillUnlocks::GetPerk(Definition->Skill, Character->GetSkills()->GetLevel(Definition->Skill), ESkillPerk::Sustain) : 0.f;
 	if (Definition && FMath::FRand() < Definition->DepleteChance * (1.f - Sustain))
 	{
+		if (Definition->WanderMeters > 0.f)
+		{
+			Character->ShowMessage(LOCTEXT("MovesOn", "The fish scatter: the shoal moves on. Look for it further out."));
+		}
 		Deplete();
 		return true;
 	}
@@ -122,6 +127,21 @@ void AResourceNode::Deplete()
 
 void AResourceNode::Respawn()
 {
+	// A shoal turns up somewhere new, over water about as deep as where it was.
+	float Depth;
+	if (Definition && Definition->WanderMeters > 0.f && UBoatComponent::GetWaterDepth(GetWorld(), GetActorLocation(), Depth))
+	{
+		for (int32 Try = 0; Try < 30; ++Try)
+		{
+			const FVector Spot = GetActorLocation() + FVector(FMath::VRand().GetSafeNormal2D() * FMath::FRandRange(0.3f, 1.f) * Definition->WanderMeters * 100.f);
+			float There;
+			if (UBoatComponent::GetWaterDepth(GetWorld(), Spot, There) && There > Depth * 0.75f && There < Depth * 1.33f)
+			{
+				SetActorLocation(FVector(Spot.X, Spot.Y, GetActorLocation().Z));
+				break;
+			}
+		}
+	}
 	bDepleted = false;
 	ApplyLook();
 }

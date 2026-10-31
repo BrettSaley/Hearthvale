@@ -7,6 +7,7 @@
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/GatheringComponent.h"
+#include "RPG/SkillsComponent.h"
 
 #define LOCTEXT_NAMESPACE "Boat"
 
@@ -195,8 +196,10 @@ void UBoatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 		Rider.Reset();
 	}
 
-	// Speeds up and slows down gently, like a boat; drops anchor while its rider fishes.
-	const FVector Wanted = Rider.IsValid() ? Input.GetClampedToMaxSize(1.f) * Definition->BoatSpeed : FVector::ZeroVector;
+	// Speeds up and slows down gently, like a boat; drops anchor while its rider fishes. The better a
+	// fisher its rider, the faster it goes (up to 40% at 99).
+	const float Seamanship = Rider.IsValid() ? 1.f + 0.004f * Rider->GetSkills()->GetLevel(ESkill::Fishing) : 1.f;
+	const FVector Wanted = Rider.IsValid() ? Input.GetClampedToMaxSize(1.f) * Definition->BoatSpeed * Seamanship : FVector::ZeroVector;
 	Input = FVector::ZeroVector;
 	Velocity = FMath::VInterpTo(Velocity, Wanted, DeltaTime, Wanted.IsNearlyZero() ? 0.9f : 1.3f);
 	if (Rider.IsValid() && Rider->GetGathering()->IsGathering())

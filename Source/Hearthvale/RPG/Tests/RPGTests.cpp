@@ -433,6 +433,9 @@ bool FBoatsTest::RunTest(const FString& Parameters)
 		if (TestNotNull(FString::Printf(TEXT("%s is defined"), Kind), Node))
 		{
 			TestTrue(FString::Printf(TEXT("%s gives fish for Fishing"), Kind), Node->Skill == ESkill::Fishing && Node->Item && Node->RequiredLevel > 1);
+			// Lakes stay put; sea shoals get fished out and move on.
+			const bool bSea = Node->Tool == EToolType::Harpoon || FString(Kind) == TEXT("MackerelSpot") || FString(Kind) == TEXT("BassSpot");
+			TestEqual(FString::Printf(TEXT("%s moves on only at sea"), Kind), Node->WanderMeters > 0.f && Node->DepleteChance > 0.f, bSea);
 			const URecipeDefinition* Cook = LoadObject<URecipeDefinition>(nullptr, *FString::Printf(TEXT("/Game/Crafting/Recipes/Cook%s.Cook%s"),
 				*Node->Item->GetItemId().ToString(), *Node->Item->GetItemId().ToString()));
 			TestTrue(FString::Printf(TEXT("%s's fish can be cooked into food"), Kind), Cook && Cook->Output && Cook->Output->HealAmount > 0);

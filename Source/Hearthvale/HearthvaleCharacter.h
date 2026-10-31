@@ -91,6 +91,9 @@ class AHearthvaleCharacter : public ACharacter
 	UPROPERTY(EditDefaultsOnly, Category="RPG")
 	float WadeDepth = 140.f;
 
+	/** Walking speed out of the water; wading slows the character, the deeper the more */
+	float DryWalkSpeed = 0.f;
+
 	/** The last place the character stood that wasn't too deep, to be put back to */
 	FVector LastWadeable = FVector::ZeroVector;
 

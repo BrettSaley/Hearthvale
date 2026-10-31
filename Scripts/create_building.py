@@ -572,6 +572,9 @@ def create_pieces():
             amount.set_editor_property("item", item(item_id))
             amount.set_editor_property("quantity", count)
             amounts.append(amount)
+        about = extras.get("about", "")
+        if "boat_speed" in extras:
+            about += " The better you fish, the faster you'll go."
         for prop, value in [("display_name", unreal.Text(name)), ("category", category), ("snap", snap), ("cost", amounts),
                             ("parts", parts), ("footprint", V(*footprint)), ("height", float(height)), ("sort_order", sort),
                             ("door_part", extras.get("door_part", -1)), ("door_hinge", extras.get("door_hinge", V(0, 0, 0))),
@@ -591,7 +594,7 @@ def create_pieces():
                             ("trap_bait", item(extras["bait"]) if "bait" in extras else None),
                             ("trap_catch", item(extras["catch"]) if "catch" in extras else None),
                             ("trap_deep_catch", item(extras["deep_catch"]) if "deep_catch" in extras else None),
-                            ("description", unreal.Text(extras.get("about", ""))),
+                            ("description", unreal.Text(about)),
                             ("machine", extras.get("machine", unreal.FarmMachine.NONE)),
                             ("range", float(extras.get("range", 0))),
                             ("growth_boost", extras.get("boost", 1.0)),
