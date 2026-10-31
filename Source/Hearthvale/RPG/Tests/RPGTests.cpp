@@ -10,6 +10,7 @@
 #include "RPG/CropDefinition.h"
 #include "RPG/RecipeDefinition.h"
 #include "RPG/FarmPatch.h"
+#include "RPG/GatheringNodeDefinition.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/HearthvaleSaveGame.h"
 #include "RPG/InventoryComponent.h"
@@ -384,6 +385,64 @@ bool FFarmMachinesTest::RunTest(const FString& Parameters)
 		&& SteelSickle->ToolPower > IronSickle->ToolPower);
 	TestNotNull(TEXT("Fertiliser exists"), UItemDefinition::FindItem(TEXT("Fertiliser")));	TestTrue(TEXT("Smithing unlocks machines in the guide"), USkillUnlocks::GetUnlocks(ESkill::Smithing).ContainsByPredicate(
 		[](const FSkillUnlock& Unlock) { return Unlock.Kind == EUnlockKind::Building; }));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBoatsTest, "Hearthvale.Boats", TestFlags)
+
+bool FBoatsTest::RunTest(const FString& Parameters)
+{
+	// Boats need Fishing, and each tier is faster and goes further out than the last (0 being anywhere).
+	const UBuildPieceDefinition* Raft = UBuildPieceDefinition::FindPiece(TEXT("Raft"));
+	const UBuildPieceDefinition* Rowboat = UBuildPieceDefinition::FindPiece(TEXT("Rowboat"));
+	const UBuildPieceDefinition* Skiff = UBuildPieceDefinition::FindPiece(TEXT("Skiff"));
+	if (!TestTrue(TEXT("There's a raft, a rowboat and a skiff"), Raft && Rowboat && Skiff))
+	{
+		return false;
+	}
+	for (const UBuildPieceDefinition* Boat : {Raft, Rowboat, Skiff})
+	{
+		const FString Name = Boat->GetName();
+		TestTrue(FString::Printf(TEXT("%s is a boat"), *Name), Boat->IsBoat() && Boat->Category == EBuildCategory::Boats);
+		TestEqual(FString::Printf(TEXT("%s needs Fishing"), *Name), Boat->RequiredSkill, ESkill::Fishing);
+		TestFalse(FString::Printf(TEXT("%s is built at the shore, not a workbench"), *Name), Boat->bNeedsWorkbench);
+		TestFalse(FString::Printf(TEXT("%s says what it does"), *Name), Boat->Description.IsEmpty());
+	}
+	TestTrue(TEXT("Each boat is faster than the last"), Raft->BoatSpeed < Rowboat->BoatSpeed && Rowboat->BoatSpeed < Skiff->BoatSpeed);
+	TestTrue(TEXT("Each boat goes deeper than the last"), Raft->BoatMaxDepth > 0.f && Rowboat->BoatMaxDepth > Raft->BoatMaxDepth && Skiff->BoatMaxDepth == 0.f);
+	TestTrue(TEXT("The bigger boats have holds"), Rowboat->StorageSlots > 0 && Skiff->StorageSlots > Rowboat->StorageSlots);
+
+	// The deep-water grounds: every kind somewhere, all out of wading depth, the same each time.
+	const TArray<FWorldResourceSpot> Grounds = UWorldGenerator::PlanFishingGrounds();
+	TMap<FName, int32> Counts;
+	for (const FWorldResourceSpot& Spot : Grounds)
+	{
+		++Counts.FindOrAdd(Spot.Kind);
+		TestTrue(FString::Printf(TEXT("%s at %s is too deep to wade to"), *Spot.Kind.ToString(), *Spot.Location.ToCompactString()),
+			UWorldGenerator::GetGroundHeight(Spot.Location.X, Spot.Location.Y) < -200.f);
+	}
+	for (const TCHAR* Kind : {TEXT("CarpSpot"), TEXT("SalmonSpot"), TEXT("CharSpot"), TEXT("MackerelSpot"), TEXT("BassSpot"),
+		TEXT("TunaSpot"), TEXT("SwordfishSpot"), TEXT("SharkSpot")})
+	{
+		TestTrue(FString::Printf(TEXT("There are %ss (%d)"), Kind, Counts.FindRef(Kind)), Counts.FindRef(Kind) > 0);
+		const UGatheringNodeDefinition* Node = LoadObject<UGatheringNodeDefinition>(nullptr, *FString::Printf(TEXT("/Game/Gathering/Nodes/%s.%s"), Kind, Kind));
+		if (TestNotNull(FString::Printf(TEXT("%s is defined"), Kind), Node))
+		{
+			TestTrue(FString::Printf(TEXT("%s gives fish for Fishing"), Kind), Node->Skill == ESkill::Fishing && Node->Item && Node->RequiredLevel > 1);
+			const URecipeDefinition* Cook = LoadObject<URecipeDefinition>(nullptr, *FString::Printf(TEXT("/Game/Crafting/Recipes/Cook%s.Cook%s"),
+				*Node->Item->GetItemId().ToString(), *Node->Item->GetItemId().ToString()));
+			TestTrue(FString::Printf(TEXT("%s's fish can be cooked into food"), Kind), Cook && Cook->Output && Cook->Output->HealAmount > 0);
+		}
+	}
+	TestEqual(TEXT("The grounds are the same each time"), UWorldGenerator::PlanFishingGrounds().Num(), Grounds.Num());
+
+	// The big sea fish take a harpoon, smithed from metal.
+	const UGatheringNodeDefinition* Shark = LoadObject<UGatheringNodeDefinition>(nullptr, TEXT("/Game/Gathering/Nodes/SharkSpot.SharkSpot"));
+	const UItemDefinition* Harpoon = UItemDefinition::FindItem(TEXT("IronHarpoon"));
+	TestTrue(TEXT("Sharks need a harpoon"), Shark && Shark->Tool == EToolType::Harpoon);
+	TestTrue(TEXT("An iron harpoon is a harpoon"), Harpoon && Harpoon->ToolType == EToolType::Harpoon);
+	const URecipeDefinition* SmithHarpoon = LoadObject<URecipeDefinition>(nullptr, TEXT("/Game/Crafting/Recipes/SmithIronHarpoon.SmithIronHarpoon"));
+	TestTrue(TEXT("Harpoons are smithed"), SmithHarpoon && SmithHarpoon->Skill == ESkill::Smithing);
 	return true;
 }
 

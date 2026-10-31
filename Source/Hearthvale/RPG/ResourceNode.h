@@ -34,6 +34,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Gathering")
 	UGatheringNodeDefinition* GetDefinition() const { return Definition; }
 
+	/** Places a node of a kind in the world at runtime. */
+	static AResourceNode* Spawn(UWorld* World, UGatheringNodeDefinition* InDefinition, const FTransform& Transform);
+
 	UFUNCTION(BlueprintPure, Category = "Gathering")
 	bool IsDepleted() const { return bDepleted; }
 

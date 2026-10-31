@@ -68,6 +68,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Gathering")
 	float MaxDrift = 40.f;
 
+	/** Where a gathered item goes: the backpack, else the hold of the boat the character's in; null if neither has room. */
+	UInventoryComponent* FindRoom(const UItemDefinition* Item) const;
+
 private:
 	void Attempt();
 	/** Tool power for an attempt: the tool's, or 1 with bare hands. 0 if the tool's missing. */

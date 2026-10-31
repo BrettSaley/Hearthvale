@@ -30,7 +30,9 @@ enum class EToolType : uint8
 	Pickaxe,
 	FishingNet,
 	/** For harvesting crops: optional, but a better one picks much faster. */
-	Sickle
+	Sickle,
+	/** For the big fish out at sea (tuna, swordfish, sharks), which no net will hold. */
+	Harpoon
 };
 
 UENUM(BlueprintType)

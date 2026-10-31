@@ -3,6 +3,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "RPG/Building/BoatComponent.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "HearthvaleCharacter.h"
 #include "HearthvalePlayerController.h"
@@ -39,6 +40,11 @@ ABuildPiece* ABuildPiece::Spawn(UWorld* World, UBuildPieceDefinition* InPiece, c
 		{
 			Built->Machine = NewObject<UFarmMachineComponent>(Built, TEXT("Machine"));
 			Built->Machine->RegisterComponent();
+		}
+		if (InPiece->IsBoat())
+		{
+			Built->Boat = NewObject<UBoatComponent>(Built, TEXT("Boat"));
+			Built->Boat->RegisterComponent();
 		}
 		if (!InPiece->PlotSize.IsZero())
 		{
@@ -91,6 +97,11 @@ void ABuildPiece::Destroyed()
 	if (Patch)
 	{
 		Patch->Destroy();
+	}
+	// Taken down with someone aboard: they're put ashore.
+	if (Boat)
+	{
+		Boat->Disembark(true);
 	}
 	Super::Destroyed();
 }
@@ -145,6 +156,18 @@ float ABuildPiece::GetTop() const
 
 bool ABuildPiece::GetInteractionPrompt(const AHearthvaleCharacter* Character, FInteractionPrompt& OutPrompt) const
 {
+	// A boat is boarded from outside; aboard, its hold is opened.
+	if (Piece && Boat)
+	{
+		OutPrompt.Target = Piece->DisplayName;
+		if (Boat->GetRider() == Character)
+		{
+			OutPrompt.Action = LOCTEXT("OpenHold", "Open the hold of");
+			return Storage != nullptr;
+		}
+		OutPrompt.Action = LOCTEXT("Board", "Board");
+		return !Boat->GetRider();
+	}
 	if (Piece && Piece->IsDoor())
 	{
 		OutPrompt.Action = bOpen ? LOCTEXT("Close", "Close") : LOCTEXT("Open", "Open");
@@ -181,6 +204,11 @@ bool ABuildPiece::GetInteractionPrompt(const AHearthvaleCharacter* Character, FI
 
 void ABuildPiece::Interact(AHearthvaleCharacter* Character)
 {
+	if (Boat && Boat->GetRider() != Character)
+	{
+		Boat->Board(Character);
+		return;
+	}
 	if (Piece && Piece->IsDoor())
 	{
 		SetOpen(!bOpen);

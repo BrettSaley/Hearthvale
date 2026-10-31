@@ -38,6 +38,7 @@ namespace
 		case EToolType::Pickaxe:    return LOCTEXT("Pickaxe", "Pickaxe");
 		case EToolType::FishingNet: return LOCTEXT("FishingNet", "Fishing net");
 		case EToolType::Sickle:     return LOCTEXT("Sickle", "Sickle");
+		case EToolType::Harpoon:    return LOCTEXT("Harpoon", "Harpoon");
 		default:                    return LOCTEXT("Tool", "Tool");
 		}
 	}

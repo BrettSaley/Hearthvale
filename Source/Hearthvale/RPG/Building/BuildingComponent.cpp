@@ -8,6 +8,7 @@
 #include "Landscape.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "RPG/SkillsComponent.h"
+#include "RPG/Building/BoatComponent.h"
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/CraftingStationDefinition.h"
@@ -385,6 +386,22 @@ bool UBuildingComponent::IsClear(const UBuildPieceDefinition* Piece, const FTran
 	return true;
 }
 
+bool UBuildingComponent::IsAfloat(const UBuildPieceDefinition* Piece, const FTransform& Transform) const
+{
+	// Water enough to float in under its middle, bow and stern.
+	for (const float Along : {0.f, -1.f, 1.f})
+	{
+		float Depth;
+		const FVector Spot = Transform.TransformPosition(FVector(Along * Piece->Footprint.X, 0.f, 0.f));
+		if (!UBoatComponent::GetWaterDepth(GetWorld(), Spot, Depth) || Depth < UBoatComponent::Draught
+			|| (Piece->BoatMaxDepth > 0.f && Depth > Piece->BoatMaxDepth))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
 bool UBuildingComponent::IsNearWorkbench(const FVector& Spot) const
 {
 	for (const ACraftingStation* Station : TActorRange<ACraftingStation>(GetWorld()))
@@ -430,7 +447,7 @@ FBuildPlacement UBuildingComponent::EvaluatePlacement(const UBuildPieceDefinitio
 		Aim += (Hit.TraceEnd - Hit.TraceStart).GetSafeNormal2D() * 30.f;
 	}
 	const FTransform Flat = ComputePlacement(Piece, Aim, Aim.Z, Rot);
-	Result.Transform = ComputePlacement(Piece, Aim, FindBaseZ(Piece, Hit, Flat.GetLocation()), Rot);
+	Result.Transform = ComputePlacement(Piece, Aim, Piece->IsBoat() ? UBoatComponent::WaterLevel : FindBaseZ(Piece, Hit, Flat.GetLocation()), Rot);
 	// Benches, beds and the like face whoever's building (their +X towards them), then turn from there.
 	const FVector Looking = (Hit.TraceEnd - Hit.TraceStart).GetSafeNormal2D();
 	if (Piece->Snap == EBuildSnap::Free && !Looking.IsNearlyZero())
@@ -443,9 +460,13 @@ FBuildPlacement UBuildingComponent::EvaluatePlacement(const UBuildPieceDefinitio
 	{
 		Result.Problem = LOCTEXT("TooFar", "Too far away");
 	}
-	else if (GroundZ(Result.Transform.GetLocation(), Result.Transform.GetLocation().Z) < WaterLevel)
+	else if (!Piece->IsBoat() && GroundZ(Result.Transform.GetLocation(), Result.Transform.GetLocation().Z) < WaterLevel)
 	{
 		Result.Problem = LOCTEXT("Water", "Can't build in the water");
+	}
+	else if (Piece->IsBoat() && !IsAfloat(Piece, Result.Transform))
+	{
+		Result.Problem = LOCTEXT("Afloat", "Boats go on the water: find somewhere deeper");
 	}
 	else if (Piece->RequiredSkill != ESkill::Count && Character
 		&& Character->GetSkills()->GetLevel(Piece->RequiredSkill) < Piece->RequiredLevel)

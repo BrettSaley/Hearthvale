@@ -18,7 +18,7 @@ public:
 	
 	/** Constructor */
 	AHearthvaleGameMode();
+
+	/** On the island, also places the deep-water fishing grounds (they aren't baked into the level) */
+	virtual void StartPlay() override;
 };
-
-
-

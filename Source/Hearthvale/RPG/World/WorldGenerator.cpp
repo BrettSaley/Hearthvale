@@ -953,6 +953,67 @@ TArray<FVector> UWorldGenerator::GetLakes()
 	return Found;
 }
 
+TArray<FWorldResourceSpot> UWorldGenerator::PlanFishingGrounds()
+{
+	static const TArray<FWorldResourceSpot> Planned = []
+	{
+		TArray<FWorldResourceSpot> Spots;
+		FRandomStream Random(Seed + 7);
+		auto Clear = [&Spots](FVector2D P, float Apart)
+		{
+			return !Spots.ContainsByPredicate([P, Apart](const FWorldResourceSpot& Other) { return FVector2D::Distance(FVector2D(Other.Location) / 100.f, P) < Apart; });
+		};
+		auto Add = [&Spots, &Random](FName Kind, FVector2D P)
+		{
+			Spots.Add(FWorldResourceSpot{Kind, FVector(P.X * 100.f, P.Y * 100.f, 0.f), static_cast<float>(Random.FRandRange(0.f, 360.f))});
+		};
+
+		// Lakes: the deep middle of each big one, a spot per 25 m of radius. Ponds are too shallow.
+		for (const FLake& Lake : Lakes)
+		{
+			if (Lake.Radius < 35.f)
+			{
+				continue;
+			}
+			const float Ring = RingDistance(Lake.X, Lake.Y);
+			const FName Kind = Ring < DeepwoodStart ? FName(TEXT("CarpSpot")) : Ring < HighlandsStart ? FName(TEXT("SalmonSpot")) : FName(TEXT("CharSpot"));
+			const int32 Wanted = FMath::Max(1, FMath::FloorToInt(Lake.Radius / 25.f));
+			int32 Placed = 0;
+			for (int32 Try = 0; Try < 60 && Placed < Wanted; ++Try)
+			{
+				const FVector2D P = FVector2D(Lake.X, Lake.Y) + FVector2D(Random.FRandRange(-1.f, 1.f), Random.FRandRange(-1.f, 1.f)) * Lake.Radius * 0.5f;
+				if (HeightMeters(P.X, P.Y) < -2.4f && Clear(P, 18.f))
+				{
+					Add(Kind, P);
+					++Placed;
+				}
+			}
+		}
+
+		// The sea: a spot every 70 m or so, its fish set by how deep it is there.
+		const float Half = (Resolution - 1) * VertexSpacing / 200.f - 20.f;
+		constexpr float SeaCell = 45.f;
+		for (float CY = -Half; CY < Half; CY += SeaCell)
+		{
+			for (float CX = -Half; CX < Half; CX += SeaCell)
+			{
+				const FVector2D P(CX + Random.FRandRange(0.f, SeaCell), CY + Random.FRandRange(0.f, SeaCell));
+				const float Depth = -HeightMeters(P.X, P.Y);
+				const float Roll = Random.FRand();
+				if (P.Size() < InlandWater || Depth < 3.f || FMath::Abs(P.X) > Half || FMath::Abs(P.Y) > Half || Roll > 0.55f || !Clear(P, 70.f))
+				{
+					continue;
+				}
+				const FName Kind = Depth < 8.f ? FName(TEXT("MackerelSpot")) : Depth < 18.f ? FName(TEXT("BassSpot"))
+					: Depth < 25.f ? FName(TEXT("TunaSpot")) : Roll < 0.2f ? FName(TEXT("SharkSpot")) : FName(TEXT("SwordfishSpot"));
+				Add(Kind, P);
+			}
+		}
+		return Spots;
+	}();
+	return Planned;
+}
+
 float UWorldGenerator::GetHighestGround(float X, float Y, float Radius)
 {
 	float Highest = 0.f;
@@ -1017,7 +1078,9 @@ bool UWorldGenerator::SaveMapPreview(const FString& Filename, int32 Size, float 
 	static const TMap<FName, FColor> NodeColors = {{TEXT("Tree"), FColor(20, 90, 20)}, {TEXT("OakTree"), FColor(10, 50, 10)},
 		{TEXT("AshTree"), FColor(150, 170, 40)}, {TEXT("CopperRock"), FColor(230, 110, 30)}, {TEXT("IronRock"), FColor(150, 40, 30)},
 		{TEXT("SilverRock"), FColor(230, 230, 255)}, {TEXT("PerchSpot"), FColor(0, 255, 255)}, {TEXT("TroutSpot"), FColor(0, 200, 255)},
-		{TEXT("PikeSpot"), FColor(0, 120, 255)}};
+		{TEXT("PikeSpot"), FColor(0, 120, 255)}, {TEXT("CarpSpot"), FColor(255, 255, 0)}, {TEXT("SalmonSpot"), FColor(255, 150, 120)},
+		{TEXT("CharSpot"), FColor(255, 90, 60)}, {TEXT("MackerelSpot"), FColor(160, 255, 160)}, {TEXT("BassSpot"), FColor(60, 220, 60)},
+		{TEXT("TunaSpot"), FColor(255, 0, 255)}, {TEXT("SwordfishSpot"), FColor(200, 0, 120)}, {TEXT("SharkSpot"), FColor(255, 0, 0)}};
 	auto Dot = [&Pixels, Size, Origin, MetersPerPixel](FVector Location, FColor Color, int32 Radius)
 	{
 		const int32 CX = FMath::FloorToInt((Location.X / 100.f - Origin.X) / MetersPerPixel);
@@ -1049,7 +1112,9 @@ bool UWorldGenerator::SaveMapPreview(const FString& Filename, int32 Size, float 
 			Dot(Spot.Transform.GetLocation(), FColor(120, 70, 20), FMath::Max(2, FMath::RoundToInt(6.f / MetersPerPixel)));
 		}
 	}
-	for (const FWorldResourceSpot& Spot : CachedResources())
+	TArray<FWorldResourceSpot> Everything = CachedResources();
+	Everything.Append(PlanFishingGrounds());
+	for (const FWorldResourceSpot& Spot : Everything)
 	{
 		const FColor* Color = NodeColors.Find(Spot.Kind);
 		Dot(Spot.Location, Color ? *Color : FColor::Magenta, FMath::Max(1, FMath::RoundToInt(NodeRadius(Spot.Kind) * 0.6f / MetersPerPixel)));

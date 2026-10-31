@@ -2,6 +2,7 @@
 #include "Engine/OverlapResult.h"
 #include "Engine/World.h"
 #include "HearthvaleCharacter.h"
+#include "RPG/Building/BoatComponent.h"
 #include "RPG/CraftingComponent.h"
 #include "RPG/CraftingStation.h"
 #include "RPG/GatheringComponent.h"
@@ -39,9 +40,14 @@ void UInteractionComponent::UpdateFocus()
 	// Nearest wins, with a bonus for what the player is facing.
 	AActor* Best = nullptr;
 	float BestScore = TNumericLimits<float>::Max();
+	AActor* OwnBoat = Character->GetBoat() ? Character->GetBoat()->GetOwner() : nullptr;
 	for (const FOverlapResult& Overlap : Overlaps)
 	{
 		AActor* Actor = Overlap.GetActor();
+		if (Actor == OwnBoat)
+		{
+			continue;
+		}
 		const IInteractable* Interactable = Cast<IInteractable>(Actor);
 		FInteractionPrompt Prompt;
 		if (!Interactable || Actor == Best || !Interactable->GetInteractionPrompt(Character, Prompt))
@@ -55,6 +61,11 @@ void UInteractionComponent::UpdateFocus()
 			Best = Actor;
 			BestScore = Score;
 		}
+	}
+	FInteractionPrompt Prompt;
+	if (!Best && OwnBoat && Cast<IInteractable>(OwnBoat)->GetInteractionPrompt(Character, Prompt))
+	{
+		Best = OwnBoat;
 	}
 	Focus = Best;
 }

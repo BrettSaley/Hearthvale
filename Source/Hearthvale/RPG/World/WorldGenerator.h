@@ -103,6 +103,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "World")
 	static TArray<FWorldResourceSpot> PlanResources();
 
+	/**
+	 * The deep-water fishing grounds, out of wading reach (it takes a boat): a few
+	 * in the middle of each big lake (carp, salmon or char, by biome), and the sea
+	 * round the island, its fish by depth (mackerel inshore; bass; then tuna,
+	 * swordfish and sharks, for a harpoon, far out). Placed when the game starts,
+	 * not baked into the level. Worked out once and remembered.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "World")
+	static TArray<FWorldResourceSpot> PlanFishingGrounds();
+
 	/** Decoration that isn't gathered: grass, flowers, bushes, ferns, boulders, reeds, lily pads... Kept clear of the resource nodes. */
 	UFUNCTION(BlueprintCallable, Category = "World")
 	static TArray<FWorldScenerySpot> PlanScenery();

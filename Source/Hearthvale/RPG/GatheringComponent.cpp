@@ -1,4 +1,7 @@
 #include "RPG/GatheringComponent.h"
+#include "RPG/Building/BoatComponent.h"
+#include "RPG/Building/BuildPiece.h"
+#include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/SkillUnlocks.h"
 #include "Animation/AnimInstance.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -18,6 +21,7 @@ namespace
 		case EToolType::Pickaxe:    return LOCTEXT("Pickaxe", "a pickaxe");
 		case EToolType::FishingNet: return LOCTEXT("Net", "a fishing net");
 		case EToolType::Sickle:     return LOCTEXT("Sickle", "a sickle");
+		case EToolType::Harpoon:    return LOCTEXT("Harpoon", "a harpoon");
 		default:                    return LOCTEXT("Tool", "a tool");
 		}
 	}
@@ -109,7 +113,7 @@ bool UGatheringComponent::StartGathering(AActor* Source)
 		Character->ShowMessage(FText::Format(LOCTEXT("NeedTool", "You need {0} you can use."), ToolName(Info.Tool)), Warning);
 		return false;
 	}
-	if (Info.Item && !Character->GetInventory()->CanFit(Info.Item))
+	if (Info.Item && !FindRoom(Info.Item))
 	{
 		Character->ShowMessage(LOCTEXT("Full", "Your inventory is too full to hold any more."), Warning);
 		return false;
@@ -206,18 +210,27 @@ void UGatheringComponent::Attempt()
 		Character->PlayAnimMontage(Info.Montage);
 	}
 	const int32 Level = Skills->GetLevel(Info.Skill);
-	const float Chance = SuccessChance(Level, Info.RequiredLevel, ToolPower, Info.Difficulty) + USkillUnlocks::GetPerk(Info.Skill, Level, ESkillPerk::Success);
+	float Chance = SuccessChance(Level, Info.RequiredLevel, ToolPower, Info.Difficulty) + USkillUnlocks::GetPerk(Info.Skill, Level, ESkillPerk::Success);
+	const UBoatComponent* Boat = Character->GetBoat();
+	if (Boat && Boat->GetDefinition() && Info.Skill == ESkill::Fishing)
+	{
+		Chance += Boat->GetDefinition()->BoatCatchBonus;
+	}
 	if (FMath::FRand() >= FMath::Min(Chance, 0.95f))
 	{
 		return;
 	}
 	if (Info.Item)
 	{
-		Inventory->AddItem(Info.Item);
+		if (UInventoryComponent* Into = FindRoom(Info.Item))
+		{
+			Into->AddItem(Info.Item);
+		}
 		const FText Message = Info.SuccessMessage.IsEmpty() ? LOCTEXT("Got", "You get some {0}.") : Info.SuccessMessage;
 		Character->ShowMessage(FText::Format(Message, Info.Item->DisplayName.ToLower()));
 		// The ExtraYield perk: sometimes one more.
-		if (FMath::FRand() < USkillUnlocks::GetPerk(Info.Skill, Level, ESkillPerk::ExtraYield) && Inventory->AddItem(Info.Item) > 0)
+		UInventoryComponent* ExtraInto = FindRoom(Info.Item);
+		if (FMath::FRand() < USkillUnlocks::GetPerk(Info.Skill, Level, ESkillPerk::ExtraYield) && ExtraInto && ExtraInto->AddItem(Info.Item) > 0)
 		{
 			Character->ShowMessage(FText::Format(LOCTEXT("Extra", "Your skill gets you an extra {0}."), Info.Item->DisplayName.ToLower()), Lucky);
 		}
@@ -236,11 +249,28 @@ void UGatheringComponent::Attempt()
 	{
 		StopGathering();
 	}
-	else if (Info.Item && !Inventory->CanFit(Info.Item))
+	else if (Info.Item && !FindRoom(Info.Item))
 	{
 		Character->ShowMessage(LOCTEXT("Full", "Your inventory is too full to hold any more."), Warning);
 		StopGathering();
 	}
+}
+
+UInventoryComponent* UGatheringComponent::FindRoom(const UItemDefinition* Item) const
+{
+	const AHearthvaleCharacter* Character = GetCharacter();
+	if (!Character || !Item)
+	{
+		return nullptr;
+	}
+	if (Character->GetInventory()->CanFit(Item))
+	{
+		return Character->GetInventory();
+	}
+	const UBoatComponent* Boat = Character->GetBoat();
+	const ABuildPiece* Piece = Boat ? Cast<ABuildPiece>(Boat->GetOwner()) : nullptr;
+	UInventoryComponent* Hold = Piece ? Piece->GetStorage() : nullptr;
+	return Hold && Hold->CanFit(Item) ? Hold : nullptr;
 }
 
 AHearthvaleCharacter* UGatheringComponent::GetCharacter() const

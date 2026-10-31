@@ -153,7 +153,29 @@ public:
 	UFUNCTION(Exec)
 	void ListAnimals();
 
+	/** Boards the nearest boat, wherever it is. */
+	UFUNCTION(Exec)
+	void Board();
+
+	/** Steps off the boat (as jumping does aboard). */
+	UFUNCTION(Exec)
+	void Disembark();
+
+	/** Holds the movement keys for a while: Forward and Right from -1 to 1, as the camera faces (Row 1 0 5). */
+	UFUNCTION(Exec)
+	void Row(float Forward, float Right, float Seconds);
+
+	/** Aboard: moves the boat beside the nearest fishing spot of a kind (TunaSpot), as if rowed there. */
+	UFUNCTION(Exec)
+	void BoatTo(FName NodeKind);
+
+	/** Logs every boat: where it is, how deep the water is there, who's aboard and what's in its hold. */
+	UFUNCTION(Exec)
+	void ListBoats();
+
 private:
 	AHearthvaleCharacter* GetHearthvaleCharacter() const;
+
+	FTimerHandle RowTimer;
 	void Say(const FString& Message) const;
 };

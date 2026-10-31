@@ -35,6 +35,23 @@ void AResourceNode::BeginPlay()
 	ApplyLook();
 }
 
+AResourceNode* AResourceNode::Spawn(UWorld* World, UGatheringNodeDefinition* InDefinition, const FTransform& Transform)
+{
+	if (!World || !InDefinition)
+	{
+		return nullptr;
+	}
+	// Deferred so the definition is set before construction builds the look.
+	AResourceNode* Node = World->SpawnActorDeferred<AResourceNode>(StaticClass(), Transform, nullptr, nullptr,
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	if (Node)
+	{
+		Node->Definition = InDefinition;
+		Node->FinishSpawning(Transform);
+	}
+	return Node;
+}
+
 bool AResourceNode::GetInteractionPrompt(const AHearthvaleCharacter* Character, FInteractionPrompt& OutPrompt) const
 {
 	if (!Definition || bDepleted)

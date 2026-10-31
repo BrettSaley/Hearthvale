@@ -17,6 +17,7 @@
 #include "InputAction.h"
 #include "EngineUtils.h"
 #include "HearthvalePlayerController.h"
+#include "RPG/Building/BoatComponent.h"
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildingComponent.h"
 #include "RPG/CraftingComponent.h"
@@ -89,8 +90,8 @@ void AHearthvaleCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
 		
 		// Jumping
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AHearthvaleCharacter::DoJumpStart);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AHearthvaleCharacter::DoJumpEnd);
 
 		// Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AHearthvaleCharacter::Move);
@@ -160,7 +161,14 @@ void AHearthvaleCharacter::DoMove(float Right, float Forward)
 		// get right vector 
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
-		// add movement 
+		// aboard a boat, the keys steer it
+		if (UBoatComponent* InBoat = Boat.Get())
+		{
+			InBoat->AddInput(ForwardDirection * Forward + RightDirection * Right);
+			return;
+		}
+
+		// add movement
 		AddMovementInput(ForwardDirection, Forward);
 		AddMovementInput(RightDirection, Right);
 	}
@@ -178,6 +186,13 @@ void AHearthvaleCharacter::DoLook(float Yaw, float Pitch)
 
 void AHearthvaleCharacter::DoJumpStart()
 {
+	// aboard a boat, jumping steps ashore
+	if (UBoatComponent* InBoat = Boat.Get())
+	{
+		InBoat->Disembark();
+		return;
+	}
+
 	// signal the character to jump
 	Jump();
 }
@@ -218,6 +233,41 @@ void AHearthvaleCharacter::BeginPlay()
 	{
 		GetMesh()->SetSkeletalMeshAsset(Look);
 	}
+	LastWadeable = GetActorLocation();
+}
+
+UBoatComponent* AHearthvaleCharacter::GetBoat() const
+{
+	return Boat.Get();
+}
+
+void AHearthvaleCharacter::SetBoat(UBoatComponent* InBoat)
+{
+	Boat = InBoat;
+}
+
+void AHearthvaleCharacter::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	if (!bIsPlayerCharacter || Boat.IsValid() || GetAttachParentActor())
+	{
+		return;
+	}
+	// Sea level is Z = 0: past wading depth, back to the last spot that wasn't.
+	const float Feet = GetActorLocation().Z - GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+	if (Feet > UBoatComponent::WaterLevel - WadeDepth)
+	{
+		LastWadeable = GetActorLocation();
+		return;
+	}
+	SetActorLocation(LastWadeable, false, nullptr, ETeleportType::TeleportPhysics);
+	GetCharacterMovement()->StopMovementImmediately();
+	const float Now = GetWorld()->GetTimeSeconds();
+	if (Now - TooDeepSaid > 4.f)
+	{
+		ShowMessage(NSLOCTEXT("Hearthvale", "TooDeep", "The water's too deep to wade any further. You'd need a boat."), FLinearColor(1.f, 0.45f, 0.4f));
+	}
+	TooDeepSaid = Now;
 }
 
 void AHearthvaleCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)

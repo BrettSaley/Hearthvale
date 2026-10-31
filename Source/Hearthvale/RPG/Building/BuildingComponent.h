@@ -123,6 +123,8 @@ private:
 	float FindBaseZ(const UBuildPieceDefinition* Piece, const FHitResult& Hit, const FVector& Snapped) const;
 	float GroundZ(const FVector& Spot, float Fallback) const;
 	bool IsClear(const UBuildPieceDefinition* Piece, const FTransform& Transform) const;
+	/** Whether a boat would float there (and the water's not too rough for it). */
+	bool IsAfloat(const UBuildPieceDefinition* Piece, const FTransform& Transform) const;
 	void UpdatePlacement();
 	void SetHovered(ABuildPiece* Piece);
 

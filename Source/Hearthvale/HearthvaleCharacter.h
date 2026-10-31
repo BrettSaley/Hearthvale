@@ -18,6 +18,7 @@ class UCraftingComponent;
 class UCraftingStationDefinition;
 class UInteractionComponent;
 class UBuildingComponent;
+class UBoatComponent;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
@@ -82,6 +83,19 @@ class AHearthvaleCharacter : public ACharacter
 
 	/** Whether a player controls this character (only players load and save) */
 	bool bIsPlayerCharacter = false;
+
+	/** The boat the character's in, if any */
+	TWeakObjectPtr<UBoatComponent> Boat;
+
+	/** Water deeper than this (cm) is too deep to wade: it takes a boat */
+	UPROPERTY(EditDefaultsOnly, Category="RPG")
+	float WadeDepth = 140.f;
+
+	/** The last place the character stood that wasn't too deep, to be put back to */
+	FVector LastWadeable = FVector::ZeroVector;
+
+	/** When the character was last told the water's too deep (seconds of game time) */
+	float TooDeepSaid = -100.f;
 
 	FTimerHandle AutosaveTimer;
 
@@ -170,6 +184,12 @@ public:
 
 	FORCEINLINE UBuildingComponent* GetBuilding() const { return Building; }
 
+	/** The boat the character's aboard, or null. */
+	UBoatComponent* GetBoat() const;
+
+	/** Set by the boat on boarding and stepping off. */
+	void SetBoat(UBoatComponent* InBoat);
+
 	/** Shows a line in the player's message feed (does nothing for non-players). */
 	void ShowMessage(const FText& Text, const FLinearColor& Color = FLinearColor::White) const;
 
@@ -225,6 +245,9 @@ protected:
 
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void BeginPlay() override;
+
+	/** Keeps the character out of water too deep to wade */
+	virtual void Tick(float DeltaSeconds) override;
 
 	/** What the character looks like: the settler from Scripts/create_character.py (same skeleton as the mannequin, so the same animations). Empty keeps the mesh set on the Blueprint. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Appearance")

@@ -8,9 +8,11 @@
   auto-feeder, harvesters that pick and replant plots, a collector that shears sheep and gathers eggs,
   an incubator that hatches chicks. Harvesters and collectors unload into the nearest chest in range.
   Logs are their fuel (better logs last longer).
+- The Boats tab (each needs a Fishing level; built on the water, anywhere): a log raft for lakes
+  and the shallows, a rowboat with a hold, and a fishing skiff with a wool sail that goes anywhere
 - The Farm tab: a garden plot (a farm patch you build), a fence and gate (animals can't get through), a nest box (hens lay in it), a feeding trough (tame animals eat from it), a wool rug
 
-Run after create_crafting.py, create_world.py and create_farming.py (for wool) (the stations' looks come
+Run after create_crafting.py, create_world.py, create_farming.py (for wool) and create_fishing.py (the stations' looks come
 from their definitions), headless with the editor closed:
     UnrealEditor-Cmd.exe Hearthvale.uproject -run=pythonscript -script="<path>/Scripts/create_building.py"
 
@@ -343,6 +345,43 @@ def incubator():
             part("Cylinder", "Iron", (-30, 20, 95), (0.08, 0.08, 0.5), collides=False)]
 
 
+def raft():
+    # Five logs side by side, lashed with two planks.
+    return ([part("Cylinder", "Bark", (0, y, 14), (0.3, 0.3, 2.6), (0, 90, 0)) for y in (-64, -32, 0, 32, 64)]
+            + [part("Cube", "Planks", (x, 0, 30), (0.25, 1.7, 0.06), collides=False) for x in (-90, 90)])
+
+
+def hull(length, width, wood, trim):
+    """An open boat along +X: a flat bottom, straight sides, a square stern and a pointed bow (8 parts of a piece's 12)."""
+    a, b = length / 2, width / 2
+    nose = 0.25 * length
+    straight = length - nose
+    middle = (-a + a - nose) / 2
+    slant = math.hypot(nose, b)
+    angle = math.degrees(math.atan2(b, nose))
+    return ([part("Cube", wood, (middle, 0, 10), (straight / 100, width / 100, 0.1)),
+             part("Cube", wood, (-a, 0, 30), (0.08, (width + 8) / 100, 0.4))]
+            + [part("Cube", wood, (middle, y, 30), (straight / 100, 0.08, 0.4)) for y in (-b, b)]
+            + [part("Cube", wood, (a - nose / 2, side * b / 2, 30), (slant / 100, 0.08, 0.4), (0, 0, -side * angle)) for side in (-1, 1)]
+            + [part("Cube", trim, (middle, y, 51), (straight / 100, 0.12, 0.04), collides=False) for y in (-b, b)])
+
+
+def rowboat():
+    return (hull(340, 130, "Planks", "Copper")
+            + [part("Cube", "WallPlanks", (x, 0, 34), (0.3, 1.2, 0.05), collides=False) for x in (-60, 50)]
+            # The oars, out to either side.
+            + [part("Cylinder", "Bark", (0, side * 100, 42), (0.05, 0.05, 2.0), (side * 72, 0, 0), collides=False) for side in (-1, 1)])
+
+
+def skiff():
+    return (hull(480, 180, "Planks", "Iron")
+            + [part("Cube", "Iron", (-175, 0, 28), (0.6, 1.2, 0.36)),
+               # A mast with a boom, and a big wool sail.
+               part("Cylinder", "Bark", (130, 0, 230), (0.12, 0.12, 4.2), collides=False),
+               part("Cylinder", "Bark", (55, 0, 95), (0.07, 0.07, 1.6), (0, 90, 0), collides=False),
+               part("Cube", "Wool", (60, 0, 240), (1.4, 0.03, 2.8), collides=False)])
+
+
 def rug():
     return [part("Cube", "Wool", (0, 0, 1), (2.4, 1.6, 0.02), collides=False),
             part("Cube", "Blanket", (0, 0, 1.5), (1.8, 1.0, 0.02), collides=False)]
@@ -407,6 +446,7 @@ S = Category.STRUCTURE
 C = Category.CRAFTING
 F = Category.FURNITURE
 A = Category.FARM
+B = Category.BOATS
 PIECES = {
     "WoodFloor": ("Wood floor", S, Snap.CELL, [("Logs", 2)], [part("Cube", "Planks", (0, 0, 10), (2.0, 2.0, 0.2))],
                   (100, 100, 10), 20, 0, {}),
@@ -458,6 +498,17 @@ PIECES = {
     "Incubator": ("Incubator", A, Snap.FREE, [("CopperBar", 3), ("IronBar", 2), ("Logs", 2)], incubator(), (45, 35, 45), 90, 45,
                   {"smithing": 30, "storage": 9, "machine": unreal.FarmMachine.INCUBATOR, "range": 1500, "work": 30.0,
                    "hatch": "Chicken", "about": "Hatches a chick from an egg in it every 30 s. Burns logs."}),
+    # Boats: as above, plus the Fishing level to build one, its top speed (cm/s), how deep the water may get (m, 0 for any)
+    # and how much it adds to the chance of a catch. Built on the water; the hold is its storage.
+    "Raft": ("Log raft", B, Snap.FREE, [("Logs", 10)], raft(), (130, 85, 18), 30, 60,
+             {"fishing": 5, "workbench": False, "boat_speed": 300.0, "boat_depth": 6.0,
+              "about": "Logs lashed together: steer it out to the deep water of the lakes. Too flimsy for water over 6 m deep."}),
+    "Rowboat": ("Rowboat", B, Snap.FREE, [("OakPlank", 8), ("CopperBar", 3)], rowboat(), (190, 65, 25), 22, 61,
+                {"fishing": 20, "workbench": False, "storage": 9, "boat_speed": 520.0, "boat_depth": 20.0, "boat_bonus": 0.03,
+                 "about": "Quicker than a raft, with a 9-slot hold for your catch. Out to sea as far as 20 m deep."}),
+    "Skiff": ("Fishing skiff", B, Snap.FREE, [("AshPlank", 10), ("IronBar", 4), ("Wool", 8)], skiff(), (240, 90, 30), 22, 62,
+              {"fishing": 40, "workbench": False, "storage": 27, "boat_speed": 850.0, "boat_bonus": 0.06,
+               "about": "A sailing boat with a 27-slot hold: fast, steady to fish from, and fit for the open sea."}),
     "WoolRug": ("Wool rug", F, Snap.FREE, [("Wool", 4)], rug(), (120, 80, 2), 3, 25, {}),
     # Timber framing: an upright log anywhere, and a log lying along a cell's edge (on a wall, poles or the ground).
     "WoodPole": ("Log pole", S, Snap.FREE, [("Logs", 1)], [part("Cylinder", "Bark", (0, 0, 100), (0.22, 0.22, 2.0))],
@@ -506,7 +557,10 @@ def create_pieces():
                             ("is_bed", extras.get("bed", False)),
                             ("nest_box", extras.get("nest", False)),
                             ("trough", extras.get("trough", False)),
-                            ("required_level", extras.get("smithing", 1)),
+                            ("required_level", extras.get("smithing", extras.get("fishing", 1))),
+                            ("boat_speed", extras.get("boat_speed", 0.0)),
+                            ("boat_max_depth", extras.get("boat_depth", 0.0)),
+                            ("boat_catch_bonus", extras.get("boat_bonus", 0.0)),
                             ("description", unreal.Text(extras.get("about", ""))),
                             ("machine", extras.get("machine", unreal.FarmMachine.NONE)),
                             ("range", float(extras.get("range", 0))),
@@ -518,6 +572,8 @@ def create_pieces():
             piece.set_editor_property(prop, value)
         if "smithing" in extras:  # (No skill is the default, and Python can't name it.)
             piece.set_editor_property("required_skill", unreal.Skill.SMITHING)
+        if "fishing" in extras:
+            piece.set_editor_property("required_skill", unreal.Skill.FISHING)
         station = extras.get("station")
         piece.set_editor_property("station", unreal.load_asset(f"/Game/Crafting/Stations/{station}") if station else None)
         save(piece)

@@ -44,7 +44,8 @@ enum class EBuildCategory : uint8
 	Structure,
 	Crafting,
 	Furniture,
-	Farm
+	Farm,
+	Boats
 };
 
 /**
@@ -166,6 +167,20 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visuals")
 	FVector LightOffset = FVector(0.f, 0.f, 100.f);
+
+	/** A boat: built on the water, then boarded and rowed (or sailed) about. Its top speed in cm/s; 0 for anything else. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boat", meta = (ClampMin = 0))
+	float BoatSpeed = 0.f;
+
+	/** How deep (m) the water can get before it's too rough for this boat; 0 for no limit. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boat", meta = (ClampMin = 0))
+	float BoatMaxDepth = 0.f;
+
+	/** Added to the chance of each catch while fishing from it (a steadier deck, better tackle aboard). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boat", meta = (ClampMin = 0, ClampMax = 1))
+	float BoatCatchBonus = 0.f;
+
+	bool IsBoat() const { return BoatSpeed > 0.f; }
 
 	/** Lower comes first in the build menu. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")

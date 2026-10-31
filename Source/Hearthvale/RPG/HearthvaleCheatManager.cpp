@@ -5,6 +5,7 @@
 #include "GameFramework/PlayerController.h"
 #include "HearthvaleCharacter.h"
 #include "HearthvalePlayerController.h"
+#include "RPG/Building/BoatComponent.h"
 #include "RPG/Building/BuildingComponent.h"
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
@@ -236,8 +237,31 @@ void UHearthvaleCheatManager::GoTo(FName NodeKind)
 	}
 	// Patches are bigger than nodes, so stand a little further off.
 	const float Distance = Nearest->IsA<AFarmPatch>() ? 180.f : Nearest->IsA<ACraftingStation>() ? 160.f : 130.f;
-	const FVector Spot = Nearest->GetActorLocation() + Away * Distance + FVector(0.f, 0.f, 100.f);
-	Character->TeleportTo(Spot, (-Away).Rotation());
+	// A fishing spot is fished from the shore: stand on whichever side is shallowest.
+	float Depth;
+	if (UBoatComponent::GetWaterDepth(GetWorld(), Nearest->GetActorLocation(), Depth) && Depth > 0.f)
+	{
+		float Shallowest = UE_BIG_NUMBER;
+		for (int32 Step = 0; Step < 16; ++Step)
+		{
+			const FVector Direction(FMath::Cos(Step * UE_TWO_PI / 16.f), FMath::Sin(Step * UE_TWO_PI / 16.f), 0.f);
+			if (UBoatComponent::GetWaterDepth(GetWorld(), Nearest->GetActorLocation() + Direction * Distance * 1.5f, Depth) && Depth < Shallowest)
+			{
+				Shallowest = Depth;
+				Away = Direction;
+			}
+		}
+	}
+	FVector Spot = Nearest->GetActorLocation() + Away * Distance + FVector(0.f, 0.f, 100.f);
+	// Clear of the ground there (the shore can be higher than the water the spot's on).
+	if (UBoatComponent::GetWaterDepth(GetWorld(), Spot, Depth))
+	{
+		Spot.Z = FMath::Max(Spot.Z, UBoatComponent::WaterLevel - Depth * 100.f + 110.f);
+	}
+	if (!Character->TeleportTo(Spot, (-Away).Rotation()))
+	{
+		Say(FString::Printf(TEXT("Couldn't go to the %s at %s."), *NodeKind.ToString(), *Nearest->GetActorLocation().ToCompactString()));
+	}
 	GetOuterAPlayerController()->SetControlRotation((-Away).Rotation());
 }
 
@@ -246,6 +270,114 @@ void UHearthvaleCheatManager::Interact()
 	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
 	{
 		Character->DoInteract();
+	}
+}
+
+void UHearthvaleCheatManager::Board()
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	UBoatComponent* Nearest = nullptr;
+	for (const ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		if (Built->GetBoat() && Character && (!Nearest || FVector::Dist(Built->GetActorLocation(), Character->GetActorLocation())
+			< FVector::Dist(Nearest->GetOwner()->GetActorLocation(), Character->GetActorLocation())))
+		{
+			Nearest = Built->GetBoat();
+		}
+	}
+	if (!Nearest)
+	{
+		Say(TEXT("No boat to board."));
+		return;
+	}
+	Say(Nearest->Board(Character) ? TEXT("Boarded.") : TEXT("Couldn't board."));
+}
+
+void UHearthvaleCheatManager::Disembark()
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	if (Character && Character->GetBoat())
+	{
+		Say(Character->GetBoat()->Disembark() ? FString::Printf(TEXT("Ashore at %s"), *Character->GetActorLocation().ToCompactString())
+			: TEXT("Couldn't step ashore."));
+	}
+}
+
+void UHearthvaleCheatManager::Row(float Forward, float Right, float Seconds)
+{
+	// Feeds the movement keys every frame until the time's up, as holding them would.
+	const double Until = GetWorld()->GetTimeSeconds() + Seconds;
+	GetWorld()->GetTimerManager().SetTimer(RowTimer, FTimerDelegate::CreateWeakLambda(this, [this, Forward, Right, Until]
+	{
+		AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+		if (!Character || GetWorld()->GetTimeSeconds() >= Until)
+		{
+			GetWorld()->GetTimerManager().ClearTimer(RowTimer);
+			if (Character)
+			{
+				Say(FString::Printf(TEXT("Stopped at %s"), *Character->GetActorLocation().ToCompactString()));
+			}
+			return;
+		}
+		Character->DoMove(Right, Forward);
+	}), 0.01f, true);
+}
+
+void UHearthvaleCheatManager::BoatTo(FName NodeKind)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	UBoatComponent* Boat = Character ? Character->GetBoat() : nullptr;
+	if (!Boat)
+	{
+		Say(TEXT("Not aboard a boat."));
+		return;
+	}
+	const AResourceNode* Nearest = nullptr;
+	for (const AResourceNode* Node : TActorRange<AResourceNode>(GetWorld()))
+	{
+		if (Node->GetDefinition() && Node->GetDefinition()->GetFName() == NodeKind
+			&& (!Nearest || FVector::Dist2D(Node->GetActorLocation(), Character->GetActorLocation()) < FVector::Dist2D(Nearest->GetActorLocation(), Character->GetActorLocation())))
+		{
+			Nearest = Node;
+		}
+	}
+	if (!Nearest)
+	{
+		Say(FString::Printf(TEXT("No %s in this level."), *NodeKind.ToString()));
+		return;
+	}
+	// Alongside it, bow on, with the rider within reach.
+	AActor* Hull = Boat->GetOwner();
+	const FVector Spot = Nearest->GetActorLocation() + FVector(-150.f, 60.f, 0.f);
+	Hull->SetActorLocationAndRotation(FVector(Spot.X, Spot.Y, UBoatComponent::WaterLevel), FRotator::ZeroRotator);
+	float Depth = 0.f;
+	UBoatComponent::GetWaterDepth(GetWorld(), Spot, Depth);
+	Say(FString::Printf(TEXT("Boat by %s at %s, %.1f m deep"), *NodeKind.ToString(), *Spot.ToCompactString(), Depth));
+}
+
+void UHearthvaleCheatManager::ListBoats()
+{
+	for (const ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		if (const UBoatComponent* Boat = Built->GetBoat())
+		{
+			float Depth = 0.f;
+			UBoatComponent::GetWaterDepth(GetWorld(), Built->GetActorLocation(), Depth);
+			TArray<FString> Hold;
+			if (Built->GetStorage())
+			{
+				for (const FItemStack& Stack : Built->GetStorage()->GetSlots())
+				{
+					if (!Stack.IsEmpty())
+					{
+						Hold.Add(FString::Printf(TEXT("%d %s"), Stack.Quantity, *Stack.Item->GetItemId().ToString()));
+					}
+				}
+			}
+			Say(FString::Printf(TEXT("%s at %s, %.1f m deep, %s, speed %.0f, hold: %s"), *Built->GetPiece()->GetPieceId().ToString(),
+				*Built->GetActorLocation().ToCompactString(), Depth, Boat->GetRider() ? TEXT("manned") : TEXT("empty"), Boat->GetSpeed(),
+				Hold.IsEmpty() ? TEXT("-") : *FString::Join(Hold, TEXT(", "))));
+		}
 	}
 }
 
