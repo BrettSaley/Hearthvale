@@ -78,4 +78,6 @@ private:
 	float SaidAground = -100.f;
 	float SaidRough = -100.f;
 	float SaidEdge = -100.f;
+	/** How far through a stroke the oars are, in radians. */
+	float Stroke = 0.f;
 };

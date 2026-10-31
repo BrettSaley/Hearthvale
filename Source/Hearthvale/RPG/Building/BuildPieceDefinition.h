@@ -200,6 +200,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boat", meta = (ClampMin = 0, ClampMax = 1))
 	float BoatCatchBonus = 0.f;
 
+	/** A rowing boat's oars: the first of its two oar parts (they swing as it goes). -1 for none. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boat")
+	int32 OarPart = INDEX_NONE;
+
 	bool IsBoat() const { return BoatSpeed > 0.f; }
 
 	/** Whether it's built on the water (boats, crab pots). */

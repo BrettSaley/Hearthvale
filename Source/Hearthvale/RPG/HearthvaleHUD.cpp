@@ -100,7 +100,10 @@ void AHearthvaleHUD::DrawKeyHints()
 	{
 		return;
 	}
-	const FString Text = TEXT("[I] Inventory    [K] Skills    [B] Build");
+	// Aboard a boat, how to get off it comes first.
+	const AHearthvaleCharacter* Character = Cast<AHearthvaleCharacter>(GetOwningPawn());
+	const FString Text = Character && Character->GetBoat() ? TEXT("[Space] Step ashore    [I] Inventory    [K] Skills    [B] Build")
+		: TEXT("[I] Inventory    [K] Skills    [B] Build");
 	UFont* Font = GEngine->GetSmallFont();
 	float Width, Height;
 	GetTextSize(Text, Width, Height, Font);

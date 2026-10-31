@@ -370,7 +370,7 @@ def hull(length, width, wood, trim):
 def rowboat():
     return (hull(340, 130, "Planks", "Copper")
             + [part("Cube", "WallPlanks", (x, 0, 34), (0.3, 1.2, 0.05), collides=False) for x in (-60, 50)]
-            # The oars, out to either side.
+            # The oars, out to either side (parts 10 and 11: they swing as it goes).
             + [part("Cylinder", "Bark", (0, side * 100, 42), (0.05, 0.05, 2.0), (side * 72, 0, 0), collides=False) for side in (-1, 1)])
 
 
@@ -521,7 +521,7 @@ PIECES = {
              {"fishing": 5, "workbench": False, "boat_speed": 300.0, "boat_depth": 6.0,
               "about": "Logs lashed together: steer it out to the deep water of the lakes. Too flimsy for water over 6 m deep."}),
     "Rowboat": ("Rowboat", B, Snap.FREE, [("OakPlank", 8), ("CopperBar", 3)], rowboat(), (190, 65, 25), 22, 61,
-                {"fishing": 20, "workbench": False, "storage": 9, "boat_speed": 520.0, "boat_depth": 20.0, "boat_bonus": 0.03,
+                {"fishing": 20, "workbench": False, "storage": 9, "boat_speed": 520.0, "boat_depth": 20.0, "boat_bonus": 0.03, "oars": 10,
                  "about": "Quicker than a raft, with a 9-slot hold for your catch. Out to sea as far as 20 m deep."}),
     "Skiff": ("Fishing skiff", B, Snap.FREE, [("AshPlank", 10), ("IronBar", 4), ("Wool", 8)], skiff(), (240, 90, 30), 22, 62,
               {"fishing": 40, "workbench": False, "storage": 27, "boat_speed": 850.0, "boat_bonus": 0.06,
@@ -590,6 +590,7 @@ def create_pieces():
                             ("boat_max_depth", extras.get("boat_depth", 0.0)),
                             ("boat_catch_bonus", extras.get("boat_bonus", 0.0)),
                             ("on_water", extras.get("on_water", False)),
+                            ("oar_part", extras.get("oars", -1)),
                             ("work_xp", extras.get("work_xp", 0)),
                             ("trap_bait", item(extras["bait"]) if "bait" in extras else None),
                             ("trap_catch", item(extras["catch"]) if "catch" in extras else None),

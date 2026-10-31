@@ -1,5 +1,6 @@
 #include "RPG/Building/BoatComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "HearthvaleCharacter.h"
@@ -238,6 +239,23 @@ void UBoatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 		if (!Wanted.IsNearlyZero())
 		{
 			Yaw = FMath::FixedTurn(Yaw, Wanted.Rotation().Yaw, 70.f * DeltaTime);
+		}
+	}
+
+	// The oars pull, faster the faster it goes, and rest level when it stops.
+	const ABuildPiece* Piece = GetPiece();
+	if (Piece && Piece->GetPartMeshes().IsValidIndex(Definition->OarPart + 1) && Definition->Parts.IsValidIndex(Definition->OarPart + 1))
+	{
+		const float Pull = FMath::Clamp(Velocity.Size2D() / FMath::Max(1.f, Definition->BoatSpeed), 0.f, 1.f);
+		Stroke += DeltaTime * (2.f + 3.f * Pull);
+		for (int32 Side = 0; Side < 2; ++Side)
+		{
+			const int32 Index = Definition->OarPart + Side;
+			const float Sign = Side == 0 ? -1.f : 1.f;
+			const FTransform Rest = Definition->Parts[Index].Transform;
+			const FRotator Swing(0.f, Sign * 28.f * Pull * FMath::Sin(Stroke), 0.f);
+			const FRotator Lift(0.f, 0.f, Sign * 8.f * Pull * FMath::Cos(Stroke));
+			Piece->GetPartMeshes()[Index]->SetRelativeRotation((Swing.Quaternion() * Lift.Quaternion() * Rest.GetRotation()).Rotator());
 		}
 	}
 
