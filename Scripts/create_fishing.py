@@ -4,6 +4,7 @@
   lakes; mackerel and sea bass from the sea; tuna, swordfish and sharks far out
 - Harpoons (iron, steel), smithed at an anvil: the big sea fish need one
 - A pearl (a rare find out at sea) and a pearl ring to set it in
+- Crabs and lobsters (caught by crab pots, built in create_building.py) and bait for them, cut from fish
 - More fish ground into fertiliser at the workbench
 - Fishing spot definitions in /Game/Gathering/Nodes for the deep-water grounds.
   They aren't placed in the level: the game places them when it starts, where
@@ -62,6 +63,10 @@ FISH = {
              "Tuna steak", "Thick, seared and red in the middle.", 240, 16),
     "Swordfish": ("Raw swordfish", "Its bill is longer than your arm. Cook it on a fire.", 240,
                   "Swordfish steak", "Meaty and mild.", 380, 19),
+    "Crab": ("Raw crab", "It's stopped pinching. Cook it on a fire.", 25,
+             "Boiled crab", "Sweet white meat, if you can get at it.", 45, 7),
+    "Lobster": ("Raw lobster", "Big, blue and cross. Cook it on a fire.", 120,
+                "Boiled lobster", "A feast in a shell.", 200, 15),
     "Shark": ("Raw shark", "All teeth and gristle, and quite dead. Probably. Cook it on a fire.", 380,
               "Shark steak", "A trophy of a meal.", 600, 22),
 }
@@ -72,6 +77,8 @@ ITEMS = {
                         value=180, harpoon=1, requires=50),
     "SteelHarpoon": dict(name="Steel harpoon", examine="Nothing in the sea gets away from this.", category=Cat.TOOL,
                          value=600, harpoon=3, requires=70),
+    "Bait": dict(name="Bait", examine="Chopped-up fish. Crabs love it; nobody else does.", category=Cat.RESOURCE,
+                 stackable=True, value=2),
     "Pearl": dict(name="Pearl", examine="A perfect pearl, found out at sea.", category=Cat.VALUABLE, stackable=True, value=400),
     "PearlRing": dict(name="Pearl ring", examine="Silver set with a sea pearl.", category=Cat.VALUABLE, value=900,
                       slot=unreal.EquipSlot.RING),
@@ -100,7 +107,8 @@ def create_items():
 
 
 def cooked_id(fish):
-    return {"Tuna": "TunaSteak", "Swordfish": "SwordfishSteak", "Shark": "SharkSteak", "Carp": "BakedCarp"}.get(fish, f"Grilled{fish}")
+    return {"Tuna": "TunaSteak", "Swordfish": "SwordfishSteak", "Shark": "SharkSteak", "Carp": "BakedCarp",
+            "Crab": "BoiledCrab", "Lobster": "BoiledLobster"}.get(fish, f"Grilled{fish}")
 
 
 # --- Recipes: name: (station, [(item, count)], output, count, seconds, message[, (Smithing level, XP)]) ---
@@ -112,6 +120,9 @@ RECIPES.update({
     "GrindCarp": (Station.WORKBENCH, [("Carp", 1)], "Fertiliser", 6, 1.8, "You grind a carp into fertiliser."),
     "GrindMackerel": (Station.WORKBENCH, [("Mackerel", 1)], "Fertiliser", 6, 1.8, "You grind a mackerel into fertiliser."),
     "GrindShark": (Station.WORKBENCH, [("Shark", 1)], "Fertiliser", 25, 3.0, "You grind a whole shark into fertiliser. Grim, but the crops will love it."),
+    # Bait for crab pots, cut from the little fish.
+    "CutPerchBait": (Station.WORKBENCH, [("Perch", 1)], "Bait", 6, 1.2, "You cut a perch up for bait."),
+    "CutMackerelBait": (Station.WORKBENCH, [("Mackerel", 1)], "Bait", 12, 1.2, "You cut a mackerel up for bait."),
     # Harpoons and the pearl ring train Smithing.
     "SmithIronHarpoon": (Station.ANVIL, [("IronBar", 3), ("OakPlank", 1)], "IronHarpoon", 1, 3.0,
                          "You hammer out an iron harpoon.", (18, 140)),

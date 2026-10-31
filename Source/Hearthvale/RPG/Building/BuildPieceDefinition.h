@@ -35,7 +35,9 @@ enum class EFarmMachine : uint8
 	/** Shears sheep and gathers what's lying on the ground into its storage (hens lay into it too). Burns fuel. */
 	Collector,
 	/** Hatches HatchAnimal young from their produce (eggs) in its storage. Burns fuel. */
-	Incubator
+	Incubator,
+	/** Sits in the water and, every so often, turns a TrapBait in its storage into a TrapCatch. Earns Fishing XP. */
+	CrabPot
 };
 
 UENUM(BlueprintType)
@@ -129,7 +131,21 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Machine")
 	TObjectPtr<UAnimalDefinition> HatchAnimal;
 
-	/** Seconds between a harvester's, collector's or incubator's jobs. */
+	/** A crab pot: what it's baited with, what it catches, and what it catches a third of the time in water over 6 m deep. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Machine")
+	TObjectPtr<UItemDefinition> TrapBait;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Machine")
+	TObjectPtr<UItemDefinition> TrapCatch;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Machine")
+	TObjectPtr<UItemDefinition> TrapDeepCatch;
+
+	/** XP each job earns the player (crab pots; the farm machines give what the work itself is worth). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Machine", meta = (ClampMin = 0))
+	int32 WorkXP = 0;
+
+	/** Seconds between a harvester's, collector's, incubator's or crab pot's jobs. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Machine", meta = (ClampMin = 0.1))
 	float WorkSeconds = 2.f;
 
@@ -172,7 +188,11 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boat", meta = (ClampMin = 0))
 	float BoatSpeed = 0.f;
 
-	/** How deep (m) the water can get before it's too rough for this boat; 0 for no limit. */
+	/** Built on the water rather than the land, though not a boat (crab pots). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boat")
+	bool bOnWater = false;
+
+	/** How deep (m) the water can get before it's too rough for this boat (or too deep for a crab pot's line); 0 for no limit. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boat", meta = (ClampMin = 0))
 	float BoatMaxDepth = 0.f;
 
@@ -181,6 +201,9 @@ public:
 	float BoatCatchBonus = 0.f;
 
 	bool IsBoat() const { return BoatSpeed > 0.f; }
+
+	/** Whether it's built on the water (boats, crab pots). */
+	bool IsOnWater() const { return IsBoat() || bOnWater; }
 
 	/** Lower comes first in the build menu. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")

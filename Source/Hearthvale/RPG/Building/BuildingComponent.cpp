@@ -447,7 +447,7 @@ FBuildPlacement UBuildingComponent::EvaluatePlacement(const UBuildPieceDefinitio
 		Aim += (Hit.TraceEnd - Hit.TraceStart).GetSafeNormal2D() * 30.f;
 	}
 	const FTransform Flat = ComputePlacement(Piece, Aim, Aim.Z, Rot);
-	Result.Transform = ComputePlacement(Piece, Aim, Piece->IsBoat() ? UBoatComponent::WaterLevel : FindBaseZ(Piece, Hit, Flat.GetLocation()), Rot);
+	Result.Transform = ComputePlacement(Piece, Aim, Piece->IsOnWater() ? UBoatComponent::WaterLevel : FindBaseZ(Piece, Hit, Flat.GetLocation()), Rot);
 	// Benches, beds and the like face whoever's building (their +X towards them), then turn from there.
 	const FVector Looking = (Hit.TraceEnd - Hit.TraceStart).GetSafeNormal2D();
 	if (Piece->Snap == EBuildSnap::Free && !Looking.IsNearlyZero())
@@ -460,13 +460,14 @@ FBuildPlacement UBuildingComponent::EvaluatePlacement(const UBuildPieceDefinitio
 	{
 		Result.Problem = LOCTEXT("TooFar", "Too far away");
 	}
-	else if (!Piece->IsBoat() && GroundZ(Result.Transform.GetLocation(), Result.Transform.GetLocation().Z) < WaterLevel)
+	else if (!Piece->IsOnWater() && GroundZ(Result.Transform.GetLocation(), Result.Transform.GetLocation().Z) < WaterLevel)
 	{
 		Result.Problem = LOCTEXT("Water", "Can't build in the water");
 	}
-	else if (Piece->IsBoat() && !IsAfloat(Piece, Result.Transform))
+	else if (Piece->IsOnWater() && !IsAfloat(Piece, Result.Transform))
 	{
-		Result.Problem = LOCTEXT("Afloat", "Boats go on the water: find somewhere deeper");
+		Result.Problem = Piece->IsBoat() ? LOCTEXT("Afloat", "Boats go on the water: find somewhere deeper")
+			: FText::Format(LOCTEXT("InWater", "It goes in the water, no deeper than {0} m"), Piece->BoatMaxDepth);
 	}
 	else if (Piece->RequiredSkill != ESkill::Count && Character
 		&& Character->GetSkills()->GetLevel(Piece->RequiredSkill) < Piece->RequiredLevel)

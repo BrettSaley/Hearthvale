@@ -11,7 +11,9 @@
 #include "RPG/GroundItem.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
+#include "RPG/SkillUnlocks.h"
 #include "RPG/SkillsComponent.h"
+#include "RPG/Building/BoatComponent.h"
 
 #define LOCTEXT_NAMESPACE "FarmMachine"
 
@@ -35,14 +37,20 @@ UInventoryComponent* UFarmMachineComponent::GetStorage() const
 bool UFarmMachineComponent::NeedsFuel() const
 {
 	const ABuildPiece* Piece = GetPiece();
-	return Piece && Piece->GetPiece() && Piece->GetPiece()->Machine != EFarmMachine::Sprinkler;
+	return Piece && Piece->GetPiece() && Piece->GetPiece()->Machine != EFarmMachine::Sprinkler && Piece->GetPiece()->Machine != EFarmMachine::CrabPot;
+}
+
+ESkill UFarmMachineComponent::GetSkill() const
+{
+	const ABuildPiece* Piece = GetPiece();
+	return Piece && Piece->GetPiece() && Piece->GetPiece()->Machine == EFarmMachine::CrabPot ? ESkill::Fishing : ESkill::Farming;
 }
 
 void UFarmMachineComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	// Sprinklers spin every frame; the rest work on a slower beat.
-	if (!NeedsFuel())
+	if (GetPiece() && GetPiece()->GetPiece() && GetPiece()->GetPiece()->Machine == EFarmMachine::Sprinkler)
 	{
 		SetComponentTickInterval(0.f);
 	}
@@ -97,6 +105,7 @@ bool UFarmMachineComponent::WorkOnce()
 	case EFarmMachine::Harvester: Unload(); return Harvest();
 	case EFarmMachine::Collector: Unload(); return Collect();
 	case EFarmMachine::Incubator: return Hatch();
+	case EFarmMachine::CrabPot:   return Trap();
 	default:                      return false;
 	}
 }
@@ -151,7 +160,7 @@ void UFarmMachineComponent::PayXP()
 	SincePaid = 0.f;
 	if (const AHearthvaleCharacter* Character = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)); Character && PendingXP > 0)
 	{
-		Character->GetSkills()->AddXP(ESkill::Farming, PendingXP);
+		Character->GetSkills()->AddXP(GetSkill(), PendingXP);
 	}
 	PendingXP = 0;
 }
@@ -328,6 +337,45 @@ bool UFarmMachineComponent::Hatch()
 	return true;
 }
 
+bool UFarmMachineComponent::Trap()
+{
+	// A bait for a catch: crabs, and out in deep water, now and then a lobster.
+	const ABuildPiece* Piece = GetPiece();
+	const UBuildPieceDefinition* Definition = Piece->GetPiece();
+	UInventoryComponent* Storage = GetStorage();
+	if (!Definition->TrapBait || !Definition->TrapCatch)
+	{
+		return false;
+	}
+	bOutOfFuel = !Storage->HasItem(Definition->TrapBait);
+	if (bOutOfFuel)
+	{
+		return false;
+	}
+	float Depth = 0.f;
+	UBoatComponent::GetWaterDepth(GetWorld(), Piece->GetActorLocation(), Depth);
+	UItemDefinition* Catch = Definition->TrapDeepCatch && Depth > 6.f && FMath::FRand() < 1.f / 3.f ? Definition->TrapDeepCatch.Get() : Definition->TrapCatch.Get();
+	bFull = !Storage->CanFit(Catch);
+	if (bFull)
+	{
+		return false;
+	}
+	Storage->RemoveItem(Definition->TrapBait, 1);
+	Storage->AddItem(Catch);
+	// The player's Fishing perks work on their pots too.
+	if (const AHearthvaleCharacter* Character = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
+	{
+		const float Extra = USkillUnlocks::GetPerk(ESkill::Fishing, Character->GetSkills()->GetLevel(ESkill::Fishing), ESkillPerk::ExtraYield);
+		if (FMath::FRand() < Extra && Storage->CanFit(Catch))
+		{
+			Storage->AddItem(Catch);
+		}
+	}
+	GiveXP(Definition->WorkXP);
+	++JobsDone;
+	return true;
+}
+
 FText UFarmMachineComponent::GetStatus() const
 {
 	const ABuildPiece* Piece = GetPiece();
@@ -335,9 +383,17 @@ FText UFarmMachineComponent::GetStatus() const
 	{
 		return FText::GetEmpty();
 	}
-	if (!NeedsFuel())
+	const UBuildPieceDefinition* Definition = Piece->GetPiece();
+	if (Definition->Machine == EFarmMachine::Sprinkler)
 	{
-		return FText::Format(LOCTEXT("Boost", "crops grow {0}x as fast"), FText::AsNumber(Piece->GetPiece()->GrowthBoost));
+		return FText::Format(LOCTEXT("Boost", "crops grow {0}x as fast"), FText::AsNumber(Definition->GrowthBoost));
+	}
+	if (Definition->Machine == EFarmMachine::CrabPot)
+	{
+		const int32 Bait = Definition->TrapBait && GetStorage() ? GetStorage()->CountItem(Definition->TrapBait) : 0;
+		return bFull ? LOCTEXT("PotFull", "full: empty it")
+			: Bait == 0 ? LOCTEXT("NoBait", "no bait: put some in it")
+			: FText::Format(LOCTEXT("Baited", "bait for {0} catches"), Bait);
 	}
 	if (bFull)
 	{

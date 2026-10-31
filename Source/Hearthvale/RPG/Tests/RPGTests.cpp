@@ -352,7 +352,8 @@ bool FFarmMachinesTest::RunTest(const FString& Parameters)
 		}
 		++Machines;
 		const FString Name = Piece->GetName();
-		TestEqual(FString::Printf(TEXT("%s needs Smithing"), *Name), Piece->RequiredSkill, ESkill::Smithing);
+		// Crab pots are fishing gear; the rest are smithed.
+		TestEqual(FString::Printf(TEXT("%s needs its skill"), *Name), Piece->RequiredSkill, Piece->Machine == EFarmMachine::CrabPot ? ESkill::Fishing : ESkill::Smithing);
 		TestFalse(FString::Printf(TEXT("%s says what it does"), *Name), Piece->Description.IsEmpty());
 		TestTrue(FString::Printf(TEXT("%s reaches somewhere"), *Name), Piece->Range > 0.f);
 		if (Piece->Machine == EFarmMachine::Sprinkler)
@@ -411,6 +412,9 @@ bool FBoatsTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Each boat is faster than the last"), Raft->BoatSpeed < Rowboat->BoatSpeed && Rowboat->BoatSpeed < Skiff->BoatSpeed);
 	TestTrue(TEXT("Each boat goes deeper than the last"), Raft->BoatMaxDepth > 0.f && Rowboat->BoatMaxDepth > Raft->BoatMaxDepth && Skiff->BoatMaxDepth == 0.f);
 	TestTrue(TEXT("The bigger boats have holds"), Rowboat->StorageSlots > 0 && Skiff->StorageSlots > Rowboat->StorageSlots);
+	const UBuildPieceDefinition* Pot = UBuildPieceDefinition::FindPiece(TEXT("CrabPot"));
+	TestTrue(TEXT("A crab pot goes in the water and turns bait into crabs"), Pot && Pot->IsOnWater() && !Pot->IsBoat() && Pot->Machine == EFarmMachine::CrabPot
+		&& Pot->TrapBait && Pot->TrapCatch && Pot->TrapDeepCatch && Pot->StorageSlots > 0 && Pot->WorkXP > 0);
 
 	// The deep-water grounds: every kind somewhere, all out of wading depth, the same each time.
 	const TArray<FWorldResourceSpot> Grounds = UWorldGenerator::PlanFishingGrounds();

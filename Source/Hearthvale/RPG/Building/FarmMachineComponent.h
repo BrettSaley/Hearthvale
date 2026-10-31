@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "RPG/Skills.h"
 #include "FarmMachineComponent.generated.h"
 
 class ABuildPiece;
@@ -10,11 +11,12 @@ class UInventoryComponent;
 /**
  * The workings of a farm machine (a build piece whose definition has one):
  * sprinklers water plots in range; harvesters pick and replant them; collectors
- * shear sheep and sweep up what's on the ground; incubators hatch eggs. All but
- * sprinklers burn fuel (logs, from their own storage): each log is good for its
+ * shear sheep and sweep up what's on the ground; incubators hatch eggs; crab
+ * pots, out in the water, catch crabs (and lobsters, out deep) with bait. All but
+ * sprinklers and crab pots burn fuel (logs, from their own storage): each log is good for its
  * FuelValue jobs, more the higher the player's Smithing. Harvesters and collectors unload what they make into the nearest
  * chest (or trough) in range, so they can run unattended.
- * The work they do earns the player Farming XP, as if they'd done it themselves.
+ * The work they do earns the player Farming XP (Fishing, for crab pots), as if they'd done it themselves.
  */
 UCLASS(ClassGroup = (RPG))
 class HEARTHVALE_API UFarmMachineComponent : public UActorComponent
@@ -54,6 +56,9 @@ private:
 	bool Harvest();
 	bool Collect();
 	bool Hatch();
+	bool Trap();
+	/** The skill its work trains. */
+	ESkill GetSkill() const;
 	/** Moves what it's made (not seeds, fuel or fertiliser) into the nearest chest in range, or else trough. */
 	void Unload();
 	/** Takes one job's fuel, burning a log from storage if needed; false if there's none. */
