@@ -104,7 +104,7 @@ bool UBoatComponent::Disembark(bool bForce)
 	{
 		return false;
 	}
-	// The nearest ring of spots around the boat with ground to stand on, dry if possible.
+	// The nearest ring of spots around the boat with ground (or a pier) to stand on, dry if possible.
 	const FVector Here = GetOwner()->GetActorLocation();
 	FVector Best = FVector::ZeroVector;
 	float BestScore = -UE_BIG_NUMBER;
@@ -114,11 +114,11 @@ bool UBoatComponent::Disembark(bool bForce)
 		{
 			const float Angle = Step * UE_TWO_PI / 16.f;
 			const FVector Spot = Here + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * Reach;
-			float Depth;
-			if (GetWaterDepth(GetWorld(), Spot, Depth) && Depth < 0.6f && -Depth > BestScore)
+			float Z;
+			if (FindFooting(Spot, Z) && Z > BestScore)
 			{
-				BestScore = -Depth;
-				Best = FVector(Spot.X, Spot.Y, WaterLevel - Depth * 100.f);
+				BestScore = Z;
+				Best = FVector(Spot.X, Spot.Y, Z);
 			}
 		}
 	}
@@ -141,6 +141,27 @@ bool UBoatComponent::Disembark(bool bForce)
 	Character->SetBoat(nullptr);
 	Character->ShowMessage(LOCTEXT("Ashore", "You step ashore."));
 	return true;
+}
+
+bool UBoatComponent::FindFooting(const FVector& Spot, float& OutZ) const
+{
+	// The first thing down from above that's land or built (not a boat, this one or another).
+	TArray<FHitResult> Hits;
+	FCollisionObjectQueryParams Objects(ECC_WorldStatic);
+	Objects.AddObjectTypesToQuery(ECC_WorldDynamic);
+	GetWorld()->LineTraceMultiByObjectType(Hits, FVector(Spot.X, Spot.Y, WaterLevel + 400.f), FVector(Spot.X, Spot.Y, WaterLevel - 5000.f),
+		Objects, FCollisionQueryParams(SCENE_QUERY_STAT(BoatFooting), false, GetOwner()));
+	for (const FHitResult& Hit : Hits)
+	{
+		const ABuildPiece* Built = Cast<ABuildPiece>(Hit.GetActor());
+		const bool bPier = Built && !Built->GetBoat() && Hit.ImpactNormal.Z > 0.7f;
+		if (bPier || Cast<ALandscapeProxy>(Hit.GetActor()))
+		{
+			OutZ = Hit.ImpactPoint.Z;
+			return OutZ > WaterLevel - 60.f;
+		}
+	}
+	return false;
 }
 
 void UBoatComponent::AddInput(const FVector& Direction)

@@ -3,6 +3,7 @@
 - Fish (raw, cooked at a fire): carp, salmon and char from the middle of the big
   lakes; mackerel and sea bass from the sea; tuna, swordfish and sharks far out
 - Harpoons (iron, steel), smithed at an anvil: the big sea fish need one
+- Better nets, knotted from wool at a workbench: a stout net and a trawl net catch more
 - A pearl (a rare find out at sea) and a pearl ring to set it in
 - Crabs and lobsters (caught by crab pots, built in create_building.py) and bait for them, cut from fish
 - More fish ground into fertiliser at the workbench
@@ -77,6 +78,11 @@ ITEMS = {
                         value=180, harpoon=1, requires=50),
     "SteelHarpoon": dict(name="Steel harpoon", examine="Nothing in the sea gets away from this.", category=Cat.TOOL,
                          value=600, harpoon=3, requires=70),
+    # Nets: a better one catches more (power, as with any tool); knotted from wool.
+    "StoutNet": dict(name="Stout net", examine="Wool cord, tightly knotted. Fewer fish get away.", category=Cat.TOOL,
+                     value=60, net=2, requires=25),
+    "TrawlNet": dict(name="Trawl net", examine="A great weighted net. Hardly anything gets away.", category=Cat.TOOL,
+                     value=220, net=4, requires=55),
     "Bait": dict(name="Bait", examine="Chopped-up fish. Crabs love it; nobody else does.", category=Cat.RESOURCE,
                  stackable=True, value=2),
     "Pearl": dict(name="Pearl", examine="A perfect pearl, found out at sea.", category=Cat.VALUABLE, stackable=True, value=400),
@@ -99,6 +105,10 @@ def create_items():
                             ("value", data["value"]), ("heal_amount", data.get("heal", 0)),
                             ("equip_slot", data.get("slot", unreal.EquipSlot.NONE))]:
             made.set_editor_property(prop, value)
+        if "net" in data:
+            made.set_editor_property("tool_type", unreal.ToolType.FISHING_NET)
+            made.set_editor_property("tool_power", data["net"])
+            made.set_editor_property("requirements", {unreal.Skill.FISHING: data["requires"]})
         if "harpoon" in data:
             made.set_editor_property("tool_type", unreal.ToolType.HARPOON)
             made.set_editor_property("tool_power", data["harpoon"])
@@ -120,6 +130,9 @@ RECIPES.update({
     "GrindCarp": (Station.WORKBENCH, [("Carp", 1)], "Fertiliser", 6, 1.8, "You grind a carp into fertiliser."),
     "GrindMackerel": (Station.WORKBENCH, [("Mackerel", 1)], "Fertiliser", 6, 1.8, "You grind a mackerel into fertiliser."),
     "GrindShark": (Station.WORKBENCH, [("Shark", 1)], "Fertiliser", 25, 3.0, "You grind a whole shark into fertiliser. Grim, but the crops will love it."),
+    # Nets from the farm's wool.
+    "KnotStoutNet": (Station.WORKBENCH, [("Wool", 4)], "StoutNet", 1, 3.0, "You knot a stout net."),
+    "KnotTrawlNet": (Station.WORKBENCH, [("Wool", 10), ("IronBar", 1)], "TrawlNet", 1, 4.0, "You knot a trawl net and weight it with iron."),
     # Bait for crab pots, cut from the little fish.
     "CutPerchBait": (Station.WORKBENCH, [("Perch", 1)], "Bait", 6, 1.2, "You cut a perch up for bait."),
     "CutMackerelBait": (Station.WORKBENCH, [("Mackerel", 1)], "Bait", 12, 1.2, "You cut a mackerel up for bait."),

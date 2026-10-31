@@ -63,6 +63,8 @@ private:
 	ABuildPiece* GetPiece() const;
 	/** Where the rider stands, relative to the boat. */
 	FVector GetSeat() const;
+	/** Where someone could stand at a spot (cm): the ground, or a pier, if it's no deeper than wading in the shallows. */
+	bool FindFooting(const FVector& Spot, float& OutZ) const;
 	/** Says something to the rider, at most every few seconds per kind of thing. */
 	void Warn(const FText& Text, float& LastSaid);
 

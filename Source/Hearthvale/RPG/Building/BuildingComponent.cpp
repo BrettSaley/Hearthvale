@@ -388,12 +388,14 @@ bool UBuildingComponent::IsClear(const UBuildPieceDefinition* Piece, const FTran
 
 bool UBuildingComponent::IsAfloat(const UBuildPieceDefinition* Piece, const FTransform& Transform) const
 {
-	// Water enough to float in under its middle, bow and stern.
+	// Water enough to float in under its middle, bow and stern. A pier (a floor on the water) may start
+	// on the bank, so long as the bank's below its deck.
+	const float Shallowest = Piece->Snap == EBuildSnap::Cell ? -0.2f : UBoatComponent::Draught;
 	for (const float Along : {0.f, -1.f, 1.f})
 	{
 		float Depth;
 		const FVector Spot = Transform.TransformPosition(FVector(Along * Piece->Footprint.X, 0.f, 0.f));
-		if (!UBoatComponent::GetWaterDepth(GetWorld(), Spot, Depth) || Depth < UBoatComponent::Draught
+		if (!UBoatComponent::GetWaterDepth(GetWorld(), Spot, Depth) || Depth < Shallowest
 			|| (Piece->BoatMaxDepth > 0.f && Depth > Piece->BoatMaxDepth))
 		{
 			return false;

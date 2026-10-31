@@ -10,7 +10,7 @@
   Logs are their fuel (better logs last longer).
 - The Boats tab (each needs a Fishing level; built on the water, anywhere): a log raft for lakes
   and the shallows, a rowboat with a hold, and a fishing skiff with a wool sail that goes anywhere;
-  and a crab pot, which catches crabs (lobsters out deep) with bait while you're away
+  a pier (a floor on piles over the water) and a crab pot, which catches crabs (lobsters out deep) with bait while you're away
 - The Farm tab: a garden plot (a farm patch you build), a fence and gate (animals can't get through), a nest box (hens lay in it), a feeding trough (tame animals eat from it), a wool rug
 
 Run after create_crafting.py, create_world.py, create_farming.py (for wool) and create_fishing.py (the stations' looks come
@@ -383,6 +383,13 @@ def skiff():
                part("Cube", "Wool", (60, 0, 240), (1.4, 0.03, 2.8), collides=False)])
 
 
+def pier():
+    # A plank deck on four log piles driven into the bed.
+    return ([part("Cube", "Planks", (0, 0, 24), (2.0, 2.0, 0.12))]
+            + [part("Cylinder", "Bark", (x, y, -170), (0.22, 0.22, 4.0), collides=False) for x in (-85, 85) for y in (-85, 85)]
+            + [part("Cube", "Bark", (0, y, 14), (2.0, 0.12, 0.12), collides=False) for y in (-90, 90)])
+
+
 def crab_pot():
     # A copper float with a little flag, its line running down to an iron cage on the bottom.
     return [part("Sphere", "Copper", (0, 0, 4), (0.36, 0.36, 0.3)),
@@ -519,6 +526,9 @@ PIECES = {
     "Skiff": ("Fishing skiff", B, Snap.FREE, [("AshPlank", 10), ("IronBar", 4), ("Wool", 8)], skiff(), (240, 90, 30), 22, 62,
               {"fishing": 40, "workbench": False, "storage": 27, "boat_speed": 850.0, "boat_bonus": 0.06,
                "about": "A sailing boat with a 27-slot hold: fast, steady to fish from, and fit for the open sea."}),
+    "Pier": ("Pier", B, Snap.CELL, [("Logs", 3)], pier(), (100, 100, 12), 30, 59,
+             {"workbench": False, "on_water": True, "boat_depth": 4.0,
+              "about": "A plank deck on piles: build out from the bank over water up to 4 m deep, to fish from or tie a boat up at."}),
     "CrabPot": ("Crab pot", B, Snap.FREE, [("IronBar", 2), ("Logs", 2)], crab_pot(), (25, 25, 18), 10, 63,
                 {"fishing": 15, "workbench": False, "on_water": True, "boat_depth": 12.0, "storage": 12,
                  "machine": unreal.FarmMachine.CRAB_POT, "range": 100, "work": 20.0, "work_xp": 30,
