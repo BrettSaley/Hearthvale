@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/Skills.h"
 #include "FarmMachineComponent.generated.h"
 
@@ -51,6 +52,8 @@ public:
 
 private:
 	ABuildPiece* GetPiece() const;
+	/** What kind of machine it is (None if it isn't built from a definition yet). */
+	EFarmMachine GetKind() const;
 	UInventoryComponent* GetStorage() const;
 	void Water(float DeltaTime);
 	bool Harvest();

@@ -34,23 +34,28 @@ UInventoryComponent* UFarmMachineComponent::GetStorage() const
 	return Piece ? Piece->GetStorage() : nullptr;
 }
 
-bool UFarmMachineComponent::NeedsFuel() const
+EFarmMachine UFarmMachineComponent::GetKind() const
 {
 	const ABuildPiece* Piece = GetPiece();
-	return Piece && Piece->GetPiece() && Piece->GetPiece()->Machine != EFarmMachine::Sprinkler && Piece->GetPiece()->Machine != EFarmMachine::CrabPot;
+	return Piece && Piece->GetPiece() ? Piece->GetPiece()->Machine : EFarmMachine::None;
+}
+
+bool UFarmMachineComponent::NeedsFuel() const
+{
+	const EFarmMachine Kind = GetKind();
+	return Kind != EFarmMachine::None && Kind != EFarmMachine::Sprinkler && Kind != EFarmMachine::CrabPot;
 }
 
 ESkill UFarmMachineComponent::GetSkill() const
 {
-	const ABuildPiece* Piece = GetPiece();
-	return Piece && Piece->GetPiece() && Piece->GetPiece()->Machine == EFarmMachine::CrabPot ? ESkill::Fishing : ESkill::Farming;
+	return GetKind() == EFarmMachine::CrabPot ? ESkill::Fishing : ESkill::Farming;
 }
 
 void UFarmMachineComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	// Sprinklers spin every frame; the rest work on a slower beat.
-	if (GetPiece() && GetPiece()->GetPiece() && GetPiece()->GetPiece()->Machine == EFarmMachine::Sprinkler)
+	if (GetKind() == EFarmMachine::Sprinkler)
 	{
 		SetComponentTickInterval(0.f);
 	}

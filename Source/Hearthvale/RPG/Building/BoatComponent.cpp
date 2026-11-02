@@ -68,11 +68,12 @@ void UBoatComponent::BeginPlay()
 
 FVector UBoatComponent::GetSeat() const
 {
+	// Standing on the deck towards the stern, clear of masts and benches.
 	const UBuildPieceDefinition* Definition = GetDefinition();
 	const AHearthvaleCharacter* Character = Rider.Get();
-	// Towards the stern, clear of masts and benches.
-	const float Feet = Definition ? Definition->Height : 30.f;
-	return FVector(Definition ? -0.35f * Definition->Footprint.X : 0.f, 0.f, Feet + (Character ? Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 96.f));
+	const float Aft = Definition ? -0.35f * Definition->Footprint.X : 0.f;
+	const float Deck = Definition ? Definition->Height : 30.f;
+	return FVector(Aft, 0.f, Deck + (Character ? Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 96.f));
 }
 
 bool UBoatComponent::Board(AHearthvaleCharacter* Character)
@@ -111,22 +112,22 @@ bool UBoatComponent::Disembark(bool bForce)
 	// The nearest ring of spots around the boat with ground (or a pier) to stand on, dry if possible.
 	const FVector Here = GetOwner()->GetActorLocation();
 	FVector Best = FVector::ZeroVector;
-	float BestScore = -UE_BIG_NUMBER;
-	for (float Reach = 150.f; Reach <= 450.f && BestScore == -UE_BIG_NUMBER; Reach += 100.f)
+	bool bFound = false;
+	for (float Reach = 150.f; Reach <= 450.f && !bFound; Reach += 100.f)
 	{
 		for (int32 Step = 0; Step < 16; ++Step)
 		{
 			const float Angle = Step * UE_TWO_PI / 16.f;
 			const FVector Spot = Here + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * Reach;
 			float Z;
-			if (FindFooting(Spot, Z) && Z > BestScore)
+			if (FindFooting(Spot, Z) && (!bFound || Z > Best.Z))
 			{
-				BestScore = Z;
 				Best = FVector(Spot.X, Spot.Y, Z);
+				bFound = true;
 			}
 		}
 	}
-	if (BestScore == -UE_BIG_NUMBER)
+	if (!bFound)
 	{
 		if (!bForce)
 		{
@@ -221,6 +222,29 @@ FText UBoatComponent::GetStatus() const
 		: FText::Format(LOCTEXT("SteamLeft", "steam for {0}:{1}"), Seconds / 60, FText::FromString(FString::Printf(TEXT("%02d"), Seconds % 60)));
 }
 
+void UBoatComponent::PullOars(float DeltaTime)
+{
+	// The oars pull, faster the faster it goes, and rest level when it stops.
+	const ABuildPiece* Piece = GetPiece();
+	const UBuildPieceDefinition* Definition = GetDefinition();
+	if (!Piece || !Definition || Definition->OarPart < 0 || !Piece->GetPartMeshes().IsValidIndex(Definition->OarPart + 1)
+		|| !Definition->Parts.IsValidIndex(Definition->OarPart + 1))
+	{
+		return;
+	}
+	const float Pull = FMath::Clamp(Velocity.Size2D() / FMath::Max(1.f, Definition->BoatSpeed), 0.f, 1.f);
+	Stroke += DeltaTime * (2.f + 3.f * Pull);
+	for (int32 Side = 0; Side < 2; ++Side)
+	{
+		const int32 Index = Definition->OarPart + Side;
+		const float Sign = Side == 0 ? -1.f : 1.f;
+		const FRotator Swing(0.f, Sign * 28.f * Pull * FMath::Sin(Stroke), 0.f);
+		const FRotator Lift(0.f, 0.f, Sign * 8.f * Pull * FMath::Cos(Stroke));
+		const FQuat Rest = Definition->Parts[Index].Transform.GetRotation();
+		Piece->GetPartMeshes()[Index]->SetRelativeRotation((Swing.Quaternion() * Lift.Quaternion() * Rest).Rotator());
+	}
+}
+
 void UBoatComponent::AddInput(const FVector& Direction)
 {
 	Input += FVector(Direction.X, Direction.Y, 0.f);
@@ -307,22 +331,7 @@ void UBoatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 		}
 	}
 
-	// The oars pull, faster the faster it goes, and rest level when it stops.
-	const ABuildPiece* Piece = GetPiece();
-	if (Piece && Definition->OarPart >= 0 && Piece->GetPartMeshes().IsValidIndex(Definition->OarPart + 1) && Definition->Parts.IsValidIndex(Definition->OarPart + 1))
-	{
-		const float Pull = FMath::Clamp(Velocity.Size2D() / FMath::Max(1.f, Definition->BoatSpeed), 0.f, 1.f);
-		Stroke += DeltaTime * (2.f + 3.f * Pull);
-		for (int32 Side = 0; Side < 2; ++Side)
-		{
-			const int32 Index = Definition->OarPart + Side;
-			const float Sign = Side == 0 ? -1.f : 1.f;
-			const FTransform Rest = Definition->Parts[Index].Transform;
-			const FRotator Swing(0.f, Sign * 28.f * Pull * FMath::Sin(Stroke), 0.f);
-			const FRotator Lift(0.f, 0.f, Sign * 8.f * Pull * FMath::Cos(Stroke));
-			Piece->GetPartMeshes()[Index]->SetRelativeRotation((Swing.Quaternion() * Lift.Quaternion() * Rest.GetRotation()).Rotator());
-		}
-	}
+	PullOars(DeltaTime);
 
 	// Bob on the water, rocking more the faster it goes.
 	const float Rock = 1.f + Velocity.Size2D() / FMath::Max(1.f, Definition->BoatSpeed);

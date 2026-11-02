@@ -70,6 +70,10 @@ private:
 	bool FindFooting(const FVector& Spot, float& OutZ) const;
 	/** Says something to the rider, at most every few seconds per kind of thing. */
 	void Warn(const FText& Text, float& LastSaid);
+	/** Burns a log from the hold for more steam; false if there's none. */
+	bool Stoke();
+	/** Swings a rowing boat's oars, harder the faster it's going. */
+	void PullOars(float DeltaTime);
 
 	TWeakObjectPtr<AHearthvaleCharacter> Rider;
 	/** Where the rider boarded from: put back there if they must be put ashore and there's no shore near. */
@@ -84,8 +88,6 @@ private:
 	/** A steam boat: seconds of steaming left from the log it's burning. */
 	float Steam = 0.f;
 	float SaidNoFuel = -100.f;
-	/** Burns a log from the hold for more steam; false if there's none. */
-	bool Stoke();
 	/** How far through a stroke the oars are, in radians. */
 	float Stroke = 0.f;
 };
