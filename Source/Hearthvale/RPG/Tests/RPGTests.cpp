@@ -17,6 +17,7 @@
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillUnlocks.h"
 #include "RPG/SkillsComponent.h"
+#include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldGenerator.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
@@ -453,6 +454,39 @@ bool FBoatsTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("An iron harpoon is a harpoon"), Harpoon && Harpoon->ToolType == EToolType::Harpoon);
 	const URecipeDefinition* SmithHarpoon = LoadObject<URecipeDefinition>(nullptr, TEXT("/Game/Crafting/Recipes/SmithIronHarpoon.SmithIronHarpoon"));
 	TestTrue(TEXT("Harpoons are smithed"), SmithHarpoon && SmithHarpoon->Skill == ESkill::Smithing);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWildlifeTest, "Hearthvale.Wildlife", TestFlags)
+
+bool FWildlifeTest::RunTest(const FString& Parameters)
+{
+	// Every new kind lives somewhere, on dry land, the fierce ones well away from the start; the plan is the same each time.
+	const TArray<FWorldWildlifeSpot> Herds = UWorldGenerator::PlanWildlife();
+	TMap<FName, int32> Counts;
+	for (const FWorldWildlifeSpot& Herd : Herds)
+	{
+		++Counts.FindOrAdd(Herd.Kind);
+		TestTrue(FString::Printf(TEXT("The %s herd at %s is on dry land"), *Herd.Kind.ToString(), *Herd.Location.ToCompactString()),
+			UWorldGenerator::GetGroundHeight(Herd.Location.X, Herd.Location.Y) > 100.f);
+		TestTrue(FString::Printf(TEXT("The %s herd has animals and room to roam"), *Herd.Kind.ToString()), Herd.Count > 0 && Herd.Roam > 0.f);
+		if (Herd.Kind == TEXT("Bear") || Herd.Kind == TEXT("Wolf") || Herd.Kind == TEXT("Boar"))
+		{
+			TestTrue(FString::Printf(TEXT("The %s at %s lives well away from the start"), *Herd.Kind.ToString(), *Herd.Location.ToCompactString()),
+				FVector2D(Herd.Location).Size() > 14000.f);
+		}
+	}
+	for (const TCHAR* Kind : {TEXT("Fox"), TEXT("Boar"), TEXT("Bear"), TEXT("Wolf"), TEXT("Goat")})
+	{
+		TestTrue(FString::Printf(TEXT("There are %ss (%d herds)"), Kind, Counts.FindRef(Kind)), Counts.FindRef(Kind) >= 3);
+	}
+	TestEqual(TEXT("The plan is the same each time"), UWorldGenerator::PlanWildlife().Num(), Herds.Num());
+
+	// Bears, wolves and boars charge; the rest run.
+	TestTrue(TEXT("Bears, wolves and boars are fierce"), AWildlifeHerd::IsFierce(EWildlifeKind::Bear) && AWildlifeHerd::IsFierce(EWildlifeKind::Wolf)
+		&& AWildlifeHerd::IsFierce(EWildlifeKind::Boar));
+	TestFalse(TEXT("Deer, rabbits, foxes and goats aren't"), AWildlifeHerd::IsFierce(EWildlifeKind::Deer) || AWildlifeHerd::IsFierce(EWildlifeKind::Rabbit)
+		|| AWildlifeHerd::IsFierce(EWildlifeKind::Fox) || AWildlifeHerd::IsFierce(EWildlifeKind::Goat));
 	return true;
 }
 

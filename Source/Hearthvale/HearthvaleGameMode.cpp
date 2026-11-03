@@ -7,6 +7,7 @@
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/HearthvaleHUD.h"
 #include "RPG/ResourceNode.h"
+#include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldGenerator.h"
 
 AHearthvaleGameMode::AHearthvaleGameMode()
@@ -32,6 +33,7 @@ void AHearthvaleGameMode::StartPlay()
 			Placed += AResourceNode::Spawn(World, Definition, FTransform(FRotator(0.f, Spot.Yaw, 0.f), Spot.Location)) ? 1 : 0;
 		}
 		UE_LOG(LogHearthvale, Log, TEXT("Placed %d deep-water fishing spots."), Placed);
+		UE_LOG(LogHearthvale, Log, TEXT("Placed %d herds of wild animals."), AWildlifeHerd::SpawnPlanned(World));
 	}
 	Super::StartPlay();
 }

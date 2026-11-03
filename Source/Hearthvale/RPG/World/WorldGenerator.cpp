@@ -1014,6 +1014,63 @@ TArray<FWorldResourceSpot> UWorldGenerator::PlanFishingGrounds()
 	return Planned;
 }
 
+TArray<FWorldWildlifeSpot> UWorldGenerator::PlanWildlife()
+{
+	static const TArray<FWorldWildlifeSpot> Planned = []
+	{
+		// Kind: how many herds, how many in each (a range), how far they roam (m), how far apart herds live (m).
+		struct FRule
+		{
+			FName Kind;
+			int32 Herds;
+			FIntPoint Count;
+			float Roam;
+			float Apart;
+		};
+		const FRule Rules[] = {{TEXT("Fox"), 10, FIntPoint(1, 2), 25.f, 110.f}, {TEXT("Boar"), 8, FIntPoint(2, 4), 25.f, 140.f},
+			{TEXT("Bear"), 7, FIntPoint(1, 2), 40.f, 200.f}, {TEXT("Wolf"), 5, FIntPoint(3, 5), 50.f, 250.f},
+			{TEXT("Goat"), 6, FIntPoint(3, 5), 30.f, 150.f}};
+		// Where each kind is at home.
+		auto Suits = [](FName Kind, float X, float Y)
+		{
+			const float Height = HeightMeters(X, Y);
+			const float Ring = RingDistance(X, Y);
+			const bool bFierce = Kind == TEXT("Boar") || Kind == TEXT("Bear") || Kind == TEXT("Wolf");
+			if (Height < 2.f || (bFierce && FVector2D(X, Y).Size() < 150.f) || FVector2D(X, Y).Size() < StartClearing)
+			{
+				return false;
+			}
+			if (Kind == TEXT("Fox"))  return Ring < DeepwoodStart;
+			if (Kind == TEXT("Boar")) return Ring >= DeepwoodStart && Ring < HighlandsStart;
+			if (Kind == TEXT("Bear")) return Ring >= DeepwoodStart + 0.05f && Height < 70.f;
+			if (Kind == TEXT("Wolf")) return Ring >= HighlandsStart - 0.04f && Height < 75.f;
+			return Ring >= HighlandsStart && Height > 35.f;
+		};
+
+		TArray<FWorldWildlifeSpot> Spots;
+		FRandomStream Random(Seed + 11);
+		const float Half = (Resolution - 1) * VertexSpacing / 200.f - 60.f;
+		for (const FRule& Rule : Rules)
+		{
+			int32 Placed = 0;
+			for (int32 Try = 0; Try < 4000 && Placed < Rule.Herds; ++Try)
+			{
+				const FVector2D P(Random.FRandRange(-Half, Half), Random.FRandRange(-Half, Half));
+				if (!Suits(Rule.Kind, P.X, P.Y) || Spots.ContainsByPredicate([&](const FWorldWildlifeSpot& Other)
+					{ return FVector2D::Distance(FVector2D(Other.Location) / 100.f, P) < (Other.Kind == Rule.Kind ? Rule.Apart : 40.f); }))
+				{
+					continue;
+				}
+				Spots.Add(FWorldWildlifeSpot{Rule.Kind, FVector(P.X * 100.f, P.Y * 100.f, HeightMeters(P.X, P.Y) * 100.f),
+					Random.RandRange(Rule.Count.X, Rule.Count.Y), Rule.Roam * 100.f});
+				++Placed;
+			}
+		}
+		return Spots;
+	}();
+	return Planned;
+}
+
 float UWorldGenerator::GetHighestGround(float X, float Y, float Radius)
 {
 	float Highest = 0.f;

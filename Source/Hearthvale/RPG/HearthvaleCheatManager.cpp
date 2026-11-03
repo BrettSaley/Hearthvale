@@ -20,6 +20,8 @@
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ResourceNode.h"
+#include "RPG/World/WildlifeHerd.h"
+#include "RPG/World/WorldGenerator.h"
 #include "EngineUtils.h"
 #include "Hearthvale.h"
 #include "RPG/ItemDefinition.h"
@@ -353,6 +355,88 @@ void UHearthvaleCheatManager::BoatTo(FName NodeKind)
 	float Depth = 0.f;
 	UBoatComponent::GetWaterDepth(GetWorld(), Spot, Depth);
 	Say(FString::Printf(TEXT("Boat by %s at %s, %.1f m deep"), *NodeKind.ToString(), *Spot.ToCompactString(), Depth));
+}
+
+void UHearthvaleCheatManager::GoToWild(const FString& Kind, float Distance)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	const AWildlifeHerd* Nearest = nullptr;
+	for (const AWildlifeHerd* Herd : TActorRange<AWildlifeHerd>(GetWorld()))
+	{
+		const FString Name = UEnum::GetDisplayValueAsText(Herd->GetKind()).ToString();
+		if (Character && Name.Equals(Kind, ESearchCase::IgnoreCase) && Herd->GetAnimalCount() > 0
+			&& (!Nearest || FVector::Dist2D(Herd->GetAnimalLocation(0), Character->GetActorLocation()) < FVector::Dist2D(Nearest->GetAnimalLocation(0), Character->GetActorLocation())))
+		{
+			Nearest = Herd;
+		}
+	}
+	if (!Nearest)
+	{
+		Say(FString::Printf(TEXT("No %s here."), *Kind));
+		return;
+	}
+	// Off to whichever side is dry, looking at it.
+	const FVector Animal = Nearest->GetAnimalLocation(0);
+	for (int32 Step = 0; Step < 8; ++Step)
+	{
+		const FVector Direction = FRotator(0.f, Step * 45.f, 0.f).Vector();
+		const FVector Spot = Animal + Direction * Distance;
+		const float Ground = UWorldGenerator::GetGroundHeight(Spot.X, Spot.Y);
+		if (Ground > 50.f && Character->TeleportTo(FVector(Spot.X, Spot.Y, Ground + 120.f), (-Direction).Rotation()))
+		{
+			GetOuterAPlayerController()->SetControlRotation((-Direction).Rotation());
+			Say(FString::Printf(TEXT("By a %s, %.0f m off."), *Kind, Distance / 100.f));
+			return;
+		}
+	}
+	Say(FString::Printf(TEXT("Couldn't find dry ground by the %s."), *Kind));
+}
+
+void UHearthvaleCheatManager::SpawnWild(FName Kind, int32 Count, float Ahead)
+{
+	const AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	if (!Character)
+	{
+		return;
+	}
+	const FVector Spot = Character->GetActorLocation() + Character->GetActorForwardVector() * Ahead;
+	const FVector Ground(Spot.X, Spot.Y, UWorldGenerator::GetGroundHeight(Spot.X, Spot.Y));
+	Say(AWildlifeHerd::SpawnKind(GetWorld(), Kind, Ground, Count, 300.f) ? FString::Printf(TEXT("A %s appears."), *Kind.ToString())
+		: FString::Printf(TEXT("No wild animal called '%s'."), *Kind.ToString()));
+}
+
+void UHearthvaleCheatManager::SootheWild(float Seconds)
+{
+	for (AWildlifeHerd* Herd : TActorRange<AWildlifeHerd>(GetWorld()))
+	{
+		Herd->Soothe(Seconds);
+	}
+}
+
+void UHearthvaleCheatManager::ListWildlife(int32 Most)
+{
+	const AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	if (!Character)
+	{
+		return;
+	}
+	TArray<const AWildlifeHerd*> Herds;
+	for (const AWildlifeHerd* Herd : TActorRange<AWildlifeHerd>(GetWorld()))
+	{
+		Herds.Add(Herd);
+	}
+	const FVector Here = Character->GetActorLocation();
+	Herds.Sort([Here](const AWildlifeHerd& A, const AWildlifeHerd& B)
+		{ return FVector::Dist2D(A.GetAnimalLocation(0), Here) < FVector::Dist2D(B.GetAnimalLocation(0), Here); });
+	for (int32 Index = 0; Index < FMath::Min(Most, Herds.Num()); ++Index)
+	{
+		TArray<FString> Each;
+		for (int32 Animal = 0; Animal < Herds[Index]->GetAnimalCount(); ++Animal)
+		{
+			Each.Add(FString::Printf(TEXT("%s %.0f m"), *Herds[Index]->GetAnimalMood(Animal), FVector::Dist2D(Herds[Index]->GetAnimalLocation(Animal), Here) / 100.f));
+		}
+		Say(FString::Printf(TEXT("%s: %s"), *UEnum::GetDisplayValueAsText(Herds[Index]->GetKind()).ToString(), *FString::Join(Each, TEXT(", "))));
+	}
 }
 
 void UHearthvaleCheatManager::ListBoats()

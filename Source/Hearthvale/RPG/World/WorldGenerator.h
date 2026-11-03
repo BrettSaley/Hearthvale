@@ -52,6 +52,28 @@ struct HEARTHVALE_API FWorldResourceSpot
 	float Lean = 0.f;
 };
 
+/** Where a herd of wild animals lives: which kind, where, how many and how far they roam. */
+USTRUCT(BlueprintType)
+struct HEARTHVALE_API FWorldWildlifeSpot
+{
+	GENERATED_BODY()
+
+	/** Fox, Boar, Wolf, Bear or Goat. */
+	UPROPERTY(BlueprintReadOnly, Category = "World")
+	FName Kind;
+
+	/** Home, in cm, on the ground. */
+	UPROPERTY(BlueprintReadOnly, Category = "World")
+	FVector Location = FVector::ZeroVector;
+
+	UPROPERTY(BlueprintReadOnly, Category = "World")
+	int32 Count = 1;
+
+	/** How far (cm) they wander from home. */
+	UPROPERTY(BlueprintReadOnly, Category = "World")
+	float Roam = 2000.f;
+};
+
 /** One piece of scenery (a bush, a boulder, a reed...): which kind, and where. */
 USTRUCT(BlueprintType)
 struct HEARTHVALE_API FWorldScenerySpot
@@ -112,6 +134,16 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "World")
 	static TArray<FWorldResourceSpot> PlanFishingGrounds();
+
+	/**
+	 * The wild animals placed when the game starts (rabbits and deer are baked
+	 * into the level): foxes in the Meadows, boars in the Deepwood, bears in the
+	 * Deepwood and Highlands (some with a cub), wolf packs in the Highlands and
+	 * goats on the high peaks. The fierce ones live well away from the start.
+	 * Worked out once and remembered.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "World")
+	static TArray<FWorldWildlifeSpot> PlanWildlife();
 
 	/** Decoration that isn't gathered: grass, flowers, bushes, ferns, boulders, reeds, lily pads... Kept clear of the resource nodes. */
 	UFUNCTION(BlueprintCallable, Category = "World")

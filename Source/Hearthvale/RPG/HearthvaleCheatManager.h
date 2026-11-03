@@ -169,6 +169,22 @@ public:
 	UFUNCTION(Exec)
 	void BoatTo(FName NodeKind);
 
+	/** Teleports to a little way off the nearest wild animal of a kind (Bear, Wolf, Boar, Fox, Goat, Deer, Rabbit), facing it. */
+	UFUNCTION(Exec)
+	void GoToWild(const FString& Kind, float Distance = 2500.f);
+
+	/** Puts a herd of a kind (Fox, Boar, Wolf, Bear, Goat) Ahead cm in front of the character, staying close by. */
+	UFUNCTION(Exec)
+	void SpawnWild(FName Kind, int32 Count = 1, float Ahead = 800.f);
+
+	/** Makes every wild animal ignore the player for a while (SootheWild 60). */
+	UFUNCTION(Exec)
+	void SootheWild(float Seconds = 60.f);
+
+	/** Logs the nearest few herds of wild animals: kind, how far, and what each animal's up to. */
+	UFUNCTION(Exec)
+	void ListWildlife(int32 Most = 6);
+
 	/** Logs every boat: where it is, how deep the water is there, who's aboard and what's in its hold. */
 	UFUNCTION(Exec)
 	void ListBoats();
