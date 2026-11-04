@@ -84,6 +84,10 @@ public:
 	UPROPERTY()
 	int32 HeldSlot = 0;
 
+	/** Hit points; 0 (older saves) means full. */
+	UPROPERTY()
+	int32 Health = 0;
+
 	/** By patch actor name. */
 	UPROPERTY()
 	TMap<FString, FSavedFarmPatch> FarmPatches;

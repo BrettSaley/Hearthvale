@@ -169,6 +169,22 @@ public:
 	UFUNCTION(Exec)
 	void BoatTo(FName NodeKind);
 
+	/** Takes damage, as a blow would (softened by Guard): Hurt 5. */
+	UFUNCTION(Exec)
+	void Hurt(int32 Amount);
+
+	/** Heals: Heal 5, or Heal to full. */
+	UFUNCTION(Exec)
+	void Heal(int32 Amount = 0);
+
+	/** Eats the food in an inventory slot (0 is the first). */
+	UFUNCTION(Exec)
+	void EatSlot(int32 Slot);
+
+	/** Lifts the character Meters straight up, to fall (Drop 12). */
+	UFUNCTION(Exec)
+	void Drop(float Meters);
+
 	/** Teleports to a little way off the nearest wild animal of a kind (Bear, Wolf, Boar, Fox, Goat, Deer, Rabbit), facing it. */
 	UFUNCTION(Exec)
 	void GoToWild(const FString& Kind, float Distance = 2500.f);

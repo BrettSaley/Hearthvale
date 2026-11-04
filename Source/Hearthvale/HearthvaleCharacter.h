@@ -19,6 +19,7 @@ class UCraftingStationDefinition;
 class UInteractionComponent;
 class UBuildingComponent;
 class UBoatComponent;
+class UHealthComponent;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
@@ -66,6 +67,10 @@ class AHearthvaleCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInteractionComponent> Interaction;
 
+	/** Hit points: up to the Vitality level */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UHealthComponent> Health;
+
 	/** Build mode: places walls, floors, fires and benches */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UBuildingComponent> Building;
@@ -99,6 +104,20 @@ class AHearthvaleCharacter : public ACharacter
 
 	/** When the character was last told the water's too deep (seconds of game time) */
 	float TooDeepSaid = -100.f;
+
+	/** When the character last ate (seconds of game time): a bite takes a moment */
+	float LastAte = -100.f;
+
+	/** The fastest the character has been falling (cm/s, below 0) since leaving the ground */
+	float FallSpeed = 0.f;
+
+	/** Falling faster than this (cm/s, about a 6 m drop) hurts on landing */
+	UPROPERTY(EditDefaultsOnly, Category="RPG")
+	float SafeFallSpeed = 1100.f;
+
+	/** How long (s) a dead character's spilled backpack lies where they fell */
+	UPROPERTY(EditDefaultsOnly, Category="RPG")
+	float SpilledSeconds = 600.f;
 
 	FTimerHandle AutosaveTimer;
 
@@ -187,6 +206,19 @@ public:
 
 	FORCEINLINE UBuildingComponent* GetBuilding() const { return Building; }
 
+	FORCEINLINE UHealthComponent* GetHealth() const { return Health; }
+
+	/** Eats the food in an inventory slot, healing; false (with a message) if it can't. */
+	UFUNCTION(BlueprintCallable, Category="RPG")
+	bool Eat(int32 SlotIndex);
+
+	/**
+	 * Dying: the backpack (not the hotbar) spills where the character fell, and
+	 * they wake at full health at their bed, or where they first arrived.
+	 */
+	UFUNCTION()
+	void Die(const FText& Cause);
+
 	/** The boat the character's aboard, or null. */
 	UBoatComponent* GetBoat() const;
 
@@ -217,7 +249,7 @@ public:
 	UPROPERTY(BlueprintAssignable, Category="RPG")
 	FOnHeldSlotChanged OnHeldSlotChanged;
 
-	/** Uses the held item (right mouse): logs light a fire. */
+	/** Uses the held item (right mouse): logs light a fire, food is eaten. */
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoUseItem();
 
@@ -249,8 +281,11 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void BeginPlay() override;
 
-	/** Keeps the character out of water too deep to wade */
+	/** Keeps the character out of water too deep to wade, and notes how fast it falls */
 	virtual void Tick(float DeltaSeconds) override;
+
+	/** A long fall hurts */
+	virtual void Landed(const FHitResult& Hit) override;
 
 	/** What the character looks like: the settler from Scripts/create_character.py (same skeleton as the mannequin, so the same animations). Empty keeps the mesh set on the Blueprint. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Appearance")

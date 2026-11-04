@@ -16,6 +16,7 @@
 #include "UObject/ConstructorHelpers.h"
 #include "InputAction.h"
 #include "EngineUtils.h"
+#include "GameFramework/GameModeBase.h"
 #include "HearthvalePlayerController.h"
 #include "RPG/Building/BoatComponent.h"
 #include "RPG/Building/BuildPiece.h"
@@ -25,6 +26,7 @@
 #include "RPG/CraftingStationDefinition.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/GroundItem.h"
+#include "RPG/HealthComponent.h"
 #include "RPG/HearthvaleHUD.h"
 #include "RPG/HearthvaleSaveGame.h"
 #include "RPG/InteractionComponent.h"
@@ -74,6 +76,7 @@ AHearthvaleCharacter::AHearthvaleCharacter()
 	CampfireDefinition = TSoftObjectPtr<UCraftingStationDefinition>(FSoftObjectPath(TEXT("/Game/Crafting/Stations/Campfire.Campfire")));
 	Interaction = CreateDefaultSubobject<UInteractionComponent>(TEXT("Interaction"));
 	Building = CreateDefaultSubobject<UBuildingComponent>(TEXT("Building"));
+	Health = CreateDefaultSubobject<UHealthComponent>(TEXT("Health"));
 	static ConstructorHelpers::FObjectFinder<UInputAction> InteractActionAsset(TEXT("/Game/Input/Actions/IA_Interact.IA_Interact"));
 	InteractAction = InteractActionAsset.Object;
 	static ConstructorHelpers::FObjectFinder<UInputAction> UseItemActionAsset(TEXT("/Game/Input/Actions/IA_UseItem.IA_UseItem"));
@@ -235,6 +238,7 @@ void AHearthvaleCharacter::BeginPlay()
 	}
 	LastWadeable = GetActorLocation();
 	DryWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
+	Health->OnDied.AddDynamic(this, &AHearthvaleCharacter::Die);
 }
 
 UBoatComponent* AHearthvaleCharacter::GetBoat() const
@@ -250,6 +254,10 @@ void AHearthvaleCharacter::SetBoat(UBoatComponent* InBoat)
 void AHearthvaleCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	if (GetCharacterMovement()->IsFalling())
+	{
+		FallSpeed = FMath::Min(FallSpeed, static_cast<float>(GetVelocity().Z));
+	}
 	if (!bIsPlayerCharacter || Boat.IsValid() || GetAttachParentActor())
 	{
 		return;
@@ -274,6 +282,122 @@ void AHearthvaleCharacter::Tick(float DeltaSeconds)
 	TooDeepSaid = Now;
 }
 
+void AHearthvaleCharacter::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+	// Every 90 cm/s over a safe landing is a point of damage: a 10 m drop does 3 or so, a cliff a good deal more.
+	const float Speed = -FallSpeed;
+	FallSpeed = 0.f;
+	if (bIsPlayerCharacter && Speed > SafeFallSpeed)
+	{
+		// (A fatal fall says so itself, from Die.)
+		const int32 Damage = FMath::CeilToInt32((Speed - SafeFallSpeed) / 90.f);
+		const int32 Before = Health->GetHealth();
+		const int32 Taken = Health->ApplyDamage(Damage, NSLOCTEXT("Hearthvale", "Fall", "a fall"));
+		if (Taken > 0 && Taken < Before)
+		{
+			ShowMessage(NSLOCTEXT("Hearthvale", "HardLanding", "You land hard. Ouch."), FLinearColor(1.f, 0.45f, 0.4f));
+		}
+	}
+}
+
+bool AHearthvaleCharacter::Eat(int32 SlotIndex)
+{
+	if (!Inventory->GetSlots().IsValidIndex(SlotIndex))
+	{
+		return false;
+	}
+	const FItemStack Stack = Inventory->GetSlots()[SlotIndex];
+	if (Stack.IsEmpty() || !Stack.Item->IsFood())
+	{
+		return false;
+	}
+	// A bite takes a moment.
+	const float Now = GetWorld()->GetTimeSeconds();
+	if (Now - LastAte < 1.2f)
+	{
+		return false;
+	}
+	if (Health->GetHealth() >= Health->GetMaxHealth())
+	{
+		ShowMessage(NSLOCTEXT("Hearthvale", "FullHealth", "You're at full health: save it for when you're hurt."));
+		return false;
+	}
+	LastAte = Now;
+	Inventory->RemoveFromSlot(SlotIndex, 1);
+	const int32 Healed = Health->Heal(Stack.Item->HealAmount);
+	ShowMessage(FText::Format(NSLOCTEXT("Hearthvale", "Ate", "You eat the {0}. It heals {1}."), Stack.Item->DisplayName.ToLower(), Healed),
+		FLinearColor(0.55f, 1.f, 0.55f));
+	return true;
+}
+
+void AHearthvaleCharacter::Die(const FText& Cause)
+{
+	StopActions();
+	if (UBoatComponent* InBoat = Boat.Get())
+	{
+		InBoat->Disembark(true);
+	}
+	// The backpack spills where they fell; the hotbar's kept.
+	const FVector Feet = GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+	int32 Spilled = 0;
+	for (int32 Slot = UInventoryComponent::HotbarSize; Slot < Inventory->GetCapacity(); ++Slot)
+	{
+		const FItemStack Stack = Inventory->GetSlots()[Slot];
+		if (Stack.IsEmpty())
+		{
+			continue;
+		}
+		const FVector Scatter(FMath::FRandRange(-60.f, 60.f), FMath::FRandRange(-60.f, 60.f), 0.f);
+		if (AGroundItem* Item = AGroundItem::Spawn(GetWorld(), Stack, Feet + Scatter))
+		{
+			Item->SetLifeSpan(SpilledSeconds);
+		}
+		Inventory->RemoveFromSlot(Slot, Stack.Quantity);
+		++Spilled;
+	}
+
+	// They wake at their bed, or where they first arrived.
+	const ABuildPiece* Bed = nullptr;
+	for (const ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		if (Built->IsClaimed())
+		{
+			Bed = Built;
+		}
+	}
+	FVector Wake = GetActorLocation();
+	FRotator Facing = GetActorRotation();
+	if (Bed)
+	{
+		Wake = Bed->GetWakeSpot();
+		Facing = FRotator(0.f, Bed->GetActorRotation().Yaw - 90.f, 0.f);
+	}
+	else if (AGameModeBase* Mode = GetWorld()->GetAuthGameMode())
+	{
+		if (const AActor* Start = Mode->FindPlayerStart(GetController()))
+		{
+			Wake = Start->GetActorLocation();
+			Facing = Start->GetActorRotation();
+		}
+	}
+	TeleportTo(Wake, Facing, false, true);
+	GetCharacterMovement()->StopMovementImmediately();
+	FallSpeed = 0.f;
+	LastWadeable = Wake;
+	Health->Restore();
+	ShowMessage(FText::Format(NSLOCTEXT("Hearthvale", "Died", "You were killed by {0}. You wake, aching, {1}."), Cause,
+		Bed ? NSLOCTEXT("Hearthvale", "InBed", "in your bed") : NSLOCTEXT("Hearthvale", "AtStart", "where you first arrived")),
+		FLinearColor(1.f, 0.35f, 0.3f));
+	if (Spilled > 0)
+	{
+		ShowMessage(FText::Format(NSLOCTEXT("Hearthvale", "Spilled", "Your pack spilled where you fell: you have {0} minutes to go back for it."),
+			FMath::RoundToInt32(SpilledSeconds / 60.f)), FLinearColor(1.f, 0.8f, 0.3f));
+	}
+	UE_LOG(LogHearthvale, Log, TEXT("Died (%s); woke at %s, %d stacks spilled."), *Cause.ToString(), *Wake.ToCompactString(), Spilled);
+	SaveProgress();
+}
+
 void AHearthvaleCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	if (bIsPlayerCharacter)
@@ -291,6 +415,7 @@ bool AHearthvaleCharacter::SaveProgress()
 void AHearthvaleCharacter::StartNewCharacter()
 {
 	Skills->ResetSkills();
+	Health->Restore();
 	Inventory->Clear();
 	SelectHotbarSlot(0);
 	for (const TPair<FName, int32>& Entry : StartingItems)
@@ -383,6 +508,10 @@ void AHearthvaleCharacter::DoUseItem()
 	if (Held && Held->CanLightFire())
 	{
 		LightFire(HeldSlot);
+	}
+	else if (Held && Held->IsFood())
+	{
+		Eat(HeldSlot);
 	}
 }
 

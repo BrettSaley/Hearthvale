@@ -47,6 +47,8 @@ private:
 	void BindTo(AHearthvaleCharacter* Character);
 	void DrawProgress(const FString& Text, float Progress, const FLinearColor& Color);
 	void DrawKeyHints();
+	/** The health bar over the hotbar, and a red flash when hurt. */
+	void DrawHealth(AHearthvaleCharacter* Character);
 	void DrawXPDrops(float DeltaSeconds);
 	void DrawBanner(float DeltaSeconds);
 	void DrawMessages(float DeltaSeconds);

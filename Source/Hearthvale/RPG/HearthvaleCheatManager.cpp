@@ -18,6 +18,7 @@
 #include "RPG/FarmPatch.h"
 #include "RPG/HearthvaleSaveGame.h"
 #include "RPG/GatheringNodeDefinition.h"
+#include "RPG/HealthComponent.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ResourceNode.h"
 #include "RPG/World/WildlifeHerd.h"
@@ -355,6 +356,42 @@ void UHearthvaleCheatManager::BoatTo(FName NodeKind)
 	float Depth = 0.f;
 	UBoatComponent::GetWaterDepth(GetWorld(), Spot, Depth);
 	Say(FString::Printf(TEXT("Boat by %s at %s, %.1f m deep"), *NodeKind.ToString(), *Spot.ToCompactString(), Depth));
+}
+
+void UHearthvaleCheatManager::Hurt(int32 Amount)
+{
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		const int32 Taken = Character->GetHealth()->ApplyDamage(Amount, FText::FromString(TEXT("a cheat")));
+		Say(FString::Printf(TEXT("Took %d; health %d / %d"), Taken, Character->GetHealth()->GetHealth(), Character->GetHealth()->GetMaxHealth()));
+	}
+}
+
+void UHearthvaleCheatManager::Heal(int32 Amount)
+{
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		UHealthComponent* Health = Character->GetHealth();
+		Health->Heal(Amount > 0 ? Amount : Health->GetMaxHealth());
+		Say(FString::Printf(TEXT("Health %d / %d"), Health->GetHealth(), Health->GetMaxHealth()));
+	}
+}
+
+void UHearthvaleCheatManager::EatSlot(int32 Slot)
+{
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		Character->Eat(Slot);
+		Say(FString::Printf(TEXT("Health %d / %d"), Character->GetHealth()->GetHealth(), Character->GetHealth()->GetMaxHealth()));
+	}
+}
+
+void UHearthvaleCheatManager::Drop(float Meters)
+{
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		Character->TeleportTo(Character->GetActorLocation() + FVector(0.f, 0.f, Meters * 100.f), Character->GetActorRotation());
+	}
 }
 
 void UHearthvaleCheatManager::GoToWild(const FString& Kind, float Distance)

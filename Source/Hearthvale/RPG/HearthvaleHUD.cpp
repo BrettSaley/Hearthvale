@@ -12,6 +12,7 @@
 #include "RPG/CraftingStation.h"
 #include "RPG/CraftingStationDefinition.h"
 #include "RPG/GatheringComponent.h"
+#include "RPG/HealthComponent.h"
 #include "RPG/RecipeDefinition.h"
 #include "RPG/InteractionComponent.h"
 #include "RPG/InventoryComponent.h"
@@ -43,6 +44,7 @@ void AHearthvaleHUD::DrawHUD()
 	const float DeltaSeconds = GetWorld()->GetDeltaSeconds();
 
 	DrawKeyHints();
+	DrawHealth(Character);
 	if (Character->GetBuilding()->IsBuilding())
 	{
 		DrawBuildMenu(Character);
@@ -108,6 +110,42 @@ void AHearthvaleHUD::DrawKeyHints()
 	float Width, Height;
 	GetTextSize(Text, Width, Height, Font);
 	DrawText(Text, FLinearColor(1.f, 1.f, 1.f, 0.6f), Canvas->ClipX - Width - 24.f, Canvas->ClipY - Height - 20.f, Font);
+}
+
+void AHearthvaleHUD::DrawHealth(AHearthvaleCharacter* Character)
+{
+	const UHealthComponent* Health = Character->GetHealth();
+	if (!Health)
+	{
+		return;
+	}
+	// Hurt: the screen flashes red for a moment.
+	constexpr float FlashSeconds = 0.6f;
+	if (Health->GetSinceHurt() < FlashSeconds)
+	{
+		DrawRect(FLinearColor(0.8f, 0.f, 0.f, 0.28f * (1.f - Health->GetSinceHurt() / FlashSeconds)), 0.f, 0.f, Canvas->ClipX, Canvas->ClipY);
+	}
+	const AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(PlayerOwner);
+	if (Controller && Controller->IsPanelOpen())
+	{
+		return;
+	}
+	// A bar just over the hotbar, as wide as it; it throbs when low.
+	const int32 Current = Health->GetHealth();
+	const int32 Most = FMath::Max(1, Health->GetMaxHealth());
+	const float Fraction = static_cast<float>(Current) / Most;
+	const float Width = Canvas->ClipX * 0.29f;
+	const float X = (Canvas->ClipX - Width) * 0.5f;
+	const float Y = Canvas->ClipY * 0.92f - 22.f;
+	const float Throb = Fraction <= 0.3f ? 0.5f + 0.5f * FMath::Sin(GetWorld()->GetTimeSeconds() * 8.f) : 1.f;
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.6f), X - 2.f, Y - 2.f, Width + 4.f, 16.f);
+	DrawRect(FLinearColor(0.25f, 0.03f, 0.03f, 0.9f), X, Y, Width, 12.f);
+	DrawRect(FLinearColor(0.85f * Throb + 0.15f, 0.1f, 0.12f, 0.95f), X, Y, Width * Fraction, 12.f);
+	const FString Text = FString::Printf(TEXT("%d / %d"), Current, Most);
+	UFont* Font = GEngine->GetSmallFont();
+	float TextWidth, TextHeight;
+	GetTextSize(Text, TextWidth, TextHeight, Font);
+	DrawText(Text, FLinearColor::White, X + (Width - TextWidth) * 0.5f, Y + 6.f - TextHeight * 0.5f, Font);
 }
 
 void AHearthvaleHUD::DrawXPDrops(float DeltaSeconds)

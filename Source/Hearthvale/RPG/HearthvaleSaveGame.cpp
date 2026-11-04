@@ -3,6 +3,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "HearthvaleCharacter.h"
 #include "RPG/Building/BuildPiece.h"
+#include "RPG/HealthComponent.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/Building/FarmMachineComponent.h"
 #include "RPG/InventoryComponent.h"
@@ -27,6 +28,7 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 		Save->Inventory.Add(Slot.IsEmpty() ? FSavedItemStack() : FSavedItemStack{Slot.Item->GetItemId(), Slot.Quantity});
 	}
 	Save->HeldSlot = Character->GetHeldSlot();
+	Save->Health = Character->GetHealth()->GetHealth();
 	if (UWorld* World = Character->GetWorld())
 	{
 		for (const AFarmPatch* Patch : TActorRange<AFarmPatch>(World))
@@ -116,6 +118,14 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 		}
 	}
 	Character->SelectHotbarSlot(Save->HeldSlot);
+	if (Save->Health > 0)
+	{
+		Character->GetHealth()->SetHealth(Save->Health);
+	}
+	else
+	{
+		Character->GetHealth()->Restore();
+	}
 	if (UWorld* World = Character->GetWorld())
 	{
 		for (AFarmPatch* Patch : TActorRange<AFarmPatch>(World))

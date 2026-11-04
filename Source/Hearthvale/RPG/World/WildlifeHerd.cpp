@@ -3,6 +3,7 @@
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "HearthvaleCharacter.h"
+#include "RPG/HealthComponent.h"
 #include "Materials/MaterialInterface.h"
 #include "RPG/World/WorldGenerator.h"
 #include "Camera/PlayerCameraManager.h"
@@ -33,6 +34,8 @@ namespace
 		/** A fierce one's reach when it strikes (cm), and how hard it knocks the player away (cm/s). */
 		float Reach;
 		float Knock;
+		/** The damage a blow does (before Guard softens it), a range. */
+		FIntPoint Damage = FIntPoint::ZeroValue;
 	};
 
 	const FKindStats& StatsOf(EWildlifeKind Kind)
@@ -40,9 +43,9 @@ namespace
 		static const FKindStats Rabbit{6000.f, 260.f, 620.f, FVector2D(1.f, 4.f), 14.f, 18.f, 20.f, 600.f, 0.f, 0.f};
 		static const FKindStats Deer{15000.f, 140.f, 700.f, FVector2D(4.f, 10.f), 7.f, 3.f, 70.f, 1500.f, 0.f, 0.f};
 		static const FKindStats Fox{8000.f, 180.f, 560.f, FVector2D(2.f, 6.f), 11.f, 2.f, 30.f, 1000.f, 0.f, 0.f};
-		static const FKindStats Boar{10000.f, 120.f, 470.f, FVector2D(3.f, 9.f), 10.f, 2.f, 40.f, 700.f, 160.f, 1000.f};
-		static const FKindStats Wolf{15000.f, 200.f, 480.f, FVector2D(2.f, 6.f), 9.f, 2.f, 25.f, 1400.f, 150.f, 700.f};
-		static const FKindStats Bear{20000.f, 110.f, 440.f, FVector2D(4.f, 12.f), 5.f, 4.f, 50.f, 1200.f, 240.f, 1400.f};
+		static const FKindStats Boar{10000.f, 120.f, 470.f, FVector2D(3.f, 9.f), 10.f, 2.f, 40.f, 700.f, 160.f, 1000.f, FIntPoint(2, 4)};
+		static const FKindStats Wolf{15000.f, 200.f, 480.f, FVector2D(2.f, 6.f), 9.f, 2.f, 25.f, 1400.f, 150.f, 700.f, FIntPoint(1, 3)};
+		static const FKindStats Bear{20000.f, 110.f, 440.f, FVector2D(4.f, 12.f), 5.f, 4.f, 50.f, 1200.f, 240.f, 1400.f, FIntPoint(4, 7)};
 		static const FKindStats Goat{15000.f, 120.f, 520.f, FVector2D(3.f, 8.f), 8.f, 2.f, 45.f, 1200.f, 0.f, 0.f};
 		switch (Kind)
 		{
@@ -489,6 +492,9 @@ void AWildlifeHerd::Strike(FAnimal& Animal)
 		: Kind == EWildlifeKind::Wolf ? LOCTEXT("WolfHit", "A wolf lunges and bowls you over!")
 		: LOCTEXT("BoarHit", "The boar slams into you and sends you sprawling!");
 	Player->ShowMessage(Hit, FLinearColor(1.f, 0.35f, 0.3f));
+	const FText Cause = Kind == EWildlifeKind::Bear ? LOCTEXT("ByBear", "a bear") : Kind == EWildlifeKind::Wolf ? LOCTEXT("ByWolf", "a wolf")
+		: LOCTEXT("ByBoar", "a boar");
+	Player->GetHealth()->ApplyDamage(Random.RandRange(Stats.Damage.X, Stats.Damage.Y), Cause);
 	UE_LOG(LogTemp, Log, TEXT("Wildlife: a %s struck the player."), *UEnum::GetValueAsString(Kind));
 }
 

@@ -12,6 +12,7 @@
 #include "RPG/FarmPatch.h"
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/GatheringComponent.h"
+#include "RPG/HealthComponent.h"
 #include "RPG/HearthvaleSaveGame.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
@@ -454,6 +455,39 @@ bool FBoatsTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("An iron harpoon is a harpoon"), Harpoon && Harpoon->ToolType == EToolType::Harpoon);
 	const URecipeDefinition* SmithHarpoon = LoadObject<URecipeDefinition>(nullptr, TEXT("/Game/Crafting/Recipes/SmithIronHarpoon.SmithIronHarpoon"));
 	TestTrue(TEXT("Harpoons are smithed"), SmithHarpoon && SmithHarpoon->Skill == ESkill::Smithing);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHealthTest, "Hearthvale.Health", TestFlags)
+
+bool FHealthTest::RunTest(const FString& Parameters)
+{
+	// On its own (no skills to go by) the most is the starting Vitality.
+	UHealthComponent* Health = NewObject<UHealthComponent>();
+	TestEqual(TEXT("The most is the starting Vitality"), Health->GetMaxHealth(), USkillLibrary::VitalityStartLevel);
+	TestEqual(TEXT("Starts full"), Health->GetHealth(), Health->GetMaxHealth());
+
+	// Blows hurt, healing never goes past the most, and at 0 it dies, saying what did it.
+	TestEqual(TEXT("A blow of 4 takes 4 at Guard 1"), Health->ApplyDamage(4, FText::FromString(TEXT("a test"))), 4);
+	TestEqual(TEXT("Health after the blow"), Health->GetHealth(), 6);
+	TestEqual(TEXT("Heal 10 only heals what's missing"), Health->Heal(10), 4);
+	TestEqual(TEXT("A big blow only takes what's left"), Health->ApplyDamage(50, FText::FromString(TEXT("a test"))), 10);
+	TestTrue(TEXT("At 0 it's dead"), Health->IsDead());
+	TestEqual(TEXT("The dead don't heal"), Health->Heal(5), 0);
+	Health->Restore();
+	TestFalse(TEXT("Restored after dying"), Health->IsDead());
+	TestEqual(TEXT("Back to full"), Health->GetHealth(), Health->GetMaxHealth());
+
+	// Guard softens blows, up to about half at 99, but a blow always hurts.
+	TestEqual(TEXT("Guard 1 doesn't soften"), UHealthComponent::Soften(10, 1), 10);
+	TestEqual(TEXT("Guard 50 takes a quarter off"), UHealthComponent::Soften(12, 50), 9);
+	TestEqual(TEXT("Guard 99 halves"), UHealthComponent::Soften(10, 99), 5);
+	TestEqual(TEXT("A blow always hurts"), UHealthComponent::Soften(1, 99), 1);
+	TestEqual(TEXT("Nothing's nothing"), UHealthComponent::Soften(0, 1), 0);
+	// Resting heals faster with Vitality.
+	TestTrue(TEXT("High Vitality heals faster"), UHealthComponent::RegenSeconds(99) < UHealthComponent::RegenSeconds(10));
+
+	TestTrue(TEXT("Food heals"), UItemDefinition::FindItem(TEXT("GrilledTrout")) && UItemDefinition::FindItem(TEXT("GrilledTrout"))->HealAmount > 0);
 	return true;
 }
 
