@@ -197,6 +197,14 @@ public:
 	UFUNCTION(Exec)
 	void SootheWild(float Seconds = 60.f);
 
+	/** Holds a hotbar slot (0-8), as its number key would. */
+	UFUNCTION(Exec)
+	void Hold(int32 Slot);
+
+	/** Starts fighting the nearest live wild animal of a kind (Bear...), wherever it is. */
+	UFUNCTION(Exec)
+	void AttackWild(const FString& Kind);
+
 	/** Logs the nearest few herds of wild animals: kind, how far, and what each animal's up to. */
 	UFUNCTION(Exec)
 	void ListWildlife(int32 Most = 6);

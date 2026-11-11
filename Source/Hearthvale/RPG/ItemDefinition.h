@@ -113,6 +113,20 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment", meta = (EditCondition = "EquipSlot != EEquipSlot::None"))
 	int32 DefenceBonus = 0;
 
+	/** A weapon's reach (cm): 0 for arm's length; bows shoot further. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment", meta = (ClampMin = 0))
+	float AttackRange = 0.f;
+
+	/** Seconds between a weapon's blows or shots; 0 for the usual 2.4. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment", meta = (ClampMin = 0))
+	float AttackSeconds = 0.f;
+
+	/** What a weapon shoots, one a shot (arrows for a bow); null for none. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment")
+	TObjectPtr<UItemDefinition> Ammo;
+
+	bool IsWeapon() const { return EquipSlot == EEquipSlot::Weapon; }
+
 	/** Health restored when eaten; 0 for anything inedible. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Food", meta = (ClampMin = 0))
 	int32 HealAmount = 0;

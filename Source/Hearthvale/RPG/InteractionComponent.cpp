@@ -7,6 +7,12 @@
 #include "RPG/CraftingStation.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/ResourceNode.h"
+#include "RPG/CombatComponent.h"
+#include "RPG/ItemDefinition.h"
+#include "RPG/InventoryComponent.h"
+#include "RPG/World/WildlifeHerd.h"
+#include "Camera/PlayerCameraManager.h"
+#include "Kismet/GameplayStatics.h"
 
 UInteractionComponent::UInteractionComponent()
 {
@@ -68,10 +74,43 @@ void UInteractionComponent::UpdateFocus()
 		Best = OwnBoat;
 	}
 	Focus = Best;
+
+	// An animal at arm's length comes first (a bear in your face matters more than the tree behind it); with a
+	// bow, one where the camera's aiming, out to the bow's range, when there's nothing else to use.
+	AWildlifeHerd* Herd = nullptr;
+	int32 Animal = INDEX_NONE;
+	const UCombatComponent* Combat = Character->GetCombat();
+	if (!AWildlifeHerd::FindTarget(GetWorld(), Origin, Forward, UCombatComponent::MeleeReach, 75.f, Herd, Animal) && !Best && Combat->IsRanged())
+	{
+		const APlayerCameraManager* Camera = UGameplayStatics::GetPlayerCameraManager(this, 0);
+		AWildlifeHerd::FindTarget(GetWorld(), Origin, Camera ? Camera->GetCameraRotation().Vector() : Forward, Combat->GetReach(), 12.f, Herd, Animal);
+	}
+	FocusHerd = Herd;
+	FocusAnimal = Animal;
+	if (Herd)
+	{
+		Focus.Reset();
+	}
 }
 
 bool UInteractionComponent::GetFocusPrompt(FInteractionPrompt& OutPrompt) const
 {
+	if (const AWildlifeHerd* Herd = FocusHerd.Get(); Herd && Herd->IsAlive(FocusAnimal))
+	{
+		const AHearthvaleCharacter* Character = Cast<AHearthvaleCharacter>(GetOwner());
+		const UItemDefinition* Weapon = Character ? Character->GetCombat()->GetWeapon() : nullptr;
+		FString Name = AWildlifeHerd::GetKindName(Herd->GetKind()).ToString();
+		Name[0] = FChar::ToUpper(Name[0]);
+		OutPrompt.Action = Weapon && Weapon->AttackRange > 0.f ? NSLOCTEXT("Interaction", "Shoot", "Shoot") : NSLOCTEXT("Interaction", "Attack", "Attack");
+		OutPrompt.Target = FText::Format(NSLOCTEXT("Interaction", "AnimalHealth", "{0}  ({1} / {2})"), FText::FromString(Name),
+			Herd->GetAnimalHealth(FocusAnimal), Herd->GetAnimalMaxHealth(FocusAnimal));
+		if (Weapon && Weapon->Ammo && Character && !Character->GetInventory()->HasItem(Weapon->Ammo))
+		{
+			OutPrompt.bAvailable = false;
+			OutPrompt.Requirement = Weapon->Ammo->DisplayName;
+		}
+		return true;
+	}
 	const IInteractable* Interactable = Cast<IInteractable>(Focus.Get());
 	const AHearthvaleCharacter* Character = Cast<AHearthvaleCharacter>(GetOwner());
 	return Interactable && Character && Interactable->GetInteractionPrompt(Character, OutPrompt);
@@ -86,6 +125,20 @@ void UInteractionComponent::Interact()
 	}
 	// Re-check what's in front of us; the 10 Hz focus update may lag a fresh step.
 	UpdateFocus();
+	// An animal in focus: fight it (again, and the fight stops).
+	if (AWildlifeHerd* Herd = FocusHerd.Get(); Herd && Herd->IsAlive(FocusAnimal))
+	{
+		UCombatComponent* Combat = Character->GetCombat();
+		if (Combat->GetTargetHerd() == Herd && Combat->GetTargetIndex() == FocusAnimal)
+		{
+			Character->StopActions();
+		}
+		else
+		{
+			Combat->StartAttack(Herd, FocusAnimal);
+		}
+		return;
+	}
 	// Pressing again on what we're already working stops.
 	UGatheringComponent* Gathering = Character->GetGathering();
 	const UCraftingComponent* Crafting = Character->GetCrafting();

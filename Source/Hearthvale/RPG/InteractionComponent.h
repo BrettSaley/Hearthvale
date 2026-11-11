@@ -5,6 +5,8 @@
 #include "RPG/Interactable.h"
 #include "InteractionComponent.generated.h"
 
+class AWildlifeHerd;
+
 /**
  * Finds the interactable the player is next to (preferring what they face)
  * so the HUD can prompt for it and the interact key can use it.
@@ -26,6 +28,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Interaction")
 	AActor* GetFocus() const { return Focus.Get(); }
 
+	/** The wild animal in focus (to attack), if it's an animal rather than a thing. */
+	AWildlifeHerd* GetFocusHerd() const { return FocusHerd.Get(); }
+	int32 GetFocusAnimal() const { return FocusAnimal; }
+
 	/** The focused thing's prompt; false if nothing is in reach. */
 	bool GetFocusPrompt(FInteractionPrompt& OutPrompt) const;
 
@@ -37,4 +43,6 @@ private:
 	void UpdateFocus();
 
 	TWeakObjectPtr<AActor> Focus;
+	TWeakObjectPtr<AWildlifeHerd> FocusHerd;
+	int32 FocusAnimal = INDEX_NONE;
 };

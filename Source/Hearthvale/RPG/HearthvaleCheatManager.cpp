@@ -18,6 +18,7 @@
 #include "RPG/FarmPatch.h"
 #include "RPG/HearthvaleSaveGame.h"
 #include "RPG/GatheringNodeDefinition.h"
+#include "RPG/CombatComponent.h"
 #include "RPG/HealthComponent.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ResourceNode.h"
@@ -448,6 +449,40 @@ void UHearthvaleCheatManager::SootheWild(float Seconds)
 	{
 		Herd->Soothe(Seconds);
 	}
+}
+
+void UHearthvaleCheatManager::Hold(int32 Slot)
+{
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		Character->SelectHotbarSlot(Slot);
+	}
+}
+
+void UHearthvaleCheatManager::AttackWild(const FString& Kind)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	AWildlifeHerd* Nearest = nullptr;
+	int32 NearestIndex = INDEX_NONE;
+	for (AWildlifeHerd* Herd : TActorRange<AWildlifeHerd>(GetWorld()))
+	{
+		if (!Character || !UEnum::GetDisplayValueAsText(Herd->GetKind()).ToString().Equals(Kind, ESearchCase::IgnoreCase))
+		{
+			continue;
+		}
+		for (int32 Index = 0; Index < Herd->GetAnimalCount(); ++Index)
+		{
+			if (Herd->IsAlive(Index) && (!Nearest || FVector::Dist2D(Herd->GetAnimalLocation(Index), Character->GetActorLocation())
+				< FVector::Dist2D(Nearest->GetAnimalLocation(NearestIndex), Character->GetActorLocation())))
+			{
+				Nearest = Herd;
+				NearestIndex = Index;
+			}
+		}
+	}
+	Say(Nearest && Character->GetCombat()->StartAttack(Nearest, NearestIndex)
+		? FString::Printf(TEXT("Fighting a %s %.0f m off."), *Kind, FVector::Dist2D(Nearest->GetAnimalLocation(NearestIndex), Character->GetActorLocation()) / 100.f)
+		: FString::Printf(TEXT("No %s to fight."), *Kind));
 }
 
 void UHearthvaleCheatManager::ListWildlife(int32 Most)

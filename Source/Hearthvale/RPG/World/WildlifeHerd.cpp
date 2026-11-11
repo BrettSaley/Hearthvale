@@ -2,8 +2,13 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "HearthvaleCharacter.h"
+#include "RPG/CraftingComponent.h"
+#include "RPG/GatheringComponent.h"
+#include "RPG/GroundItem.h"
 #include "RPG/HealthComponent.h"
+#include "RPG/ItemDefinition.h"
 #include "Materials/MaterialInterface.h"
 #include "RPG/World/WorldGenerator.h"
 #include "Camera/PlayerCameraManager.h"
@@ -47,6 +52,30 @@ namespace
 		static const FKindStats Wolf{15000.f, 200.f, 480.f, FVector2D(2.f, 6.f), 9.f, 2.f, 25.f, 1400.f, 150.f, 700.f, FIntPoint(1, 3)};
 		static const FKindStats Bear{20000.f, 110.f, 440.f, FVector2D(4.f, 12.f), 5.f, 4.f, 50.f, 1200.f, 240.f, 1400.f, FIntPoint(4, 7)};
 		static const FKindStats Goat{15000.f, 120.f, 520.f, FVector2D(3.f, 8.f), 8.f, 2.f, 45.f, 1200.f, 0.f, 0.f};
+		switch (Kind)
+		{
+		case EWildlifeKind::Deer: return Deer;
+		case EWildlifeKind::Fox:  return Fox;
+		case EWildlifeKind::Boar: return Boar;
+		case EWildlifeKind::Wolf: return Wolf;
+		case EWildlifeKind::Bear: return Bear;
+		case EWildlifeKind::Goat: return Goat;
+		default:                  return Rabbit;
+		}
+	}
+
+	/** Health and defence by kind, and how long (s) before a killed one's replaced. */
+	struct FKindFight
+	{
+		int32 Health;
+		int32 Defence;
+		float Respawn;
+	};
+
+	const FKindFight& FightOf(EWildlifeKind Kind)
+	{
+		static const FKindFight Rabbit{3, 1, 60.f}, Fox{6, 6, 90.f}, Deer{10, 8, 120.f}, Goat{10, 10, 120.f},
+			Boar{20, 14, 150.f}, Wolf{16, 20, 180.f}, Bear{45, 30, 300.f};
 		switch (Kind)
 		{
 		case EWildlifeKind::Deer: return Deer;
@@ -154,6 +183,174 @@ bool AWildlifeHerd::IsFierce(EWildlifeKind InKind)
 	return StatsOf(InKind).Knock > 0.f;
 }
 
+FText AWildlifeHerd::GetKindName(EWildlifeKind InKind)
+{
+	switch (InKind)
+	{
+	case EWildlifeKind::Deer: return LOCTEXT("DeerName", "deer");
+	case EWildlifeKind::Fox:  return LOCTEXT("FoxName", "fox");
+	case EWildlifeKind::Boar: return LOCTEXT("BoarName", "boar");
+	case EWildlifeKind::Wolf: return LOCTEXT("WolfName", "wolf");
+	case EWildlifeKind::Bear: return LOCTEXT("BearName", "bear");
+	case EWildlifeKind::Goat: return LOCTEXT("GoatName", "goat");
+	default:                  return LOCTEXT("RabbitName", "rabbit");
+	}
+}
+
+int32 AWildlifeHerd::GetDefence(EWildlifeKind InKind)
+{
+	return FightOf(InKind).Defence;
+}
+
+int32 AWildlifeHerd::GetMaxHealthOf(EWildlifeKind InKind)
+{
+	return FightOf(InKind).Health;
+}
+
+TArray<TPair<FName, int32>> AWildlifeHerd::GetLoot(EWildlifeKind InKind)
+{
+	switch (InKind)
+	{
+	case EWildlifeKind::Deer: return {{TEXT("RawVenison"), 2}, {TEXT("Hide"), 1}};
+	case EWildlifeKind::Fox:  return {{TEXT("FoxPelt"), 1}};
+	case EWildlifeKind::Boar: return {{TEXT("RawPork"), 2}, {TEXT("Hide"), 1}};
+	case EWildlifeKind::Wolf: return {{TEXT("WolfPelt"), 1}};
+	case EWildlifeKind::Bear: return {{TEXT("RawBearMeat"), 3}, {TEXT("BearPelt"), 1}};
+	case EWildlifeKind::Goat: return {{TEXT("RawGoat"), 2}, {TEXT("Hide"), 1}};
+	default:                  return {{TEXT("RawRabbit"), 1}};
+	}
+}
+
+bool AWildlifeHerd::IsAlive(int32 Index) const
+{
+	return Animals.IsValidIndex(Index) && Animals[Index].DeadFor <= 0.f;
+}
+
+int32 AWildlifeHerd::GetAnimalHealth(int32 Index) const
+{
+	return IsAlive(Index) ? Animals[Index].Health : 0;
+}
+
+int32 AWildlifeHerd::GetAnimalMaxHealth(int32 Index) const
+{
+	return Animals.IsValidIndex(Index) ? FMath::Max(1, FMath::RoundToInt32(GetMaxHealthOf(Kind) * Animals[Index].Size)) : 1;
+}
+
+int32 AWildlifeHerd::HurtAnimal(int32 Index, int32 Damage, const AActor* Attacker)
+{
+	if (!IsAlive(Index) || Damage < 0)
+	{
+		return 0;
+	}
+	FAnimal& Animal = Animals[Index];
+	const int32 Taken = FMath::Min(Damage, Animal.Health);
+	Animal.Health -= Taken;
+	if (Animal.Health <= 0)
+	{
+		Kill(Animal);
+		return Taken;
+	}
+	// Hurt, the fierce turn on their attacker, the whole pack for wolves; the rest (and cubs) run.
+	auto TurnOn = [](FAnimal& Each)
+	{
+		Each.Anger = 20.f;
+		Each.Mood = EMood::Charging;
+		Each.MoodTime = 0.f;
+		Each.Settle = 0.f;
+		Each.Grazing = 0.f;
+	};
+	if (IsFierce(Kind) && Animal.Size >= 1.f)
+	{
+		TurnOn(Animal);
+		if (Kind == EWildlifeKind::Wolf)
+		{
+			for (FAnimal& Other : Animals)
+			{
+				if (Other.DeadFor <= 0.f && Other.Mood != EMood::Rearing)
+				{
+					TurnOn(Other);
+				}
+			}
+		}
+	}
+	// Shot at, it bolts a short way (half the time, for a miss): far enough to be careful, not so far it's lost.
+	else if (Attacker && (Taken > 0 || Random.FRand() < 0.5f) && PickAwayFrom(Animal, FVector2D(Attacker->GetActorLocation()), Random.FRandRange(800.f, 1400.f)))
+	{
+		Animal.Mood = EMood::Fleeing;
+		Animal.MoodTime = 0.f;
+		Animal.Grazing = 0.f;
+	}
+	return Taken;
+}
+
+void AWildlifeHerd::Kill(FAnimal& Animal)
+{
+	// It drops where it fell, and another turns up at home a while later.
+	Animal.Health = 0;
+	Animal.DeadFor = FightOf(Kind).Respawn;
+	Animal.Mood = EMood::Calm;
+	Animal.Body->SetVisibility(false, true);
+	const FVector Where(Animal.Position, UWorldGenerator::GetGroundHeight(Animal.Position.X, Animal.Position.Y));
+	for (const TPair<FName, int32>& Drop : GetLoot(Kind))
+	{
+		UItemDefinition* Item = UItemDefinition::FindItem(Drop.Key);
+		const int32 Quantity = Animal.Size < 1.f ? 1 : Drop.Value;
+		for (int32 Each = 0; Item && Each < (Item->bStackable ? 1 : Quantity); ++Each)
+		{
+			const FVector Scatter(Random.FRandRange(-50.f, 50.f), Random.FRandRange(-50.f, 50.f), 0.f);
+			AGroundItem::Spawn(GetWorld(), FItemStack{Item, Item->bStackable ? Quantity : 1}, Where + Scatter);
+		}
+	}
+}
+
+void AWildlifeHerd::Revive(FAnimal& Animal)
+{
+	Animal.DeadFor = 0.f;
+	Animal.Health = GetMaxHealthOf(Kind);
+	Animal.Health = FMath::Max(1, FMath::RoundToInt32(Animal.Health * Animal.Size));
+	Animal.Position = FVector2D(GetActorLocation()) + FVector2D(Random.FRandRange(-0.3f, 0.3f), Random.FRandRange(-0.3f, 0.3f)) * Roam;
+	Animal.Target = Animal.Position;
+	Animal.Mood = EMood::Calm;
+	Animal.Settle = 5.f;
+	Animal.Grazing = Random.FRandRange(1.f, 4.f);
+	Animal.Body->SetVisibility(true, true);
+}
+
+bool AWildlifeHerd::FindTarget(const UWorld* World, const FVector& From, const FVector& Facing, float Range, float Cone,
+	AWildlifeHerd*& OutHerd, int32& OutIndex)
+{
+	OutHerd = nullptr;
+	OutIndex = INDEX_NONE;
+	const FVector2D Ahead = FVector2D(Facing).GetSafeNormal();
+	float BestScore = UE_BIG_NUMBER;
+	for (AWildlifeHerd* Herd : TActorRange<AWildlifeHerd>(World))
+	{
+		// Skip whole herds that can't be in range.
+		if (FVector::Dist2D(Herd->GetActorLocation(), From) > Herd->Roam * 1.5f + Range + 3000.f)
+		{
+			continue;
+		}
+		for (int32 Index = 0; Index < Herd->Animals.Num(); ++Index)
+		{
+			if (!Herd->IsAlive(Index))
+			{
+				continue;
+			}
+			const FVector2D To = Herd->Animals[Index].Position - FVector2D(From);
+			const float Distance = To.Size();
+			const float Angle = Distance < 1.f ? 0.f : FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(FVector2D::DotProduct(Ahead, To / Distance), -1.f, 1.f)));
+			const float Score = Distance + Angle * 20.f;
+			if (Distance <= Range && Angle <= Cone && Score < BestScore)
+			{
+				BestScore = Score;
+				OutHerd = Herd;
+				OutIndex = Index;
+			}
+		}
+	}
+	return OutHerd != nullptr;
+}
+
 FVector AWildlifeHerd::GetAnimalLocation(int32 Index) const
 {
 	if (!Animals.IsValidIndex(Index))
@@ -171,6 +368,10 @@ FString AWildlifeHerd::GetAnimalMood(int32 Index) const
 		return TEXT("-");
 	}
 	const FAnimal& Animal = Animals[Index];
+	if (Animal.DeadFor > 0.f)
+	{
+		return TEXT("dead");
+	}
 	switch (Animal.Mood)
 	{
 	case EMood::Fleeing:  return TEXT("fleeing");
@@ -216,6 +417,7 @@ void AWildlifeHerd::Build()
 		Animal.Yaw = Random.FRandRange(0.f, 360.f);
 		Animal.Grazing = Random.FRandRange(0.f, StatsOf(Kind).GrazeTime.Y);
 		Animal.Target = Animal.Position;
+		Animal.Health = FMath::Max(1, FMath::RoundToInt32(GetMaxHealthOf(Kind) * Animal.Size));
 		Pose(Animal);
 	}
 }
@@ -390,6 +592,7 @@ float AWildlifeHerd::React(FAnimal& Animal, float DeltaSeconds)
 {
 	const FKindStats& Stats = StatsOf(Kind);
 	Animal.MoodTime += DeltaSeconds;
+	Animal.Anger = FMath::Max(0.f, Animal.Anger - DeltaSeconds);
 	Animal.Settle = FMath::Max(0.f, Animal.Settle - DeltaSeconds);
 	// Only a player on foot counts: nothing follows them into a boat.
 	const AHearthvaleCharacter* Player = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0));
@@ -408,7 +611,7 @@ float AWildlifeHerd::React(FAnimal& Animal, float DeltaSeconds)
 	switch (Animal.Mood)
 	{
 	case EMood::Calm:
-		if (Distance < Stats.Alert && Animal.Settle <= 0.f)
+		if (Distance < Stats.Alert * (Animal.Anger > 0.f ? 3.f : 1.f) && Animal.Settle <= 0.f)
 		{
 			Animal.MoodTime = 0.f;
 			Animal.Grazing = 0.f;
@@ -442,7 +645,7 @@ float AWildlifeHerd::React(FAnimal& Animal, float DeltaSeconds)
 
 	case EMood::Charging:
 		// Gives up if the player gets away (or wades out): back to grazing, and ignores them a while.
-		if (!bOnFoot || Animal.MoodTime > ChaseSeconds || Distance > Stats.Alert * 2.5f)
+		if (!bOnFoot || Animal.MoodTime > ChaseSeconds || Distance > Stats.Alert * (Animal.Anger > 0.f ? 4.f : 2.5f))
 		{
 			Calm(LoseInterest);
 			PickTarget(Animal);
@@ -464,7 +667,7 @@ float AWildlifeHerd::React(FAnimal& Animal, float DeltaSeconds)
 			{
 				Strike(Animal);
 			}
-			Calm(4.f);
+			Calm(Animal.Anger > 0.f ? 1.5f : 4.f);
 		}
 		return 0.f;
 	}
@@ -478,7 +681,7 @@ void AWildlifeHerd::Strike(FAnimal& Animal)
 	{
 		return;
 	}
-	// Knocked flying, away from it, and whatever they were doing is spoilt.
+	// Knocked flying, away from it, and whatever they were gathering or making is spoilt (a fight goes on).
 	const FKindStats& Stats = StatsOf(Kind);
 	FVector Away = Player->GetActorLocation() - FVector(Animal.Position, Player->GetActorLocation().Z);
 	Away = Away.GetSafeNormal2D();
@@ -486,7 +689,8 @@ void AWildlifeHerd::Strike(FAnimal& Animal)
 	{
 		Away = FRotator(0.f, Animal.Yaw, 0.f).Vector();
 	}
-	Player->StopActions();
+	Player->GetGathering()->StopGathering();
+	Player->GetCrafting()->StopCrafting();
 	Player->LaunchCharacter(Away * Stats.Knock + FVector(0.f, 0.f, 300.f + Stats.Knock * 0.2f), true, true);
 	const FText Hit = Kind == EWildlifeKind::Bear ? LOCTEXT("BearHit", "The bear swats you aside like a sapling! Keep your distance.")
 		: Kind == EWildlifeKind::Wolf ? LOCTEXT("WolfHit", "A wolf lunges and bowls you over!")
@@ -507,6 +711,15 @@ void AWildlifeHerd::Tick(float DeltaSeconds)
 	const bool bSeen = !Camera || FVector::Dist(Camera->GetCameraLocation(), GetActorLocation()) < Stats.VisibleRange + Roam * 1.5f;
 	for (FAnimal& Animal : Animals)
 	{
+		if (Animal.DeadFor > 0.f)
+		{
+			Animal.DeadFor -= DeltaSeconds;
+			if (Animal.DeadFor <= 0.f)
+			{
+				Revive(Animal);
+			}
+			continue;
+		}
 		const float Speed = React(Animal, DeltaSeconds);
 		if (Animal.Mood == EMood::Calm && Animal.Grazing > 0.f)
 		{

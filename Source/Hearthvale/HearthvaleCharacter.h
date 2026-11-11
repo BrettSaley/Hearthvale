@@ -20,6 +20,7 @@ class UInteractionComponent;
 class UBuildingComponent;
 class UBoatComponent;
 class UHealthComponent;
+class UCombatComponent;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
@@ -66,6 +67,10 @@ class AHearthvaleCharacter : public ACharacter
 	/** Finds what the player can interact with */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInteractionComponent> Interaction;
+
+	/** Fights wild animals */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UCombatComponent> Combat;
 
 	/** Hit points: up to the Vitality level */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
@@ -207,6 +212,8 @@ public:
 	FORCEINLINE UBuildingComponent* GetBuilding() const { return Building; }
 
 	FORCEINLINE UHealthComponent* GetHealth() const { return Health; }
+
+	FORCEINLINE UCombatComponent* GetCombat() const { return Combat; }
 
 	/** Eats the food in an inventory slot, healing; false (with a message) if it can't. */
 	UFUNCTION(BlueprintCallable, Category="RPG")

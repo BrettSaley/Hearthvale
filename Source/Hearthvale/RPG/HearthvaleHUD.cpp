@@ -12,7 +12,9 @@
 #include "RPG/CraftingStation.h"
 #include "RPG/CraftingStationDefinition.h"
 #include "RPG/GatheringComponent.h"
+#include "RPG/CombatComponent.h"
 #include "RPG/HealthComponent.h"
+#include "RPG/World/WildlifeHerd.h"
 #include "RPG/RecipeDefinition.h"
 #include "RPG/InteractionComponent.h"
 #include "RPG/InventoryComponent.h"
@@ -45,6 +47,7 @@ void AHearthvaleHUD::DrawHUD()
 
 	DrawKeyHints();
 	DrawHealth(Character);
+	DrawTarget(Character);
 	if (Character->GetBuilding()->IsBuilding())
 	{
 		DrawBuildMenu(Character);
@@ -145,6 +148,31 @@ void AHearthvaleHUD::DrawHealth(AHearthvaleCharacter* Character)
 	UFont* Font = GEngine->GetSmallFont();
 	float TextWidth, TextHeight;
 	GetTextSize(Text, TextWidth, TextHeight, Font);
+	DrawText(Text, FLinearColor::White, X + (Width - TextWidth) * 0.5f, Y + 6.f - TextHeight * 0.5f, Font);
+}
+
+void AHearthvaleHUD::DrawTarget(AHearthvaleCharacter* Character)
+{
+	const UCombatComponent* Combat = Character->GetCombat();
+	const AWildlifeHerd* Herd = Combat ? Combat->GetTargetHerd() : nullptr;
+	if (!Herd || !Herd->IsAlive(Combat->GetTargetIndex()))
+	{
+		return;
+	}
+	const int32 Index = Combat->GetTargetIndex();
+	const float Fraction = static_cast<float>(Herd->GetAnimalHealth(Index)) / Herd->GetAnimalMaxHealth(Index);
+	FString Name = AWildlifeHerd::GetKindName(Herd->GetKind()).ToString();
+	Name[0] = FChar::ToUpper(Name[0]);
+	const FString Text = FString::Printf(TEXT("%s  %d / %d"), *Name, Herd->GetAnimalHealth(Index), Herd->GetAnimalMaxHealth(Index));
+	const float Width = Canvas->ClipX * 0.22f;
+	const float X = (Canvas->ClipX - Width) * 0.5f;
+	const float Y = Canvas->ClipY * 0.06f;
+	UFont* Font = GEngine->GetSmallFont();
+	float TextWidth, TextHeight;
+	GetTextSize(Text, TextWidth, TextHeight, Font);
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.6f), X - 2.f, Y - 2.f, Width + 4.f, 16.f);
+	DrawRect(FLinearColor(0.2f, 0.05f, 0.02f, 0.9f), X, Y, Width, 12.f);
+	DrawRect(FLinearColor(0.9f, 0.5f, 0.1f, 0.95f), X, Y, Width * Fraction, 12.f);
 	DrawText(Text, FLinearColor::White, X + (Width - TextWidth) * 0.5f, Y + 6.f - TextHeight * 0.5f, Font);
 }
 

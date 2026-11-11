@@ -12,6 +12,7 @@
 #include "RPG/FarmPatch.h"
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/GatheringComponent.h"
+#include "RPG/CombatComponent.h"
 #include "RPG/HealthComponent.h"
 #include "RPG/HearthvaleSaveGame.h"
 #include "RPG/InventoryComponent.h"
@@ -515,6 +516,31 @@ bool FWildlifeTest::RunTest(const FString& Parameters)
 		TestTrue(FString::Printf(TEXT("There are %ss (%d herds)"), Kind, Counts.FindRef(Kind)), Counts.FindRef(Kind) >= 3);
 	}
 	TestEqual(TEXT("The plan is the same each time"), UWorldGenerator::PlanWildlife().Num(), Herds.Num());
+
+	// Every kind can be fought, and drops things that exist.
+	for (const EWildlifeKind Kind : {EWildlifeKind::Rabbit, EWildlifeKind::Deer, EWildlifeKind::Fox, EWildlifeKind::Boar,
+		EWildlifeKind::Wolf, EWildlifeKind::Bear, EWildlifeKind::Goat})
+	{
+		const FString Name = AWildlifeHerd::GetKindName(Kind).ToString();
+		TestTrue(FString::Printf(TEXT("A %s has health and a defence"), *Name), AWildlifeHerd::GetMaxHealthOf(Kind) > 0 && AWildlifeHerd::GetDefence(Kind) > 0);
+		for (const TPair<FName, int32>& Drop : AWildlifeHerd::GetLoot(Kind))
+		{
+			const UItemDefinition* Item = UItemDefinition::FindItem(Drop.Key);
+			TestTrue(FString::Printf(TEXT("A %s drops %s"), *Name, *Drop.Key.ToString()), Item != nullptr && Drop.Value > 0);
+		}
+	}
+	TestTrue(TEXT("A bear's tougher than a rabbit"), AWildlifeHerd::GetMaxHealthOf(EWildlifeKind::Bear) > AWildlifeHerd::GetMaxHealthOf(EWildlifeKind::Rabbit)
+		&& AWildlifeHerd::GetDefence(EWildlifeKind::Bear) > AWildlifeHerd::GetDefence(EWildlifeKind::Rabbit));
+
+	// Combat sums: better aim lands more, more strength hits harder, but there's always a chance either way.
+	TestTrue(TEXT("Higher accuracy hits more often"), UCombatComponent::HitChance(40, 10) > UCombatComponent::HitChance(5, 10));
+	TestTrue(TEXT("Never certain, never hopeless"), UCombatComponent::HitChance(500, 1) < 1.f && UCombatComponent::HitChance(1, 500) > 0.f);
+	TestTrue(TEXT("Might and a better sword hit harder"), UCombatComponent::MaxHit(50, 15) > UCombatComponent::MaxHit(1, 0));
+	TestTrue(TEXT("Even fists can hurt"), UCombatComponent::MaxHit(1, 0) >= 1);
+	const UItemDefinition* Bow = UItemDefinition::FindItem(TEXT("Shortbow"));
+	TestTrue(TEXT("A shortbow is a weapon that shoots arrows from afar"), Bow && Bow->IsWeapon() && Bow->AttackRange > UCombatComponent::MeleeReach && Bow->Ammo);
+	const UItemDefinition* Sword = UItemDefinition::FindItem(TEXT("CopperSword"));
+	TestTrue(TEXT("A sword is an arm's-length weapon"), Sword && Sword->IsWeapon() && Sword->AttackRange <= 0.f);
 
 	// Bears, wolves and boars charge; the rest run.
 	TestTrue(TEXT("Bears, wolves and boars are fierce"), AWildlifeHerd::IsFierce(EWildlifeKind::Bear) && AWildlifeHerd::IsFierce(EWildlifeKind::Wolf)

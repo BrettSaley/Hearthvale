@@ -26,6 +26,7 @@
 #include "RPG/CraftingStationDefinition.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/GroundItem.h"
+#include "RPG/CombatComponent.h"
 #include "RPG/HealthComponent.h"
 #include "RPG/HearthvaleHUD.h"
 #include "RPG/HearthvaleSaveGame.h"
@@ -77,6 +78,7 @@ AHearthvaleCharacter::AHearthvaleCharacter()
 	Interaction = CreateDefaultSubobject<UInteractionComponent>(TEXT("Interaction"));
 	Building = CreateDefaultSubobject<UBuildingComponent>(TEXT("Building"));
 	Health = CreateDefaultSubobject<UHealthComponent>(TEXT("Health"));
+	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("Combat"));
 	static ConstructorHelpers::FObjectFinder<UInputAction> InteractActionAsset(TEXT("/Game/Input/Actions/IA_Interact.IA_Interact"));
 	InteractAction = InteractActionAsset.Object;
 	static ConstructorHelpers::FObjectFinder<UInputAction> UseItemActionAsset(TEXT("/Game/Input/Actions/IA_UseItem.IA_UseItem"));
@@ -452,6 +454,7 @@ void AHearthvaleCharacter::StopActions()
 {
 	Gathering->StopGathering();
 	Crafting->StopCrafting();
+	Combat->StopAttack();
 }
 
 void AHearthvaleCharacter::DropItem(int32 SlotIndex)

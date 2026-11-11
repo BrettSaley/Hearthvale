@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "WildlifeHerd.generated.h"
 
+class AHearthvaleCharacter;
 class UMaterialInterface;
 class UStaticMesh;
 
@@ -77,6 +78,36 @@ public:
 	/** Whether this kind charges the player rather than running away. */
 	static bool IsFierce(EWildlifeKind InKind);
 
+	/** What the kind is called ("bear"), for messages and prompts. */
+	static FText GetKindName(EWildlifeKind InKind);
+
+	/** How hard one of this kind is to hit (against the attacker's Precision and weapon). */
+	static int32 GetDefence(EWildlifeKind InKind);
+
+	/** How much health a grown one has (a cub, half). */
+	static int32 GetMaxHealthOf(EWildlifeKind InKind);
+
+	/** Item ID: how many, dropped when one's killed. */
+	static TArray<TPair<FName, int32>> GetLoot(EWildlifeKind InKind);
+
+	bool IsAlive(int32 Index) const;
+	int32 GetAnimalHealth(int32 Index) const;
+	int32 GetAnimalMaxHealth(int32 Index) const;
+
+	/**
+	 * Hurts one of its animals: a fierce one turns on its attacker (the whole
+	 * pack, for wolves), anything else runs. At 0 it dies, dropping its loot, and
+	 * another turns up at home a while later. Returns the damage done.
+	 */
+	int32 HurtAnimal(int32 Index, int32 Damage, const AActor* Attacker);
+
+	/**
+	 * The live animal best in sight: within Range (cm) of From and within Cone
+	 * degrees either side of Facing, the nearest and most squarely faced first.
+	 */
+	static bool FindTarget(const UWorld* World, const FVector& From, const FVector& Facing, float Range, float Cone,
+		AWildlifeHerd*& OutHerd, int32& OutIndex);
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wildlife")
 	EWildlifeKind Kind = EWildlifeKind::Rabbit;
@@ -129,6 +160,11 @@ private:
 		float MoodTime = 0.f;
 		/** Seconds before it'll take notice of the player again. */
 		float Settle = 0.f;
+		int32 Health = 1;
+		/** Seconds it stays angry after being hurt: it comes back for more, from further off. */
+		float Anger = 0.f;
+		/** Seconds until another turns up at home, while it's dead; 0 while it's alive. */
+		float DeadFor = 0.f;
 	};
 
 	void Build();
@@ -139,6 +175,9 @@ private:
 	/** Reacts to the player, if they're near; returns how fast it should move this frame. */
 	float React(FAnimal& Animal, float DeltaSeconds);
 	void Strike(FAnimal& Animal);
+	void Kill(FAnimal& Animal);
+	/** Another one turns up somewhere about home, at full health. */
+	void Revive(FAnimal& Animal);
 	void Pose(FAnimal& Animal) const;
 
 	UPROPERTY(Transient)

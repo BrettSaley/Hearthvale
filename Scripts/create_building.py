@@ -11,9 +11,10 @@
 - The Boats tab (each needs a Fishing level; built on the water, anywhere): a log raft for lakes
   and the shallows, a rowboat with a hold, and a fishing skiff with a wool sail that goes anywhere;
   a steam launch that burns logs, a pier (a floor on piles over the water) and a crab pot, which catches crabs (lobsters out deep) with bait while you're away
+- Rugs from hunting: a hide rug, a wolf-pelt rug and a bear-skin rug
 - The Farm tab: a garden plot (a farm patch you build), a fence and gate (animals can't get through), a nest box (hens lay in it), a feeding trough (tame animals eat from it), a wool rug
 
-Run after create_crafting.py, create_world.py, create_farming.py (for wool) and create_fishing.py (the stations' looks come
+Run after create_crafting.py, create_world.py, create_farming.py (for wool) and create_fishing.py and create_hunting.py (the stations' looks come
 from their definitions), headless with the editor closed:
     UnrealEditor-Cmd.exe Hearthvale.uproject -run=pythonscript -script="<path>/Scripts/create_building.py"
 
@@ -201,7 +202,8 @@ def create_cloth():
     for name, color in {"Blanket": (0.32, 0.06, 0.045), "Linen": (0.72, 0.66, 0.55), "Straw": (0.62, 0.48, 0.18),
                         "Wool": (0.8, 0.77, 0.7), "Copper": (0.72, 0.36, 0.18), "Iron": (0.2, 0.2, 0.22),
                         "Steel": (0.55, 0.58, 0.63), "Water": (0.25, 0.5, 0.85),
-                        "Scales": (0.12, 0.2, 0.34), "Belly": (0.75, 0.75, 0.7), "SharkSkin": (0.3, 0.33, 0.37)}.items():
+                        "Scales": (0.12, 0.2, 0.34), "Belly": (0.75, 0.75, 0.7), "SharkSkin": (0.3, 0.33, 0.37),
+                        "BearHide": (0.06, 0.035, 0.018), "WolfGrey": (0.17, 0.17, 0.18), "Leather": (0.3, 0.18, 0.09)}.items():
         mi, _ = create(f"MI_Build{name}", "/Game/Building", unreal.MaterialInstanceConstant,
                        unreal.MaterialInstanceConstantFactoryNew())
         mel.set_material_instance_parent(mi, parent)
@@ -437,6 +439,16 @@ def rug():
             part("Cube", "Blanket", (0, 0, 1.5), (1.8, 1.0, 0.02), collides=False)]
 
 
+def pelt_rug(fur, length, width, head):
+    # A flat pelt: a body, four splayed legs and (for a bear or wolf) the head at +X.
+    parts = [part("Sphere", fur, (0, 0, 1), (length / 100, width / 100, 0.03), collides=False)]
+    parts += [part("Cube", fur, (x * length * 0.32, y * width * 0.5, 1), (0.22 * length / 100, 0.12, 0.02), (0, 0, y * x * 35), collides=False)
+              for x in (-1, 1) for y in (-1, 1)]
+    if head:
+        parts.append(part("Sphere", fur, (length * 0.55, 0, 6), (head, head * 0.85, head * 0.4), collides=False))
+    return parts
+
+
 def chest():
     # A plank box with a darker lid and two log bands.
     return ([part("Cube", "Planks", (0, 0, 25), (1.0, 0.6, 0.5)),
@@ -578,6 +590,10 @@ PIECES = {
     "SharkJaws": ("Shark jaws", F, Snap.FREE, [("Shark", 1), ("AshPlank", 2)], shark_jaws(), (20, 55, 100), 200, 28,
                   {"fishing": 85, "about": "The jaws of a shark you caught. Guests will be impressed, or leave."}),
     "WoolRug": ("Wool rug", F, Snap.FREE, [("Wool", 4)], rug(), (120, 80, 2), 3, 25, {}),
+    # Rugs from what you hunt.
+    "HideRug": ("Hide rug", F, Snap.FREE, [("Hide", 3)], pelt_rug("Leather", 200, 140, 0), (100, 70, 2), 3, 25, {}),
+    "WolfRug": ("Wolf-pelt rug", F, Snap.FREE, [("WolfPelt", 2)], pelt_rug("WolfGrey", 180, 110, 0.32), (110, 60, 4), 8, 25, {}),
+    "BearRug": ("Bear-skin rug", F, Snap.FREE, [("BearPelt", 1)], pelt_rug("BearHide", 260, 190, 0.5), (160, 100, 6), 10, 25, {}),
     # Timber framing: an upright log anywhere, and a log lying along a cell's edge (on a wall, poles or the ground).
     "WoodPole": ("Log pole", S, Snap.FREE, [("Logs", 1)], [part("Cylinder", "Bark", (0, 0, 100), (0.22, 0.22, 2.0))],
                  (10, 10, 100), 200, 9, {}),
