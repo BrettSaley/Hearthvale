@@ -26,8 +26,8 @@ namespace
 		}
 	}
 
-	const FLinearColor Warning(1.f, 0.45f, 0.4f);
-	const FLinearColor Lucky(1.f, 0.8f, 0.3f);
+	const FLinearColor GatherWarning(1.f, 0.45f, 0.4f);
+	const FLinearColor GatherLucky(1.f, 0.8f, 0.3f);
 
 	bool GetInfo(const AActor* Source, FGatherInfo& OutInfo)
 	{
@@ -105,17 +105,17 @@ bool UGatheringComponent::StartGathering(AActor* Source)
 	if (Character->GetSkills()->GetLevel(Info.Skill) < Info.RequiredLevel)
 	{
 		Character->ShowMessage(FText::Format(LOCTEXT("NeedLevel", "You need a {0} level of {1} to do that."),
-			USkillLibrary::GetSkillName(Info.Skill), Info.RequiredLevel), Warning);
+			USkillLibrary::GetSkillName(Info.Skill), Info.RequiredLevel), GatherWarning);
 		return false;
 	}
 	if (GetToolPower(Info) == 0)
 	{
-		Character->ShowMessage(FText::Format(LOCTEXT("NeedTool", "You need {0} you can use."), ToolName(Info.Tool)), Warning);
+		Character->ShowMessage(FText::Format(LOCTEXT("NeedTool", "You need {0} you can use."), ToolName(Info.Tool)), GatherWarning);
 		return false;
 	}
 	if (Info.Item && !FindRoom(Info.Item))
 	{
-		Character->ShowMessage(LOCTEXT("Full", "Your inventory is too full to hold any more."), Warning);
+		Character->ShowMessage(LOCTEXT("Full", "Your inventory is too full to hold any more."), GatherWarning);
 		return false;
 	}
 
@@ -232,7 +232,7 @@ void UGatheringComponent::Attempt()
 		UInventoryComponent* ExtraInto = FindRoom(Info.Item);
 		if (FMath::FRand() < USkillUnlocks::GetPerk(Info.Skill, Level, ESkillPerk::ExtraYield) && ExtraInto && ExtraInto->AddItem(Info.Item) > 0)
 		{
-			Character->ShowMessage(FText::Format(LOCTEXT("Extra", "Your skill gets you an extra {0}."), Info.Item->DisplayName.ToLower()), Lucky);
+			Character->ShowMessage(FText::Format(LOCTEXT("Extra", "Your skill gets you an extra {0}."), Info.Item->DisplayName.ToLower()), GatherLucky);
 		}
 	}
 	Skills->AddXP(Info.Skill, Info.XP);
@@ -242,7 +242,7 @@ void UGatheringComponent::Attempt()
 	{
 		if (Drop.Item && FMath::FRand() * FMath::Max(1, Drop.OneIn) < Rare && Inventory->AddItem(Drop.Item, Drop.Quantity) > 0)
 		{
-			Character->ShowMessage(FText::Format(LOCTEXT("Bonus", "You also find: {0}!"), Drop.Item->DisplayName), Lucky);
+			Character->ShowMessage(FText::Format(LOCTEXT("Bonus", "You also find: {0}!"), Drop.Item->DisplayName), GatherLucky);
 		}
 	}
 	if (Cast<IGatherable>(CurrentSource)->OnGathered(Character))
@@ -251,7 +251,7 @@ void UGatheringComponent::Attempt()
 	}
 	else if (Info.Item && !FindRoom(Info.Item))
 	{
-		Character->ShowMessage(LOCTEXT("Full", "Your inventory is too full to hold any more."), Warning);
+		Character->ShowMessage(LOCTEXT("Full", "Your inventory is too full to hold any more."), GatherWarning);
 		StopGathering();
 	}
 }

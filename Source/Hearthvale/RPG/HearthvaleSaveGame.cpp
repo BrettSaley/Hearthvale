@@ -3,6 +3,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "HearthvaleCharacter.h"
 #include "RPG/Building/BuildPiece.h"
+#include "RPG/EquipmentComponent.h"
 #include "RPG/HealthComponent.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/Building/FarmMachineComponent.h"
@@ -29,6 +30,13 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 		Save->Inventory.Add(Slot.IsEmpty() ? FSavedItemStack() : FSavedItemStack{Slot.Item->GetItemId(), Slot.Quantity});
 	}
 	Save->HeldSlot = Character->GetHeldSlot();
+	for (const TPair<EEquipSlot, TObjectPtr<UItemDefinition>>& Worn : Character->GetEquipment()->GetAllWorn())
+	{
+		if (Worn.Value)
+		{
+			Save->Equipped.Add(Worn.Key, Worn.Value->GetItemId());
+		}
+	}
 	Save->Health = Character->GetHealth()->GetHealth();
 	if (UWorld* World = Character->GetWorld())
 	{
@@ -123,6 +131,19 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 		}
 	}
 	Character->SelectHotbarSlot(Save->HeldSlot);
+	UEquipmentComponent* Equipment = Character->GetEquipment();
+	Equipment->Clear();
+	for (const TPair<EEquipSlot, FName>& Worn : Save->Equipped)
+	{
+		if (UItemDefinition* Item = UItemDefinition::FindItem(UpgradeItemId(Worn.Value)))
+		{
+			Equipment->SetWorn(Worn.Key, Item);
+		}
+		else
+		{
+			UE_LOG(LogHearthvale, Warning, TEXT("Save has an unknown worn item '%s'; dropping it."), *Worn.Value.ToString());
+		}
+	}
 	if (Save->Health > 0)
 	{
 		Character->GetHealth()->SetHealth(Save->Health);

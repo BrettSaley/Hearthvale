@@ -173,6 +173,22 @@ public:
 	UFUNCTION(Exec)
 	void Hurt(int32 Amount);
 
+	/** Gives an item and puts it on (Wear IronHelm). */
+	UFUNCTION(Exec)
+	void Wear(FName ItemId);
+
+	/** Takes off what's worn in a slot (TakeOff Head; TakeOff All). */
+	UFUNCTION(Exec)
+	void TakeOff(const FString& Slot);
+
+	/** Lists what's worn and the total defence. */
+	UFUNCTION(Exec)
+	void ListWorn();
+
+	/** Takes Count blows of Amount, as from an animal, and says what got through (Blows 5 10). */
+	UFUNCTION(Exec)
+	void Blows(int32 Amount, int32 Count = 10);
+
 	/** Heals: Heal 5, or Heal to full. */
 	UFUNCTION(Exec)
 	void Heal(int32 Amount = 0);

@@ -26,6 +26,7 @@
 #include "RPG/HearthvaleSaveGame.h"
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/CombatComponent.h"
+#include "RPG/EquipmentComponent.h"
 #include "RPG/HealthComponent.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ResourceNode.h"
@@ -373,6 +374,81 @@ void UHearthvaleCheatManager::Hurt(int32 Amount)
 		const int32 Taken = Character->GetHealth()->ApplyDamage(Amount, FText::FromString(TEXT("a cheat")));
 		Say(FString::Printf(TEXT("Took %d; health %d / %d"), Taken, Character->GetHealth()->GetHealth(), Character->GetHealth()->GetMaxHealth()));
 	}
+}
+
+void UHearthvaleCheatManager::Wear(FName ItemId)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	UItemDefinition* Item = UItemDefinition::FindItem(ItemId);
+	if (!Character || !UEquipmentComponent::IsWearable(Item))
+	{
+		Say(FString::Printf(TEXT("'%s' isn't something to wear."), *ItemId.ToString()));
+		return;
+	}
+	int32 Slot = Character->GetInventory()->FindSlot(Item);
+	if (Slot == INDEX_NONE && Character->GetInventory()->AddItem(Item, 1) > 0)
+	{
+		Slot = Character->GetInventory()->FindSlot(Item);
+	}
+	const bool bWorn = Slot != INDEX_NONE && Character->GetEquipment()->Equip(Slot);
+	Say(FString::Printf(TEXT("%s %s; defence %d"), bWorn ? TEXT("Wearing") : TEXT("Couldn't wear"), *Item->DisplayName.ToString(),
+		Character->GetEquipment()->GetDefence()));
+}
+
+void UHearthvaleCheatManager::TakeOff(const FString& Slot)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	if (!Character)
+	{
+		return;
+	}
+	for (EEquipSlot Each : UEquipmentComponent::GetSlotOrder())
+	{
+		if (Slot.Equals(TEXT("All"), ESearchCase::IgnoreCase) || UEquipmentComponent::GetSlotName(Each).ToString().Equals(Slot, ESearchCase::IgnoreCase))
+		{
+			Character->GetEquipment()->Unequip(Each);
+		}
+	}
+	Say(FString::Printf(TEXT("Defence %d"), Character->GetEquipment()->GetDefence()));
+}
+
+void UHearthvaleCheatManager::ListWorn()
+{
+	if (const AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		TArray<FString> Lines;
+		for (EEquipSlot Each : UEquipmentComponent::GetSlotOrder())
+		{
+			const UItemDefinition* Item = Character->GetEquipment()->GetWorn(Each);
+			Lines.Add(FString::Printf(TEXT("%s: %s"), *UEquipmentComponent::GetSlotName(Each).ToString(), Item ? *Item->DisplayName.ToString() : TEXT("-")));
+		}
+		const int32 Defence = Character->GetEquipment()->GetDefence();
+		Say(FString::Printf(TEXT("%s; defence %d (blows %d%% through)"), *FString::Join(Lines, TEXT(", ")), Defence,
+			FMath::RoundToInt32(UEquipmentComponent::ArmourFactor(Defence) * 100.f)));
+	}
+}
+
+void UHearthvaleCheatManager::Blows(int32 Amount, int32 Count)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	if (!Character)
+	{
+		return;
+	}
+	UHealthComponent* Health = Character->GetHealth();
+	TArray<FString> Taken;
+	int32 Total = 0;
+	for (int32 Blow = 0; Blow < Count; ++Blow)
+	{
+		// Topped up each time, so the blows can be counted without dying.
+		Health->Restore();
+		const int32 Hurt = Health->ApplyDamage(Amount, FText::FromString(TEXT("a cheat")));
+		Taken.Add(FString::FromInt(Hurt));
+		Total += Hurt;
+	}
+	Health->Restore();
+	Say(FString::Printf(TEXT("%d blows of %d with defence %d took %s (%d in all)"), Count, Amount, Character->GetEquipment()->GetDefence(),
+		*FString::Join(Taken, TEXT(" ")), Total));
 }
 
 void UHearthvaleCheatManager::Heal(int32 Amount)
