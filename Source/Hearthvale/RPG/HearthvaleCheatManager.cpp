@@ -13,6 +13,9 @@
 #include "RPG/CraftingStation.h"
 #include "RPG/CraftingComponent.h"
 #include "RPG/RecipeDefinition.h"
+#include "RPG/Town/Trader.h"
+#include "RPG/Town/TraderDefinition.h"
+#include "RPG/UI/ShopWidget.h"
 #include "RPG/UI/ChestWidget.h"
 #include "RPG/CraftingStationDefinition.h"
 #include "RPG/AnimalDefinition.h"
@@ -837,4 +840,56 @@ void UHearthvaleCheatManager::CraftAt(FName RecipeId, int32 Count)
 	const bool bStarted = Character->GetCrafting()->StartCrafting(Nearest, Recipe, Count);
 	Say(FString::Printf(TEXT("%s %s at %s."), bStarted ? TEXT("Making") : TEXT("Couldn't make"), *RecipeId.ToString(),
 		*Nearest->GetDefinition()->DisplayName.ToString()));
+}
+
+void UHearthvaleCheatManager::Trade()
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(GetOuterAPlayerController());
+	ATrader* Nearest = nullptr;
+	for (ATrader* Trader : TActorRange<ATrader>(GetWorld()))
+	{
+		if (Character && (!Nearest || FVector::Dist(Trader->GetActorLocation(), Character->GetActorLocation())
+			< FVector::Dist(Nearest->GetActorLocation(), Character->GetActorLocation())))
+		{
+			Nearest = Trader;
+		}
+	}
+	if (!Nearest || !Controller)
+	{
+		Say(TEXT("No trader here."));
+		return;
+	}
+	// In front of the counter, facing it.
+	const FVector Front = Nearest->GetActorLocation() + Nearest->GetActorForwardVector() * 190.f + FVector(0.f, 0.f, 100.f);
+	Character->TeleportTo(Front, (-Nearest->GetActorForwardVector()).Rotation());
+	Controller->SetControlRotation(FRotator(-10.f, (-Nearest->GetActorForwardVector()).Rotation().Yaw, 0.f));
+	if (!Controller->IsShopOpen())
+	{
+		Nearest->Interact(Character);
+	}
+	Say(FString::Printf(TEXT("Trading with %s."), *Nearest->GetDefinition()->DisplayName.ToString()));
+}
+
+void UHearthvaleCheatManager::Buy(int32 Line, int32 Count)
+{
+	AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(GetOuterAPlayerController());
+	if (!Controller || !Controller->IsShopOpen())
+	{
+		Say(TEXT("No shop is open."));
+		return;
+	}
+	Say(FString::Printf(TEXT("Bought %d."), Controller->GetShopWindow()->BuyLine(Line, Count)));
+}
+
+void UHearthvaleCheatManager::Sell(FName ItemId, int32 Count)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(GetOuterAPlayerController());
+	if (!Character || !Controller || !Controller->IsShopOpen() || !Controller->GetShopWindow()->GetTrader())
+	{
+		Say(TEXT("No shop is open."));
+		return;
+	}
+	Say(FString::Printf(TEXT("Sold %d."), Controller->GetShopWindow()->GetTrader()->Sell(Character, UItemDefinition::FindItem(ItemId), Count)));
 }
