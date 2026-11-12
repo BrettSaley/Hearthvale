@@ -6,6 +6,7 @@
 #include "RPG/GroundItem.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
+#include "RPG/Town/QuestSubsystem.h"
 #include "RPG/World/WorldClock.h"
 
 #define LOCTEXT_NAMESPACE "Villager"
@@ -177,6 +178,11 @@ void AVillager::Interact(AHearthvaleCharacter* Character)
 	ToCharacter.Z = 0.f;
 	SetActorRotation(ToCharacter.Rotation());
 	Idle = FMath::Max(Idle, 5.f);
+	// A quest of theirs to take on or finish comes first.
+	if (UQuestSubsystem* Quests = GetWorld()->GetSubsystem<UQuestSubsystem>(); Quests && Quests->HandleVillager(Character, this))
+	{
+		return;
+	}
 	UItemDefinition* Held = Character->GetHeldItem();
 	if (Held && Definition->Likes.Contains(Held) && Gift(Character, Held))
 	{

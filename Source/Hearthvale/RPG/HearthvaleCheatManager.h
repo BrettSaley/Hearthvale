@@ -289,6 +289,18 @@ public:
 	UFUNCTION(Exec)
 	void ListVillagers();
 
+	/** Logs the quest you're on and how far along each step is. */
+	UFUNCTION(Exec)
+	void Quests();
+
+	/** Walks up to the current quest's giver and talks to them (to take it on or hand it in). */
+	UFUNCTION(Exec)
+	void QuestTalk();
+
+	/** Takes on the current quest and gives you the items it asks for (other steps you still do). */
+	UFUNCTION(Exec)
+	void HurryQuest();
+
 private:
 	AHearthvaleCharacter* GetHearthvaleCharacter() const;
 

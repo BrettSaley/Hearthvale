@@ -17,6 +17,7 @@
 #include "RPG/Town/SettlementSubsystem.h"
 #include "RPG/Town/Settler.h"
 #include "RPG/Town/Villager.h"
+#include "RPG/Town/QuestSubsystem.h"
 #include "RPG/Town/Trader.h"
 #include "RPG/UI/RequestBoardWidget.h"
 #include "RPG/Town/TraderDefinition.h"
@@ -1220,4 +1221,54 @@ void UHearthvaleCheatManager::ListVillagers()
 			Villager->GetActorLocation().X, Villager->GetActorLocation().Y, Bond.Friendship, Bond.LastTalkDay, Bond.LastGiftDay,
 			Bond.LastPresentDay, Villager->GetToday()));
 	}
+}
+
+void UHearthvaleCheatManager::Quests()
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	const UQuestSubsystem* QuestLog = GetWorld()->GetSubsystem<UQuestSubsystem>();
+	const FQuest* Quest = QuestLog ? QuestLog->GetCurrentQuest() : nullptr;
+	if (!Quest)
+	{
+		Say(TEXT("No quest left."));
+		return;
+	}
+	Say(FString::Printf(TEXT("Quest %d: %s (%s)"), QuestLog->GetState().Current, *Quest->Title.ToString(),
+		QuestLog->GetState().bAccepted ? TEXT("on it") : TEXT("not taken")));
+	for (const FQuestStep& Step : Quest->Steps)
+	{
+		Say(FString::Printf(TEXT("  %s: %d/%d"), *Step.Text.ToString(), QuestLog->CountStep(Step, Character), Step.Quantity));
+	}
+}
+
+void UHearthvaleCheatManager::QuestTalk()
+{
+	const UQuestSubsystem* QuestLog = GetWorld()->GetSubsystem<UQuestSubsystem>();
+	const FQuest* Quest = QuestLog ? QuestLog->GetCurrentQuest() : nullptr;
+	if (!Quest || !Quest->Giver)
+	{
+		Say(TEXT("No quest left."));
+		return;
+	}
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	for (AVillager* Villager : TActorRange<AVillager>(GetWorld()))
+	{
+		if (Villager->GetDefinition() == Quest->Giver && Character)
+		{
+			const FVector Front = Villager->GetActorLocation() + Villager->GetActorForwardVector() * 160.f + FVector(0.f, 0.f, 100.f);
+			Character->TeleportTo(Front, (-Villager->GetActorForwardVector()).Rotation());
+			Villager->Interact(Character);
+			return;
+		}
+	}
+	Say(TEXT("The quest giver isn't in this level."));
+}
+
+void UHearthvaleCheatManager::HurryQuest()
+{
+	if (UQuestSubsystem* QuestLog = GetWorld()->GetSubsystem<UQuestSubsystem>())
+	{
+		QuestLog->Hurry(GetHearthvaleCharacter());
+	}
+	Quests();
 }

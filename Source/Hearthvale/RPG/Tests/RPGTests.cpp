@@ -24,6 +24,7 @@
 #include "RPG/Town/RequestBoardDefinition.h"
 #include "RPG/Town/SettlerDefinition.h"
 #include "RPG/Town/VillagerDefinition.h"
+#include "RPG/Town/QuestDefinition.h"
 #include "RPG/Town/TraderDefinition.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldGenerator.h"
@@ -610,6 +611,38 @@ bool FVillagersTest::RunTest(const FString& Parameters)
 		TestFalse(FString::Printf(TEXT("%s has a look"), Name), Villager->Parts.IsEmpty());
 	}
 	TestEqual(TEXT("Five villagers"), Found, 5);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FQuestsTest, "Hearthvale.Quests", TestFlags)
+
+bool FQuestsTest::RunTest(const FString& Parameters)
+{
+	// The town's quests: each from a villager, asking for something real, and paying.
+	const UQuestBookDefinition* Book = UQuestBookDefinition::Get();
+	if (!TestNotNull(TEXT("The quest book exists"), Book))
+	{
+		return true;
+	}
+	TestNotNull(TEXT("Quests pay in coins"), Book->Currency.Get());
+	TestTrue(TEXT("A few quests"), Book->Quests.Num() >= 4);
+	for (const FQuest& Quest : Book->Quests)
+	{
+		const FString Title = Quest.Title.ToString();
+		TestNotNull(FString::Printf(TEXT("%s has a giver"), *Title), Quest.Giver.Get());
+		TestFalse(FString::Printf(TEXT("%s has words"), *Title), Quest.Offer.IsEmpty() || Quest.Thanks.IsEmpty());
+		TestFalse(FString::Printf(TEXT("%s has steps"), *Title), Quest.Steps.IsEmpty());
+		TestTrue(FString::Printf(TEXT("%s pays"), *Title), Quest.Coins > 0 || Quest.RewardItem || Quest.XP > 0);
+		for (const FQuestStep& Step : Quest.Steps)
+		{
+			const bool bHasTarget = Step.Goal == EQuestGoal::HaveItem ? Step.Item != nullptr
+				: Step.Goal == EQuestGoal::Build ? Step.Piece != nullptr
+				: Step.Goal == EQuestGoal::Tame ? Step.Animal != nullptr
+				: Step.Goal == EQuestGoal::Friendship ? Step.Villager != nullptr && Step.Quantity <= FVillagerBond::MaxFriendship
+				: true;
+			TestTrue(FString::Printf(TEXT("%s: '%s' says what it wants"), *Title, *Step.Text.ToString()), bHasTarget && !Step.Text.IsEmpty());
+		}
+	}
 	return true;
 }
 

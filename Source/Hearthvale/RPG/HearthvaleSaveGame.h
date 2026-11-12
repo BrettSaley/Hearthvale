@@ -10,6 +10,7 @@
 #include "RPG/Town/RequestBoardDefinition.h"
 #include "RPG/Town/Settler.h"
 #include "RPG/Town/VillagerDefinition.h"
+#include "RPG/Town/QuestDefinition.h"
 #include "HearthvaleSaveGame.generated.h"
 
 class AHearthvaleCharacter;
@@ -133,6 +134,10 @@ public:
 	/** How well you know each villager, by their definition's name. */
 	UPROPERTY()
 	TMap<FString, FVillagerBond> Villagers;
+
+	/** Where you are in the town's quests. */
+	UPROPERTY()
+	FQuestLogState Quests;
 
 	/** Write a character's progress (and the farm patches in their world) to disk. */
 	static bool SaveProgress(const AHearthvaleCharacter* Character);

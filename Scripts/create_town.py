@@ -17,6 +17,9 @@
   between a few spots round the stall by day and go home at night. Talk to them
   each day, or give them things they like, to make friends: friends give presents.
   Placed in Lvl_World (each only if they aren't there yet)
+- The quests (/Game/Town/Quests, a UQuestBookDefinition): five, one after
+  another, from the villagers: build a home, keep hens, take in a settler, bring
+  the smith iron and make friends in town. A tracker in the corner says what's next
 
 Run after create_livestock.py (she sells cows, pigs and buckets), headless with the
 editor closed:
@@ -353,6 +356,72 @@ def place_villagers(villagers):
     unreal.log(f"create_town: placed {placed} villagers.")
 
 
+# --- Quests, in order: (title, giver, offer, thanks, steps, coins, (reward item, how many) or None, skill, XP) ---
+# A step: (text, goal, how many, what: an item, piece, animal or villager ID; hand items in?)
+
+G = unreal.QuestGoal
+QUESTS = [
+    ("A roof of your own", "Ivo", "You'll want a roof over your head. Build a bed, a chest and a roof.",
+     "A proper home! Here, planks for the next one.",
+     [("Build a bed", G.BUILD, 1, "WoodBed", False), ("Build a chest", G.BUILD, 1, "WoodChest", False),
+      ("Build a roof", G.BUILD, 1, "WoodRoof", False)],
+     60, ("Plank", 6), S.WOODCUTTING, 80),
+    ("Eggs for the bakery", "Hal", "Tame two hens, build them a nest box, and bring me four eggs?",
+     "Lovely and fresh. Have some of my buttered potatoes.",
+     [("Tame hens", G.TAME, 2, "Chicken", False), ("Build a nest box", G.BUILD, 1, "NestBox", False),
+      ("Bring Hal eggs", G.HAVE_ITEM, 4, "Egg", True)],
+     80, ("ButteredPotato", 3), S.FARMING, 100),
+    ("A neighbour", "Bryn", "A town needs people. Build a house with a spare bed: someone will come.",
+     "Someone's moved in! Here, cheese for the housewarming.",
+     [("Get a settler to move in", G.SETTLERS, 1, None, False)],
+     120, ("Cheese", 1), S.FARMING, 60),
+    ("The town smithy", "Greta", "My forge eats iron like bread. Bring me five iron bars?",
+     "Fine bars. You'll make a smith yet.",
+     [("Bring Greta iron bars", G.HAVE_ITEM, 5, "IronBar", True)],
+     200, None, S.SMITHING, 200),
+    ("Friends in town", "Tam", "Get to know people: make friends with Bryn and Hal. I'll cook you something.",
+     "Everyone's talking about you. Here, my best dish.",
+     [("Be friends with Bryn", G.FRIENDSHIP, 4, "Bryn", False), ("Be friends with Hal", G.FRIENDSHIP, 4, "Hal", False)],
+     150, ("TruffleOmelette", 1), None, 0),
+]
+
+
+def create_quests():
+    factory = unreal.DataAssetFactory()
+    factory.set_editor_property("data_asset_class", unreal.QuestBookDefinition)
+    book, _ = create("Quests", "/Game/Town", unreal.QuestBookDefinition, factory)
+    quests = []
+    for title, giver, offer, thanks, steps, coins, reward, skill, xp in QUESTS:
+        q = unreal.Quest()
+        made_steps = []
+        for text, goal, count, what, hand_in in steps:
+            step = unreal.QuestStep()
+            for prop, value in [("text", unreal.Text(text)), ("goal", goal), ("quantity", count), ("hand_in", hand_in)]:
+                step.set_editor_property(prop, value)
+            if goal == G.HAVE_ITEM:
+                step.set_editor_property("item", item(what))
+            elif goal == G.BUILD:
+                step.set_editor_property("piece", unreal.load_asset(f"/Game/Building/Pieces/{what}"))
+            elif goal == G.TAME:
+                step.set_editor_property("animal", animal(what))
+            elif goal == G.FRIENDSHIP:
+                step.set_editor_property("villager", unreal.load_asset(f"/Game/Town/Villagers/{what}"))
+            made_steps.append(step)
+        for prop, value in [("title", unreal.Text(title)), ("giver", unreal.load_asset(f"/Game/Town/Villagers/{giver}")),
+                            ("offer", unreal.Text(offer)), ("thanks", unreal.Text(thanks)), ("steps", made_steps),
+                            ("coins", coins), ("xp", xp)]:
+            q.set_editor_property(prop, value)
+        if reward:
+            q.set_editor_property("reward_item", item(reward[0]))
+            q.set_editor_property("reward_quantity", reward[1])
+        if skill is not None:
+            q.set_editor_property("skill", skill)
+        quests.append(q)
+    book.set_editor_property("quests", quests)
+    book.set_editor_property("currency", item("Coins"))
+    save(book)
+
+
 # --- Odile's stall, a little way from where you start, facing it ---
 
 def place(traders):
@@ -408,3 +477,4 @@ create_settlers()
 place(create_traders())
 place_board(create_board())
 place_villagers(create_villagers())
+create_quests()
