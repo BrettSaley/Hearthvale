@@ -9,6 +9,7 @@
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
+#include "RPG/World/WorldClock.h"
 #include "Hearthvale.h"
 
 const FString UHearthvaleSaveGame::SlotName = TEXT("Hearthvale");
@@ -38,6 +39,10 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 			{
 				Save->FarmPatches.Add(Patch->GetName(), Patch->SaveState());
 			}
+		}
+		if (const UWorldClock* Clock = UWorldClock::Get(World))
+		{
+			Save->Clock = Clock->SaveState();
 		}
 		Save->bHasAnimals = true;
 		for (const AFarmAnimal* Animal : TActorRange<AFarmAnimal>(World))
@@ -173,6 +178,10 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 			{
 				UE_LOG(LogHearthvale, Warning, TEXT("Save has an unknown build piece '%s'; dropping it."), *Saved.PieceId.ToString());
 			}
+		}
+		if (UWorldClock* Clock = UWorldClock::Get(World))
+		{
+			Clock->LoadState(Save->Clock);
 		}
 		if (Save->bHasAnimals)
 		{

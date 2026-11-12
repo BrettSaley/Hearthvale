@@ -92,6 +92,9 @@ public:
 	/** Takes one fertiliser from an inventory, if there is any (planting with it doubles the harvests). */
 	static bool UseFertiliser(UInventoryComponent* From);
 
+	/** The season and weather's effect: grows it Seconds more (fewer, if negative), never back past planting. */
+	void AdjustGrowth(float Seconds);
+
 	/** Finishes growing straight away (for testing). */
 	void FinishGrowing();
 

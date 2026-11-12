@@ -5,6 +5,7 @@
 #include "RPG/FarmAnimal.h"
 #include "RPG/FarmPatch.h"
 #include "RPG/Skills.h"
+#include "RPG/World/Seasons.h"
 #include "HearthvaleSaveGame.generated.h"
 
 class AHearthvaleCharacter;
@@ -101,6 +102,10 @@ public:
 
 	UPROPERTY()
 	TArray<FSavedFarmAnimal> Animals;
+
+	/** The day, time and weather. */
+	UPROPERTY()
+	FSavedWorldClock Clock;
 
 	/** Write a character's progress (and the farm patches in their world) to disk. */
 	static bool SaveProgress(const AHearthvaleCharacter* Character);

@@ -1,4 +1,5 @@
 #include "RPG/HearthvaleHUD.h"
+#include "RPG/World/WorldClock.h"
 #include "RPG/SkillUnlocks.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
@@ -47,6 +48,7 @@ void AHearthvaleHUD::DrawHUD()
 
 	DrawKeyHints();
 	DrawHealth(Character);
+	DrawClock();
 	DrawTarget(Character);
 	if (Character->GetBuilding()->IsBuilding())
 	{
@@ -149,6 +151,23 @@ void AHearthvaleHUD::DrawHealth(AHearthvaleCharacter* Character)
 	float TextWidth, TextHeight;
 	GetTextSize(Text, TextWidth, TextHeight, Font);
 	DrawText(Text, FLinearColor::White, X + (Width - TextWidth) * 0.5f, Y + 6.f - TextHeight * 0.5f, Font);
+}
+
+void AHearthvaleHUD::DrawClock()
+{
+	const UWorldClock* Clock = UWorldClock::Get(this);
+	const AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(PlayerOwner);
+	if (!Clock || (Controller && Controller->IsPanelOpen()))
+	{
+		return;
+	}
+	const FString Text = Clock->Describe().ToString();
+	UFont* Font = GEngine->GetSmallFont();
+	float TextWidth, TextHeight;
+	GetTextSize(Text, TextWidth, TextHeight, Font);
+	const float X = Canvas->ClipX - TextWidth - 24.f;
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.45f), X - 8.f, 14.f, TextWidth + 16.f, TextHeight + 8.f);
+	DrawText(Text, Clock->IsNight() ? FLinearColor(0.7f, 0.8f, 1.f) : FLinearColor(1.f, 0.95f, 0.8f), X, 18.f, Font);
 }
 
 void AHearthvaleHUD::DrawTarget(AHearthvaleCharacter* Character)

@@ -1,4 +1,5 @@
 #include "RPG/Building/BuildPiece.h"
+#include "RPG/World/WorldClock.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -178,7 +179,14 @@ bool ABuildPiece::GetInteractionPrompt(const AHearthvaleCharacter* Character, FI
 	if (Piece && Piece->bIsBed)
 	{
 		OutPrompt.Target = Piece->DisplayName;
-		if (bClaimed)
+		const UWorldClock* Clock = UWorldClock::Get(this);
+		const bool bBedtime = Clock && (Clock->IsNight() || Clock->GetHour() >= UWorldClock::SunsetHour(Clock->GetDay()) - 1.f);
+		if (bClaimed && bBedtime)
+		{
+			OutPrompt.Action = LOCTEXT("SleepIn", "Sleep in");
+			OutPrompt.Status = LOCTEXT("SleepTillMorning", "until morning");
+		}
+		else if (bClaimed)
 		{
 			OutPrompt.bAvailable = false;
 			OutPrompt.Status = LOCTEXT("YourBed", "yours: you wake here");
@@ -213,6 +221,16 @@ void ABuildPiece::Interact(AHearthvaleCharacter* Character)
 	if (Piece && Piece->IsDoor())
 	{
 		SetOpen(!bOpen);
+		return;
+	}
+	if (Piece && Piece->bIsBed && bClaimed)
+	{
+		UWorldClock* Clock = UWorldClock::Get(this);
+		if (Clock && Clock->SleepUntilMorning())
+		{
+			Character->ShowMessage(LOCTEXT("Slept", "You sleep soundly and wake at first light."));
+			Character->SaveProgress();
+		}
 		return;
 	}
 	if (Piece && Piece->bIsBed)
