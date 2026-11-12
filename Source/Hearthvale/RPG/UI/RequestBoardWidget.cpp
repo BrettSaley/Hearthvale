@@ -22,9 +22,9 @@ namespace
 {
 	/** Walk further than this from the board and the window closes. */
 	constexpr float BoardCloseDistance = 400.f;
-	constexpr float CardWidth = 420.f;
+	constexpr float BoardCardWidth = 420.f;
 
-	FText FormatWait(float Seconds)
+	FText FormatBoardWait(float Seconds)
 	{
 		const int32 Total = FMath::Max(0, FMath::CeilToInt(Seconds));
 		return FText::FromString(FString::Printf(TEXT("%d:%02d"), Total / 60, Total % 60));
@@ -115,7 +115,7 @@ void URequestBoardWidget::Refresh()
 		if (!Request || !Request->Item)
 		{
 			UTextBlock* Empty = HearthvaleUI::MakeText(WidgetTree, FText::GetEmpty(), 11, HearthvaleUI::MutedColor);
-			Empty->SetMinDesiredWidth(CardWidth);
+			Empty->SetMinDesiredWidth(BoardCardWidth);
 			Lines->AddChildToVerticalBox(Empty);
 			WaitTexts[Spot] = Empty;
 			continue;
@@ -124,7 +124,7 @@ void URequestBoardWidget::Refresh()
 		Lines->AddChildToVerticalBox(Asker);
 		UTextBlock* Text = HearthvaleUI::MakeText(WidgetTree, FText::Format(LOCTEXT("Quote", "\"{0}\""), Request->Text), 11);
 		Text->SetAutoWrapText(true);
-		Text->SetMinDesiredWidth(CardWidth);
+		Text->SetMinDesiredWidth(BoardCardWidth);
 		Lines->AddChildToVerticalBox(Text)->SetPadding(FMargin(0.f, 2.f, 0.f, 4.f));
 
 		const int32 Have = Owner->GetInventory()->CountItem(Request->Item);
@@ -170,7 +170,7 @@ void URequestBoardWidget::UpdateWaits()
 		if (WaitTexts[Spot])
 		{
 			WaitTexts[Spot]->SetText(FText::Format(LOCTEXT("Empty", "A new request goes up in {0}."),
-				FormatWait(State.Waits.IsValidIndex(Spot) ? State.Waits[Spot] : 0.f)));
+				FormatBoardWait(State.Waits.IsValidIndex(Spot) ? State.Waits[Spot] : 0.f)));
 		}
 	}
 	RedrawWait = 0.25f;

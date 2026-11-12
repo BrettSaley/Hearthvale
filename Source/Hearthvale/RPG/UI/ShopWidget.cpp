@@ -28,9 +28,9 @@ namespace
 	constexpr float ShopCloseDistance = 450.f;
 	constexpr int32 ShopColumns = 9;
 	/** A shift-click buys this many. */
-	constexpr int32 ShiftBuy = 5;
+	constexpr int32 ShopShiftBuy = 5;
 
-	bool IsShiftDown()
+	bool IsShopShiftDown()
 	{
 		return FSlateApplication::IsInitialized() && FSlateApplication::Get().GetModifierKeys().IsShiftDown();
 	}
@@ -128,7 +128,7 @@ void UShopWidget::Open(AHearthvaleCharacter* InCharacter, ATrader* InTrader)
 		{
 			if (WeakThis.IsValid())
 			{
-				WeakThis->BuyLine(Index, IsShiftDown() ? ShiftBuy : 1);
+				WeakThis->BuyLine(Index, IsShopShiftDown() ? ShopShiftBuy : 1);
 			}
 		}, 11);
 		StockList->AddChildToVerticalBox(Button)->SetPadding(FMargin(0.f, 1.f));

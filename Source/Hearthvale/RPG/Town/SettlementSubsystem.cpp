@@ -13,9 +13,9 @@
 namespace
 {
 	/** Seconds between looks for free homes. */
-	constexpr float CheckSeconds = 2.f;
+	constexpr float SettlementCheckSeconds = 2.f;
 	/** How high (cm) above a bed a roof can be. */
-	constexpr float RoofReach = 800.f;
+	constexpr float SettlerRoofReach = 800.f;
 }
 
 bool USettlementSubsystem::DoesSupportWorldType(const EWorldType::Type WorldType) const
@@ -38,7 +38,7 @@ bool USettlementSubsystem::IsUnderRoof(const ABuildPiece* Bed)
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(SettlerRoof), false, Bed);
 	const FVector From = Bed->GetActorLocation() + FVector(0.f, 0.f, 80.f);
 	FHitResult Hit;
-	return Bed->GetWorld()->LineTraceSingleByChannel(Hit, From, From + FVector(0.f, 0.f, RoofReach), ECC_Visibility, Params)
+	return Bed->GetWorld()->LineTraceSingleByChannel(Hit, From, From + FVector(0.f, 0.f, SettlerRoofReach), ECC_Visibility, Params)
 		&& Cast<ABuildPiece>(Hit.GetActor());
 }
 
@@ -118,8 +118,8 @@ void USettlementSubsystem::Tick(float DeltaTime)
 	{
 		return;
 	}
-	const float Elapsed = CheckSeconds - Check;
-	Check = CheckSeconds;
+	const float Elapsed = SettlementCheckSeconds - Check;
+	Check = SettlementCheckSeconds;
 	const USettlementDefinition* Settlement = USettlementDefinition::Get();
 	if (!Settlement)
 	{

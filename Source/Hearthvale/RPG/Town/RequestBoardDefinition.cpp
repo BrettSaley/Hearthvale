@@ -6,7 +6,7 @@
 namespace
 {
 	/** When nothing in the pool can go up yet, look again after this long. */
-	constexpr float RetrySeconds = 30.f;
+	constexpr float BoardRetrySeconds = 30.f;
 }
 
 const FTownRequest* FRequestBoardState::GetRequest(const URequestBoardDefinition& Board, int32 Spot) const
@@ -53,7 +53,7 @@ void FRequestBoardState::Advance(const URequestBoardDefinition& Board, float Sec
 		}
 		if (Choices.IsEmpty())
 		{
-			Waits[Spot] = RetrySeconds;
+			Waits[Spot] = BoardRetrySeconds;
 			continue;
 		}
 		Posted[Spot] = Choices[FMath::RandHelper(Choices.Num())];

@@ -20,8 +20,8 @@
 namespace
 {
 	/** How far (cm) from beside their bed they potter, and how fast. */
-	constexpr float PotterRange = 140.f;
-	constexpr float PotterSpeed = 70.f;
+	constexpr float SettlerPotterRange = 140.f;
+	constexpr float SettlerPotterSpeed = 70.f;
 	const FLinearColor SettlerSpeech(0.75f, 0.9f, 0.7f);
 }
 
@@ -179,7 +179,7 @@ void ASettler::Potter(float DeltaSeconds)
 		Idle -= DeltaSeconds;
 		if (Idle <= 0.f)
 		{
-			const FVector2D Step = FMath::RandPointInCircle(PotterRange);
+			const FVector2D Step = FMath::RandPointInCircle(SettlerPotterRange);
 			Target = Home + FVector(Step, 0.f);
 		}
 		return;
@@ -191,7 +191,7 @@ void ASettler::Potter(float DeltaSeconds)
 		Idle = FMath::FRandRange(2.f, 6.f);
 		return;
 	}
-	const FVector Move = ToTarget.GetSafeNormal() * FMath::Min(ToTarget.Size(), PotterSpeed * DeltaSeconds);
+	const FVector Move = ToTarget.GetSafeNormal() * FMath::Min(ToTarget.Size(), SettlerPotterSpeed * DeltaSeconds);
 	// Stand on the floor of the house (or the ground) where they are.
 	Location += Move;
 	Location.Z = Home.Z;

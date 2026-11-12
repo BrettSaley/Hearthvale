@@ -13,14 +13,14 @@
 
 namespace
 {
-	constexpr float WalkSpeed = 110.f;
+	constexpr float VillagerWalkSpeed = 110.f;
 	/** Seconds they linger at a stop. */
-	constexpr float LingerMin = 6.f;
-	constexpr float LingerMax = 16.f;
+	constexpr float VillagerLingerMin = 6.f;
+	constexpr float VillagerLingerMax = 16.f;
 	/** Rain or snow this heavy and they mention it. */
-	constexpr float WetEnough = 0.3f;
+	constexpr float VillagerWetEnough = 0.3f;
 	const FLinearColor VillagerSpeech(0.95f, 0.85f, 0.6f);
-	const FLinearColor Warmer(1.f, 0.6f, 0.75f);
+	const FLinearColor VillagerWarmer(1.f, 0.6f, 0.75f);
 }
 
 AVillager::AVillager()
@@ -44,7 +44,7 @@ void AVillager::BeginPlay()
 	Super::BeginPlay();
 	BuildLook();
 	StopIndex = Stops.IsEmpty() ? 0 : FMath::RandHelper(Stops.Num());
-	Idle = FMath::FRandRange(0.f, LingerMax);
+	Idle = FMath::FRandRange(0.f, VillagerLingerMax);
 }
 
 void AVillager::BuildLook()
@@ -130,10 +130,10 @@ void AVillager::Walk(float DeltaSeconds)
 	ToGoal.Z = 0.f;
 	if (ToGoal.Size() < 15.f)
 	{
-		Idle = bNight ? 1.f : FMath::FRandRange(LingerMin, LingerMax);
+		Idle = bNight ? 1.f : FMath::FRandRange(VillagerLingerMin, VillagerLingerMax);
 		return;
 	}
-	const FVector Move = ToGoal.GetSafeNormal() * FMath::Min(ToGoal.Size(), WalkSpeed * DeltaSeconds);
+	const FVector Move = ToGoal.GetSafeNormal() * FMath::Min(ToGoal.Size(), VillagerWalkSpeed * DeltaSeconds);
 	Location += Move;
 	Location.Z = GroundAt(Location);
 	SetActorLocationAndRotation(Location, FMath::RInterpTo(GetActorRotation(), Move.Rotation(), DeltaSeconds, 6.f));
@@ -201,7 +201,7 @@ void AVillager::Talk(AHearthvaleCharacter* Character)
 	{
 		Line = Definition->NightLine;
 	}
-	else if (Clock && Clock->GetPrecipitation() > WetEnough && !Definition->WetLine.IsEmpty() && FMath::RandBool())
+	else if (Clock && Clock->GetPrecipitation() > VillagerWetEnough && !Definition->WetLine.IsEmpty() && FMath::RandBool())
 	{
 		Line = Definition->WetLine;
 	}
@@ -212,11 +212,11 @@ void AVillager::Talk(AHearthvaleCharacter* Character)
 	Say(Character, Line);
 	if (bCloser && Bond.Friendship == FVillagerBond::FriendAt)
 	{
-		Character->ShowMessage(FText::Format(LOCTEXT("Friends", "You and {0} are friends now."), Definition->DisplayName), Warmer);
+		Character->ShowMessage(FText::Format(LOCTEXT("Friends", "You and {0} are friends now."), Definition->DisplayName), VillagerWarmer);
 	}
 	else if (bCloser && Bond.Friendship == FVillagerBond::CloseAt)
 	{
-		Character->ShowMessage(FText::Format(LOCTEXT("Close", "You and {0} are close friends now."), Definition->DisplayName), Warmer);
+		Character->ShowMessage(FText::Format(LOCTEXT("Close", "You and {0} are close friends now."), Definition->DisplayName), VillagerWarmer);
 	}
 	// A friend has something for you, now and then.
 	if (Definition->Present && Bond.TakePresent(Today))
@@ -227,7 +227,7 @@ void AVillager::Talk(AHearthvaleCharacter* Character)
 			AGroundItem::Spawn(GetWorld(), FItemStack{Definition->Present, Definition->PresentQuantity - Added}, Character->GetActorLocation());
 		}
 		Character->ShowMessage(FText::Format(LOCTEXT("Present", "{0} gives you {1} x {2}. \"For you, friend.\""), Definition->DisplayName,
-			Definition->PresentQuantity, Definition->Present->DisplayName.ToLower()), Warmer);
+			Definition->PresentQuantity, Definition->Present->DisplayName.ToLower()), VillagerWarmer);
 	}
 }
 
@@ -249,7 +249,7 @@ bool AVillager::Gift(AHearthvaleCharacter* Character, UItemDefinition* Item)
 	Say(Character, bLiked ? FText::Format(LOCTEXT("Loves", "{0}! My favourite. Thank you!"), Item->DisplayName)
 		: FText::Format(LOCTEXT("Thanks", "Oh, {0}. Thank you."), Item->DisplayName.ToLower()));
 	Character->ShowMessage(FText::Format(LOCTEXT("GiftFriendship", "{0} likes you more (friendship {1}/{2})."), Definition->DisplayName,
-		Bond.Friendship, FVillagerBond::MaxFriendship), Warmer);
+		Bond.Friendship, FVillagerBond::MaxFriendship), VillagerWarmer);
 	return true;
 }
 
