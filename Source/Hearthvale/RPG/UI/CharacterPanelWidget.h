@@ -124,6 +124,13 @@ private:
 	UPROPERTY()
 	TObjectPtr<UTextBlock> InventoryFooter;
 
+	/** What's worn, one slot each (click to take off), and the defence it adds up to. */
+	UPROPERTY()
+	TArray<TObjectPtr<UInventorySlotWidget>> WornWidgets;
+
+	UPROPERTY()
+	TObjectPtr<UTextBlock> DefenceText;
+
 	UPROPERTY()
 	TArray<TObjectPtr<UTextBlock>> SkillLevels;
 

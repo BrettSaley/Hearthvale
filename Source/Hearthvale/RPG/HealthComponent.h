@@ -11,7 +11,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDied, const FText&, Cause);
 
 /**
  * Hit points. The most you can have is your Vitality level (10 to start).
- * Blows are softened by your Guard level (up to half at 99), and each one
+ * Blows are softened by your Guard level (up to half at 99), then by the
+ * armour you wear (see UEquipmentComponent), and each one
  * trains Guard and Vitality a little. Out of harm's way you slowly heal, faster
  * the higher your Vitality; food heals at once. At 0 you die (the owner
  * decides what that means: see AHearthvaleCharacter::Die).
@@ -37,11 +38,13 @@ public:
 	bool IsDead() const { return Health <= 0; }
 
 	/**
-	 * Takes a blow of Amount, softened by Guard (never below 1); trains Guard and
-	 * Vitality; dies at 0, saying Cause. Returns the damage actually taken.
+	 * Takes a blow of Amount, softened by Guard (never below 1), then by any
+	 * armour worn (which can turn it aside altogether) unless bArmourHelps is
+	 * false (falls); trains Guard and Vitality; dies at 0, saying Cause.
+	 * Returns the damage actually taken.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Health")
-	int32 ApplyDamage(int32 Amount, const FText& Cause);
+	int32 ApplyDamage(int32 Amount, const FText& Cause, bool bArmourHelps = true);
 
 	/** Heals up to Amount (not past the most); returns how much it healed. */
 	UFUNCTION(BlueprintCallable, Category = "Health")
@@ -58,6 +61,13 @@ public:
 
 	/** What a blow of Amount comes to after Guard softens it. */
 	static int32 Soften(int32 Amount, int32 GuardLevel);
+
+	/**
+	 * What gets through armour of some defence from an already-softened blow:
+	 * the fraction left over rounds up when Roll (0 to 1) falls under it, so
+	 * light blows against good armour often do nothing.
+	 */
+	static int32 ThroughArmour(int32 Softened, int32 Defence, float Roll);
 
 	/** Seconds between each point healed by resting, at a Vitality level. */
 	static float RegenSeconds(int32 VitalityLevel);

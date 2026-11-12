@@ -1,4 +1,5 @@
 #include "RPG/HealthComponent.h"
+#include "RPG/EquipmentComponent.h"
 #include "RPG/Skills.h"
 #include "RPG/SkillsComponent.h"
 
@@ -30,30 +31,47 @@ int32 UHealthComponent::Soften(int32 Amount, int32 GuardLevel)
 	return FMath::Max(1, FMath::RoundToInt32(Softened));
 }
 
+int32 UHealthComponent::ThroughArmour(int32 Softened, int32 Defence, float Roll)
+{
+	if (Softened <= 0 || Defence <= 0)
+	{
+		return FMath::Max(0, Softened);
+	}
+	const float After = Softened * UEquipmentComponent::ArmourFactor(Defence);
+	const int32 Whole = FMath::FloorToInt32(After);
+	return Whole + (Roll < After - Whole ? 1 : 0);
+}
+
 float UHealthComponent::RegenSeconds(int32 VitalityLevel)
 {
 	// A point every 6 s at first, every 2 s at 99.
 	return FMath::Lerp(6.f, 2.f, FMath::Clamp((VitalityLevel - 10) / 89.f, 0.f, 1.f));
 }
 
-int32 UHealthComponent::ApplyDamage(int32 Amount, const FText& Cause)
+int32 UHealthComponent::ApplyDamage(int32 Amount, const FText& Cause, bool bArmourHelps)
 {
 	if (IsDead() || Amount <= 0)
 	{
 		return 0;
 	}
 	USkillsComponent* Skills = GetSkills();
+	const UEquipmentComponent* Equipment = bArmourHelps && GetOwner() ? GetOwner()->FindComponentByClass<UEquipmentComponent>() : nullptr;
 	Health = GetHealth();
-	const int32 Taken = FMath::Min(Health, Soften(Amount, Skills ? Skills->GetLevel(ESkill::Guard) : 1));
-	Health -= Taken;
+	const int32 Softened = Soften(Amount, Skills ? Skills->GetLevel(ESkill::Guard) : 1);
+	const int32 Taken = FMath::Min(Health, ThroughArmour(Softened, Equipment ? Equipment->GetDefence() : 0, FMath::FRand()));
 	SinceHurt = 0.f;
 	Resting = 0.f;
-	// What doesn't kill you: a little Guard and Vitality for each point taken.
+	// What doesn't kill you: a little Guard and Vitality for each point taken (and Guard for a blow turned aside).
 	if (Skills)
 	{
-		Skills->AddXP(ESkill::Guard, Taken * 4);
+		Skills->AddXP(ESkill::Guard, FMath::Max(Taken * 4, 2));
 		Skills->AddXP(ESkill::Vitality, Taken * 3);
 	}
+	if (Taken <= 0)
+	{
+		return 0;
+	}
+	Health -= Taken;
 	OnHealthChanged.Broadcast(Health, -Taken);
 	if (Health <= 0)
 	{
