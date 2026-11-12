@@ -21,6 +21,7 @@ class UBuildingComponent;
 class UBoatComponent;
 class UHealthComponent;
 class UCombatComponent;
+class UEquipmentComponent;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
@@ -71,6 +72,10 @@ class AHearthvaleCharacter : public ACharacter
 	/** Fights wild animals */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCombatComponent> Combat;
+
+	/** Armour and the like being worn */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UEquipmentComponent> Equipment;
 
 	/** Hit points: up to the Vitality level */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
@@ -215,6 +220,8 @@ public:
 
 	FORCEINLINE UCombatComponent* GetCombat() const { return Combat; }
 
+	FORCEINLINE UEquipmentComponent* GetEquipment() const { return Equipment; }
+
 	/** Eats the food in an inventory slot, healing; false (with a message) if it can't. */
 	UFUNCTION(BlueprintCallable, Category="RPG")
 	bool Eat(int32 SlotIndex);
@@ -256,7 +263,7 @@ public:
 	UPROPERTY(BlueprintAssignable, Category="RPG")
 	FOnHeldSlotChanged OnHeldSlotChanged;
 
-	/** Uses the held item (right mouse): logs light a fire, food is eaten. */
+	/** Uses the held item (right mouse): logs light a fire, food is eaten, armour is worn. */
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoUseItem();
 

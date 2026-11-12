@@ -16,6 +16,7 @@
 #include "HearthvaleCharacter.h"
 #include "HearthvalePlayerController.h"
 #include "RPG/CropDefinition.h"
+#include "RPG/EquipmentComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillUnlocks.h"
 #include "RPG/SkillsComponent.h"
@@ -141,6 +142,35 @@ void UCharacterPanelWidget::NativeOnInitialized()
 UWidget* UCharacterPanelWidget::BuildInventoryPage()
 {
 	UVerticalBox* Page = WidgetTree->ConstructWidget<UVerticalBox>();
+	// What's worn along the top: click one to take it off.
+	UHorizontalBox* WornHeader = WidgetTree->ConstructWidget<UHorizontalBox>();
+	WornHeader->AddChildToHorizontalBox(HearthvaleUI::MakeText(WidgetTree, LOCTEXT("WornLabel", "Worn  (click to take off)"), 10,
+		HearthvaleUI::MutedColor))->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+	DefenceText = HearthvaleUI::MakeText(WidgetTree, FText::GetEmpty(), 10, HearthvaleUI::GoldColor);
+	WornHeader->AddChildToHorizontalBox(DefenceText);
+	Page->AddChildToVerticalBox(WornHeader)->SetPadding(FMargin(2.f, 0.f, 2.f, 2.f));
+	UUniformGridPanel* WornGrid = WidgetTree->ConstructWidget<UUniformGridPanel>();
+	WornGrid->SetSlotPadding(FMargin(2.f));
+	const TArray<EEquipSlot>& Order = UEquipmentComponent::GetSlotOrder();
+	for (int32 Index = 0; Index < Order.Num(); ++Index)
+	{
+		UInventorySlotWidget* SlotWidget = CreateWidget<UInventorySlotWidget>(this, UInventorySlotWidget::StaticClass());
+		SlotWidget->SetKeyLabel(UEquipmentComponent::GetSlotName(Order[Index]));
+		const EEquipSlot Worn = Order[Index];
+		SlotWidget->SetClickHandler([WeakThis = TWeakObjectPtr<UCharacterPanelWidget>(this), Worn](bool)
+		{
+			if (WeakThis.IsValid() && WeakThis->Character.IsValid())
+			{
+				WeakThis->CloseItemMenu();
+				WeakThis->Character->GetEquipment()->Unequip(Worn);
+			}
+		});
+		WornGrid->AddChildToUniformGrid(SlotWidget, 0, Index);
+		WornWidgets.Add(SlotWidget);
+	}
+	Page->AddChildToVerticalBox(WornGrid)->SetHorizontalAlignment(HAlign_Center);
+	Page->AddChildToVerticalBox(MakeDivider(WidgetTree))->SetPadding(FMargin(0.f, 6.f));
+
 	// The backpack, then the hotbar row underneath, as in Minecraft.
 	SlotGrid = WidgetTree->ConstructWidget<UUniformGridPanel>();
 	SlotGrid->SetSlotPadding(FMargin(2.f));
@@ -155,7 +185,7 @@ UWidget* UCharacterPanelWidget::BuildInventoryPage()
 	InventoryFooter = HearthvaleUI::MakeText(WidgetTree, FText::GetEmpty(), 10, HearthvaleUI::MutedColor);
 	Page->AddChildToVerticalBox(InventoryFooter)->SetPadding(FMargin(2.f, 8.f, 2.f, 0.f));
 	UTextBlock* Hint = HearthvaleUI::MakeText(WidgetTree,
-		LOCTEXT("InventoryHint", "Drag to move  Â·  Right-click for options  Â·  Shift-click to drop  Â·  Hover and press 1-9 to put on the hotbar"), 9, HearthvaleUI::MutedColor);
+		LOCTEXT("InventoryHint", "Drag to move  ·  Right-click for options  ·  Shift-click to drop  ·  Hover and press 1-9 to put on the hotbar"), 9, HearthvaleUI::MutedColor);
 	Hint->SetAutoWrapText(true);
 	Page->AddChildToVerticalBox(Hint)->SetPadding(FMargin(2.f, 2.f, 2.f, 0.f));
 	return Page;
@@ -405,6 +435,7 @@ void UCharacterPanelWidget::BindCharacter(AHearthvaleCharacter* NewCharacter)
 			NewCharacter->GetInventory()->OnInventoryChanged.AddUniqueDynamic(this, &UCharacterPanelWidget::RefreshInventory);
 			NewCharacter->GetSkills()->OnSkillsChanged.AddUniqueDynamic(this, &UCharacterPanelWidget::RefreshSkills);
 			NewCharacter->OnHeldSlotChanged.AddUniqueDynamic(this, &UCharacterPanelWidget::RefreshInventory);
+			NewCharacter->GetEquipment()->OnEquipmentChanged.AddUniqueDynamic(this, &UCharacterPanelWidget::RefreshInventory);
 			if (NewCharacter->GetInventory()->GetCapacity() != SlotWidgets.Num())
 			{
 				BuildSlots(NewCharacter->GetInventory()->GetCapacity());
@@ -422,6 +453,7 @@ void UCharacterPanelWidget::Unbind()
 		Old->GetInventory()->OnInventoryChanged.RemoveDynamic(this, &UCharacterPanelWidget::RefreshInventory);
 		Old->GetSkills()->OnSkillsChanged.RemoveDynamic(this, &UCharacterPanelWidget::RefreshSkills);
 		Old->OnHeldSlotChanged.RemoveDynamic(this, &UCharacterPanelWidget::RefreshInventory);
+		Old->GetEquipment()->OnEquipmentChanged.RemoveDynamic(this, &UCharacterPanelWidget::RefreshInventory);
 	}
 	Character.Reset();
 }
@@ -451,6 +483,18 @@ void UCharacterPanelWidget::RefreshInventory()
 		SlotWidget->SetStack(Inventory->GetSlot(SlotWidget->GetIndex()));
 		SlotWidget->SetSelected(SlotWidget->GetIndex() == Owner->GetHeldSlot());
 	}
+	const UEquipmentComponent* Equipment = Owner->GetEquipment();
+	const TArray<EEquipSlot>& Order = UEquipmentComponent::GetSlotOrder();
+	for (int32 Index = 0; Index < WornWidgets.Num() && Index < Order.Num(); ++Index)
+	{
+		UItemDefinition* Worn = Equipment->GetWorn(Order[Index]);
+		const FItemStack Stack{Worn, Worn ? 1 : 0};
+		WornWidgets[Index]->SetStack(Stack);
+		WornWidgets[Index]->SetToolTip(Worn ? MakeItemTooltip(Stack) : nullptr);
+	}
+	const int32 Defence = Equipment->GetDefence();
+	DefenceText->SetText(Defence > 0 ? FText::Format(LOCTEXT("DefenceLine", "Defence {0}  ·  blows {1}% softer"), Defence,
+		FMath::RoundToInt32((1.f - UEquipmentComponent::ArmourFactor(Defence)) * 100.f)) : LOCTEXT("NoArmour", "No armour"));
 	InventoryFooter->SetText(FText::Format(LOCTEXT("SlotsUsed", "{0} / {1} slots used"),
 		Inventory->GetCapacity() - Inventory->FreeSlotCount(), Inventory->GetCapacity()));
 }
@@ -536,6 +580,11 @@ UWidget* UCharacterPanelWidget::MakeItemTooltip(const FItemStack& Stack)
 		AddTooltipLine(Lines, FText::Format(LOCTEXT("Bonuses", "Accuracy {0}   Strength {1}   Defence {2}"),
 			Item->AccuracyBonus, Item->StrengthBonus, Item->DefenceBonus), HearthvaleUI::TextColor);
 	}
+	if (UEquipmentComponent::IsWearable(Item))
+	{
+		AddTooltipLine(Lines, FText::Format(LOCTEXT("WornOn", "Worn: {0}  (right-click held, or the menu)"), UEquipmentComponent::GetSlotName(Item->EquipSlot)),
+			HearthvaleUI::GoodColor);
+	}
 	for (const TPair<ESkill, int32>& Requirement : Item->Requirements)
 	{
 		const bool bMet = !Skills || Skills->GetLevel(Requirement.Key) >= Requirement.Value;
@@ -593,6 +642,26 @@ void UCharacterPanelWidget::OpenItemMenu(int32 SlotIndex, FVector2D ScreenPositi
 			if (WeakCharacter.IsValid())
 			{
 				WeakCharacter->LightFire(SlotIndex);
+			}
+		});
+	}
+	if (UEquipmentComponent::IsWearable(Stack.Item))
+	{
+		AddMenuOption(LOCTEXT("WearOption", "Wear"), [WeakCharacter, SlotIndex]
+		{
+			if (WeakCharacter.IsValid())
+			{
+				WeakCharacter->GetEquipment()->Equip(SlotIndex);
+			}
+		});
+	}
+	if (Stack.Item->IsFood())
+	{
+		AddMenuOption(LOCTEXT("EatOption", "Eat"), [WeakCharacter, SlotIndex]
+		{
+			if (WeakCharacter.IsValid())
+			{
+				WeakCharacter->Eat(SlotIndex);
 			}
 		});
 	}

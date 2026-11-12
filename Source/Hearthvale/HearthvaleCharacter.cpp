@@ -27,6 +27,7 @@
 #include "RPG/GatheringComponent.h"
 #include "RPG/GroundItem.h"
 #include "RPG/CombatComponent.h"
+#include "RPG/EquipmentComponent.h"
 #include "RPG/HealthComponent.h"
 #include "RPG/HearthvaleHUD.h"
 #include "RPG/HearthvaleSaveGame.h"
@@ -79,6 +80,7 @@ AHearthvaleCharacter::AHearthvaleCharacter()
 	Building = CreateDefaultSubobject<UBuildingComponent>(TEXT("Building"));
 	Health = CreateDefaultSubobject<UHealthComponent>(TEXT("Health"));
 	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("Combat"));
+	Equipment = CreateDefaultSubobject<UEquipmentComponent>(TEXT("Equipment"));
 	static ConstructorHelpers::FObjectFinder<UInputAction> InteractActionAsset(TEXT("/Game/Input/Actions/IA_Interact.IA_Interact"));
 	InteractAction = InteractActionAsset.Object;
 	static ConstructorHelpers::FObjectFinder<UInputAction> UseItemActionAsset(TEXT("/Game/Input/Actions/IA_UseItem.IA_UseItem"));
@@ -295,7 +297,7 @@ void AHearthvaleCharacter::Landed(const FHitResult& Hit)
 		// (A fatal fall says so itself, from Die.)
 		const int32 Damage = FMath::CeilToInt32((Speed - SafeFallSpeed) / 90.f);
 		const int32 Before = Health->GetHealth();
-		const int32 Taken = Health->ApplyDamage(Damage, NSLOCTEXT("Hearthvale", "Fall", "a fall"));
+		const int32 Taken = Health->ApplyDamage(Damage, NSLOCTEXT("Hearthvale", "Fall", "a fall"), false);
 		if (Taken > 0 && Taken < Before)
 		{
 			ShowMessage(NSLOCTEXT("Hearthvale", "HardLanding", "You land hard. Ouch."), FLinearColor(1.f, 0.45f, 0.4f));
@@ -419,6 +421,7 @@ void AHearthvaleCharacter::StartNewCharacter()
 	Skills->ResetSkills();
 	Health->Restore();
 	Inventory->Clear();
+	Equipment->Clear();
 	SelectHotbarSlot(0);
 	for (const TPair<FName, int32>& Entry : StartingItems)
 	{
@@ -515,6 +518,10 @@ void AHearthvaleCharacter::DoUseItem()
 	else if (Held && Held->IsFood())
 	{
 		Eat(HeldSlot);
+	}
+	else if (UEquipmentComponent::IsWearable(Held))
+	{
+		Equipment->Equip(HeldSlot);
 	}
 }
 
