@@ -1009,7 +1009,9 @@ void UHearthvaleCheatManager::Sell(FName ItemId, int32 Count)
 		Say(TEXT("No shop is open."));
 		return;
 	}
-	Say(FString::Printf(TEXT("Sold %d."), Controller->GetShopWindow()->GetTrader()->Sell(Character, UItemDefinition::FindItem(ItemId), Count)));
+	// As the window does: from the first slot holding it (a worn tool fetches less).
+	const int32 Slot = Character->GetInventory()->FindSlot(UItemDefinition::FindItem(ItemId));
+	Say(FString::Printf(TEXT("Sold %d."), Slot == INDEX_NONE ? 0 : Controller->GetShopWindow()->SellSlot(Slot, Count > 1)));
 }
 
 void UHearthvaleCheatManager::Notices()

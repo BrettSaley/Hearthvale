@@ -22,6 +22,9 @@ public:
 	/** Dimmed buttons (nothing to make) read as unavailable but still click. */
 	void SetDimmed(bool bInDimmed);
 
+	/** Changes what it says. */
+	void SetLabel(const FText& Label);
+
 protected:
 	virtual void NativeOnInitialized() override;
 	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;

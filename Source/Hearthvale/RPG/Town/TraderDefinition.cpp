@@ -1,5 +1,6 @@
 #include "RPG/Town/TraderDefinition.h"
 #include "RPG/AnimalDefinition.h"
+#include "RPG/Durability.h"
 #include "RPG/InventoryComponent.h"
 
 int32 UTraderDefinition::GetBuyPrice(const FTraderStock& Line) const
@@ -20,6 +21,35 @@ int32 UTraderDefinition::GetSellPrice(const UItemDefinition* Item) const
 	}
 	// Half what it's worth, and never more than they'd sell it for.
 	return FMath::Max(1, Item->Value / 2);
+}
+
+int32 UTraderDefinition::GetSellPrice(const UItemDefinition* Item, int32 Wear) const
+{
+	const int32 Full = GetSellPrice(Item);
+	if (Full <= 0 || Wear <= 0)
+	{
+		return Full;
+	}
+	return FMath::Max(1, FMath::FloorToInt(Full * FDurability::Condition(Item, Wear)));
+}
+
+void FTraderDayState::Roll(int32 Today, int32 Lines)
+{
+	if (Day != Today)
+	{
+		Day = Today;
+		Sold.Reset();
+	}
+	Sold.SetNumZeroed(Lines);
+}
+
+int32 FTraderDayState::Left(const FTraderStock& Line, int32 Index) const
+{
+	if (Line.PerDay <= 0)
+	{
+		return MAX_int32;
+	}
+	return FMath::Max(0, Line.PerDay - (Sold.IsValidIndex(Index) ? Sold[Index] : 0));
 }
 
 FText UTraderDefinition::GetStockName(const FTraderStock& Line)

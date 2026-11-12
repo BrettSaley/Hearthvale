@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "RPG/Interactable.h"
+#include "RPG/Town/TraderDefinition.h"
 #include "Trader.generated.h"
 
 class UItemDefinition;
@@ -38,6 +39,18 @@ public:
 	/** Sells Count of an item from the backpack. How many were sold. */
 	int32 Sell(AHearthvaleCharacter* Character, UItemDefinition* Item, int32 Count = 1);
 
+	/** Sells what's in one backpack slot (a worn tool fetches less): one, or the stack. How many were sold. */
+	int32 SellSlot(AHearthvaleCharacter* Character, int32 SlotIndex, bool bAll);
+
+	/** Open by day; at night they've gone home and the stall's shut. */
+	bool IsOpen() const;
+
+	/** How many of a line of stock are left today; MAX_int32 for no limit. */
+	int32 GetLeft(int32 StockIndex) const;
+
+	const FTraderDayState& GetDayState() const { return DayState; }
+	void LoadDayState(const FTraderDayState& Saved) { DayState = Saved; }
+
 	/** Says something, with their name: "Odile: Fresh eggs?". */
 	void Say(const AHearthvaleCharacter* Character, const FText& Line) const;
 
@@ -57,6 +70,12 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> PartMeshes;
+
+	/** Today's sales, against the daily stock. */
+	FTraderDayState DayState;
+
+	/** Brings the day's counts up to today (by the world clock). */
+	void RollDay();
 
 	/** Seconds until they may call out again. */
 	float CallOutWait = 0.f;

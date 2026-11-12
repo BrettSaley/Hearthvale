@@ -6,6 +6,8 @@
 #include "HearthvalePlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "RPG/AnimalDefinition.h"
+#include "RPG/Durability.h"
+#include "RPG/World/WorldClock.h"
 #include "RPG/FarmAnimal.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/Town/TraderDefinition.h"
@@ -99,9 +101,38 @@ void ATrader::BuildLook()
 	AddParts(Definition->StallParts, RootComponent, true);
 }
 
+bool ATrader::IsOpen() const
+{
+	const UWorldClock* Clock = UWorldClock::Get(this);
+	return !Clock || !Clock->IsNight();
+}
+
+void ATrader::RollDay()
+{
+	const UWorldClock* Clock = UWorldClock::Get(this);
+	DayState.Roll(Clock ? Clock->GetDay() : 0, Definition ? Definition->Stock.Num() : 0);
+}
+
+int32 ATrader::GetLeft(int32 StockIndex) const
+{
+	const_cast<ATrader*>(this)->RollDay();
+	return Definition && Definition->Stock.IsValidIndex(StockIndex) ? DayState.Left(Definition->Stock[StockIndex], StockIndex) : 0;
+}
+
 void ATrader::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	// Gone home for the night: the stall stands empty.
+	const bool bOpen = IsOpen();
+	if (Person->IsVisible() != bOpen)
+	{
+		Person->SetVisibility(bOpen, true);
+	}
+	if (!bOpen)
+	{
+		bPlayerNear = false;
+		return;
+	}
 	const AHearthvaleCharacter* Player = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0));
 	const float Distance = Player ? FVector::Dist2D(Player->GetActorLocation(), GetActorLocation()) : TNumericLimits<float>::Max();
 
@@ -143,6 +174,12 @@ bool ATrader::GetInteractionPrompt(const AHearthvaleCharacter* Character, FInter
 	OutPrompt.Action = LOCTEXT("Trade", "Trade with");
 	OutPrompt.Target = Definition->Title.IsEmpty() ? Definition->DisplayName
 		: FText::Format(LOCTEXT("NameTitle", "{0} the {1}"), Definition->DisplayName, Definition->Title.ToLower());
+	if (!IsOpen())
+	{
+		OutPrompt.Action = LOCTEXT("Stall", "Stall of");
+		OutPrompt.bAvailable = false;
+		OutPrompt.Requirement = LOCTEXT("Shut", "shut till morning");
+	}
 	return true;
 }
 
@@ -151,6 +188,12 @@ void ATrader::Interact(AHearthvaleCharacter* Character)
 	AHearthvalePlayerController* Controller = Character ? Cast<AHearthvalePlayerController>(Character->GetController()) : nullptr;
 	if (!Definition || !Controller)
 	{
+		return;
+	}
+	if (!IsOpen())
+	{
+		Character->ShowMessage(FText::Format(LOCTEXT("Closed", "{0}'s stall is shut for the night. She'll be back in the morning."),
+			Definition->DisplayName), HearthvaleUI::BadColor);
 		return;
 	}
 	if (!Controller->IsShopOpen() && !Definition->Greetings.IsEmpty())
@@ -171,6 +214,14 @@ int32 ATrader::Buy(AHearthvaleCharacter* Character, int32 StockIndex, int32 Coun
 	}
 	const FTraderStock& Line = Definition->Stock[StockIndex];
 	const int32 Price = Definition->GetBuyPrice(Line);
+	const int32 Left = GetLeft(StockIndex);
+	if (Left <= 0)
+	{
+		Say(Character, FText::Format(LOCTEXT("SoldOut", "That's all the {0} I've got today. More comes in overnight."),
+			UTraderDefinition::GetStockName(Line).ToLower()));
+		return 0;
+	}
+	Count = FMath::Min(Count, Left);
 	const FText Name = UTraderDefinition::GetStockName(Line).ToLower();
 	UInventoryComponent* Inventory = Character->GetInventory();
 	if (Line.Animal)
@@ -187,12 +238,14 @@ int32 ATrader::Buy(AHearthvaleCharacter* Character, int32 StockIndex, int32 Coun
 		{
 			Bought->SetLeader(Character);
 		}
+		DayState.Sold[StockIndex] += 1;
 		Say(Character, FText::Format(LOCTEXT("AnimalSold", "One {0}, {1} coins. Feed it and it'll settle wherever you let it go."), Name, Price));
 		return 1;
 	}
 	const int32 Bought = Definition->BuyItems(Inventory, StockIndex, Count);
 	if (Bought > 0)
 	{
+		DayState.Sold[StockIndex] += Bought;
 		Character->ShowMessage(FText::Format(LOCTEXT("Bought", "You buy {0} x {1} for {2} coins."), Bought, Name, Bought * Price),
 			HearthvaleUI::GoodColor);
 	}
@@ -205,6 +258,42 @@ int32 ATrader::Buy(AHearthvaleCharacter* Character, int32 StockIndex, int32 Coun
 		Character->ShowMessage(LOCTEXT("NoRoom", "Your backpack is full."), HearthvaleUI::BadColor);
 	}
 	return Bought;
+}
+
+int32 ATrader::SellSlot(AHearthvaleCharacter* Character, int32 SlotIndex, bool bAll)
+{
+	if (!Character || !Definition)
+	{
+		return 0;
+	}
+	UInventoryComponent* Inventory = Character->GetInventory();
+	const FItemStack Stack = Inventory->GetSlot(SlotIndex);
+	if (Stack.IsEmpty())
+	{
+		return 0;
+	}
+	if (Stack.Wear <= 0)
+	{
+		return Sell(Character, Stack.Item, bAll ? Stack.Quantity : 1);
+	}
+	// Something worn: this one, for what it's still worth.
+	const int32 Price = Definition->GetSellPrice(Stack.Item, Stack.Wear);
+	if (Price <= 0)
+	{
+		Say(Character, FText::Format(LOCTEXT("WontBuyWorn", "I've no use for {0}."), Stack.Item->DisplayName.ToLower()));
+		return 0;
+	}
+	Inventory->RemoveFromSlot(SlotIndex, 1);
+	if (Inventory->AddItem(Definition->Currency, Price) < Price)
+	{
+		Inventory->RemoveItem(Definition->Currency, Price);
+		Inventory->SetSlot(SlotIndex, Stack);
+		Character->ShowMessage(LOCTEXT("NoRoomCoinsWorn", "There's no room in your backpack for the coins."), HearthvaleUI::BadColor);
+		return 0;
+	}
+	Character->ShowMessage(FText::Format(LOCTEXT("SoldWorn", "You sell the worn {0} for {1} coins ({2}% of full price)."),
+		Stack.Item->DisplayName.ToLower(), Price, FMath::RoundToInt(100.f * FDurability::Condition(Stack.Item, Stack.Wear))), HearthvaleUI::GoodColor);
+	return 1;
 }
 
 int32 ATrader::Sell(AHearthvaleCharacter* Character, UItemDefinition* Item, int32 Count)
