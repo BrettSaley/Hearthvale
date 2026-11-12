@@ -11,6 +11,7 @@
  *   TimeScale 60               (a game hour a second)   SkipDays 4
  *   Sleep                      (as a bed does at night)
  *   Warmth                     SetWarmth 10             Campfire (lights one just ahead)
+ *   ListCaches                 GoToCache 3              SearchCache
  */
 UCLASS()
 class HEARTHVALE_API UWorldCheats : public UCheatManagerExtension
@@ -51,6 +52,18 @@ public:
 	/** Lights a campfire just ahead, with logs given for it (as using logs does). */
 	UFUNCTION(Exec)
 	void Campfire();
+
+	/** Logs every lost cache: where, its biome, found or not, searched or not. */
+	UFUNCTION(Exec)
+	void ListCaches();
+
+	/** Teleports beside a lost cache by number (ListCaches), or the nearest unfound one with -1. */
+	UFUNCTION(Exec)
+	void GoToCache(int32 Index = -1);
+
+	/** Searches the nearest lost cache, wherever it is. */
+	UFUNCTION(Exec)
+	void SearchCache();
 
 private:
 	class UWorldClock* GetClock() const;
