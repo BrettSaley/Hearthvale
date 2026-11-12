@@ -699,8 +699,12 @@ void AWildlifeHerd::Strike(FAnimal& Animal)
 	Player->ShowMessage(Hit, FLinearColor(1.f, 0.35f, 0.3f));
 	const FText Cause = Kind == EWildlifeKind::Bear ? LOCTEXT("ByBear", "a bear") : Kind == EWildlifeKind::Wolf ? LOCTEXT("ByWolf", "a wolf")
 		: LOCTEXT("ByBoar", "a boar");
-	Player->GetHealth()->ApplyDamage(Random.RandRange(Stats.Damage.X, Stats.Damage.Y), Cause);
-	UE_LOG(LogTemp, Log, TEXT("Wildlife: a %s struck the player."), *UEnum::GetValueAsString(Kind));
+	const int32 Taken = Player->GetHealth()->ApplyDamage(Random.RandRange(Stats.Damage.X, Stats.Damage.Y), Cause);
+	if (Taken == 0 && !Player->GetHealth()->IsDead())
+	{
+		Player->ShowMessage(LOCTEXT("ArmourHeld", "Your armour takes the blow."), FLinearColor(0.75f, 0.8f, 0.9f));
+	}
+	UE_LOG(LogTemp, Log, TEXT("Wildlife: a %s struck the player for %d."), *UEnum::GetValueAsString(Kind), Taken);
 }
 
 void AWildlifeHerd::Tick(float DeltaSeconds)

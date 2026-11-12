@@ -4,6 +4,7 @@
 #include "GameFramework/SaveGame.h"
 #include "RPG/FarmAnimal.h"
 #include "RPG/FarmPatch.h"
+#include "RPG/ItemDefinition.h"
 #include "RPG/Skills.h"
 #include "RPG/World/Seasons.h"
 #include "HearthvaleSaveGame.generated.h"
@@ -84,6 +85,10 @@ public:
 
 	UPROPERTY()
 	int32 HeldSlot = 0;
+
+	/** What's worn, by slot: item IDs. */
+	UPROPERTY()
+	TMap<EEquipSlot, FName> Equipped;
 
 	/** Hit points; 0 (older saves) means full. */
 	UPROPERTY()

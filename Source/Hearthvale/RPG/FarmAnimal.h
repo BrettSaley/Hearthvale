@@ -94,6 +94,9 @@ public:
 	/** Takes a bite of food from the character's pack: towards taming, or to keep it fed. False if they have none or it's full. */
 	bool Feed(AHearthvaleCharacter* Character);
 
+	/** Whether the character has what it takes to collect from it (a bucket for milk). */
+	bool HasCollectTool(const AHearthvaleCharacter* Character) const;
+
 	/** Takes grown produce; false if there's none. */
 	bool Collect(AHearthvaleCharacter* Character);
 

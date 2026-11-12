@@ -18,7 +18,9 @@ enum class ECraftStation : uint8
 	/** Bars into tools, weapons and rings */
 	Anvil,
 	/** Logs into planks, rough gems into cut ones */
-	Workbench
+	Workbench,
+	/** Milk into butter and cheese */
+	Churn
 };
 
 /** Some number of one item, as a recipe ingredient. */

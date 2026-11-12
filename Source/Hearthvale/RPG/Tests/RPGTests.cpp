@@ -7,12 +7,14 @@
 #include "RPG/AnimalDefinition.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/CraftingComponent.h"
+#include "RPG/CraftingStationDefinition.h"
 #include "RPG/CropDefinition.h"
 #include "RPG/RecipeDefinition.h"
 #include "RPG/FarmPatch.h"
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/CombatComponent.h"
+#include "RPG/EquipmentComponent.h"
 #include "RPG/HealthComponent.h"
 #include "RPG/HearthvaleSaveGame.h"
 #include "RPG/InventoryComponent.h"
@@ -341,6 +343,49 @@ bool FAnimalsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLivestockTest, "Hearthvale.Livestock", TestFlags)
+
+bool FLivestockTest::RunTest(const FString& Parameters)
+{
+	// Cows are milked with a bucket you keep; pigs root truffles up on the ground, never into a nest box.
+	const UAnimalDefinition* Cow = LoadObject<UAnimalDefinition>(nullptr, TEXT("/Game/Farming/Animals/Cow.Cow"));
+	const UAnimalDefinition* Pig = LoadObject<UAnimalDefinition>(nullptr, TEXT("/Game/Farming/Animals/Pig.Pig"));
+	if (TestNotNull(TEXT("Cows exist"), Cow))
+	{
+		TestTrue(TEXT("Cows eat something"), !Cow->Food.IsEmpty() && !Cow->Food.Contains(nullptr));
+		TestTrue(TEXT("Cows give milk"), Cow->Produce && Cow->Produce->GetFName() == TEXT("Milk") && !Cow->bLaysProduce);
+		TestTrue(TEXT("Milking takes a bucket"), Cow->CollectTool && Cow->CollectTool->GetFName() == TEXT("Bucket"));
+		TestTrue(TEXT("A cow's head is among its parts"), Cow->Parts.IsValidIndex(Cow->FirstHeadPart));
+	}
+	if (TestNotNull(TEXT("Pigs exist"), Pig))
+	{
+		TestTrue(TEXT("Pigs eat something"), !Pig->Food.IsEmpty() && !Pig->Food.Contains(nullptr));
+		TestTrue(TEXT("Pigs root up truffles"), Pig->Produce && Pig->Produce->GetFName() == TEXT("Truffle") && Pig->bLaysProduce);
+		TestFalse(TEXT("Pigs don't use nest boxes"), Pig->bUsesNest);
+		TestNull(TEXT("Pigs need nothing to collect from"), Pig->CollectTool.Get());
+		TestTrue(TEXT("A pig's head is among its parts"), Pig->Parts.IsValidIndex(Pig->FirstHeadPart));
+	}
+	// Hens still lay in nest boxes.
+	const UAnimalDefinition* Chicken = LoadObject<UAnimalDefinition>(nullptr, TEXT("/Game/Farming/Animals/Chicken.Chicken"));
+	TestTrue(TEXT("Hens use nest boxes"), Chicken && Chicken->bUsesNest);
+
+	// The butter churn is a station you build, and it turns milk into butter and cheese for Farming XP.
+	const UBuildPieceDefinition* Churn = UBuildPieceDefinition::FindPiece(TEXT("ButterChurn"));
+	TestTrue(TEXT("A butter churn is a churn"), Churn && Churn->Station && Churn->Station->Station == ECraftStation::Churn);
+	const TArray<URecipeDefinition*> Dairy = URecipeDefinition::GetRecipesFor(ECraftStation::Churn);
+	TestTrue(TEXT("The churn makes butter and cheese"), Dairy.Num() >= 2);
+	for (const URecipeDefinition* Recipe : Dairy)
+	{
+		TestTrue(FString::Printf(TEXT("%s uses milk"), *Recipe->GetName()),
+			Recipe->Inputs.ContainsByPredicate([](const FItemAmount& In) { return In.Item && In.Item->GetFName() == TEXT("Milk"); }));
+		TestTrue(FString::Printf(TEXT("%s trains Farming"), *Recipe->GetName()), Recipe->Skill == ESkill::Farming && Recipe->XP > 0);
+	}
+	// A bucket is made at a workbench.
+	TestTrue(TEXT("A bucket is made at a workbench"), URecipeDefinition::GetRecipesFor(ECraftStation::Workbench).ContainsByPredicate(
+		[](const URecipeDefinition* R) { return R->Output && R->Output->GetFName() == TEXT("Bucket"); }));
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFarmMachinesTest, "Hearthvale.Machines", TestFlags)
 
 bool FFarmMachinesTest::RunTest(const FString& Parameters)
@@ -489,6 +534,74 @@ bool FHealthTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("High Vitality heals faster"), UHealthComponent::RegenSeconds(99) < UHealthComponent::RegenSeconds(10));
 
 	TestTrue(TEXT("Food heals"), UItemDefinition::FindItem(TEXT("GrilledTrout")) && UItemDefinition::FindItem(TEXT("GrilledTrout"))->HealAmount > 0);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FArmourTest, "Hearthvale.Armour", TestFlags)
+
+bool FArmourTest::RunTest(const FString& Parameters)
+{
+	// Defence lets less of a blow through: all of it bare, half at 40.
+	TestEqual(TEXT("Bare skin stops nothing"), UEquipmentComponent::ArmourFactor(0), 1.f);
+	TestEqual(TEXT("Half at 40"), UEquipmentComponent::ArmourFactor(40), 0.5f);
+	TestTrue(TEXT("More defence, less gets through"), UEquipmentComponent::ArmourFactor(20) > UEquipmentComponent::ArmourFactor(30));
+	TestEqual(TEXT("Without armour a blow is as Guard left it"), UHealthComponent::ThroughArmour(3, 0, 0.99f), 3);
+	TestEqual(TEXT("Half of 4 at 40"), UHealthComponent::ThroughArmour(4, 40, 0.5f), 2);
+	TestEqual(TEXT("Half of 3 rounds up on a low roll"), UHealthComponent::ThroughArmour(3, 40, 0.2f), 2);
+	TestEqual(TEXT("...and down on a high one"), UHealthComponent::ThroughArmour(3, 40, 0.8f), 1);
+	TestEqual(TEXT("Good armour can turn a light blow aside"), UHealthComponent::ThroughArmour(1, 40, 0.9f), 0);
+
+	// Worn things add up; weapons and plain things aren't worn.
+	UEquipmentComponent* Equipment = NewObject<UEquipmentComponent>();
+	UItemDefinition* Helm = MakeItem(false);
+	Helm->EquipSlot = EEquipSlot::Head;
+	Helm->DefenceBonus = 4;
+	UItemDefinition* Shield = MakeItem(false);
+	Shield->EquipSlot = EEquipSlot::OffHand;
+	Shield->DefenceBonus = 6;
+	UItemDefinition* Ring = MakeItem(false);
+	Ring->EquipSlot = EEquipSlot::Ring;
+	Ring->AccuracyBonus = 2;
+	UItemDefinition* Sword = MakeItem(false);
+	Sword->EquipSlot = EEquipSlot::Weapon;
+	TestTrue(TEXT("A helm is worn"), UEquipmentComponent::IsWearable(Helm));
+	TestFalse(TEXT("A sword is held, not worn"), UEquipmentComponent::IsWearable(Sword));
+	TestFalse(TEXT("A plain thing isn't worn"), UEquipmentComponent::IsWearable(MakeItem(true)));
+	Equipment->SetWorn(EEquipSlot::Head, Helm);
+	Equipment->SetWorn(EEquipSlot::OffHand, Shield);
+	Equipment->SetWorn(EEquipSlot::Ring, Ring);
+	TestEqual(TEXT("Defence adds up"), Equipment->GetDefence(), 10);
+	TestEqual(TEXT("A ring's aim counts"), Equipment->GetAccuracyBonus(), 2);
+	Equipment->SetWorn(EEquipSlot::Head, nullptr);
+	TestEqual(TEXT("Taking the helm off"), Equipment->GetDefence(), 6);
+	Equipment->Clear();
+	TestEqual(TEXT("Nothing worn"), Equipment->GetDefence(), 0);
+	TestEqual(TEXT("Every slot is shown"), UEquipmentComponent::GetSlotOrder().Num(), 8);
+
+	// The sets: each metal better than the last, iron and steel take Guard, and they're all made somewhere.
+	const TCHAR* Sets[] = {TEXT("Leather"), TEXT("Copper"), TEXT("Iron"), TEXT("Steel")};
+	int32 Last = 0;
+	for (const TCHAR* Set : Sets)
+	{
+		int32 Total = 0;
+		const bool bLeather = FString(Set) == TEXT("Leather");
+		const TArray<FString> Pieces = bLeather ? TArray<FString>{TEXT("Cap"), TEXT("Jerkin"), TEXT("Trousers"), TEXT("Gloves"), TEXT("Boots")}
+			: TArray<FString>{TEXT("Helm"), TEXT("Chestplate"), TEXT("Greaves"), TEXT("Shield")};
+		for (const FString& Piece : Pieces)
+		{
+			const FString Id = FString(Set) + Piece;
+			const UItemDefinition* Item = UItemDefinition::FindItem(FName(*Id));
+			const URecipeDefinition* Recipe = LoadObject<URecipeDefinition>(nullptr, *FString::Printf(TEXT("/Game/Crafting/Recipes/Make%s.Make%s"), *Id, *Id));
+			TestTrue(FString::Printf(TEXT("%s is armour"), *Id), Item && Item->Category == EItemCategory::Armour && UEquipmentComponent::IsWearable(Item) && Item->DefenceBonus > 0);
+			TestTrue(FString::Printf(TEXT("%s can be made"), *Id), Recipe && Item && Recipe->Output == Item);
+			Total += Item ? Item->DefenceBonus : 0;
+		}
+		TestTrue(FString::Printf(TEXT("%s beats the set before"), Set), Total > Last);
+		Last = Total;
+	}
+	const UItemDefinition* SteelHelm = UItemDefinition::FindItem(TEXT("SteelHelm"));
+	TestTrue(TEXT("Steel takes Guard to wear"), SteelHelm && SteelHelm->Requirements.FindRef(ESkill::Guard) > 1);
+	TestTrue(TEXT("A wooden shield is a shield"), UItemDefinition::FindItem(TEXT("WoodenShield")) && UItemDefinition::FindItem(TEXT("WoodenShield"))->EquipSlot == EEquipSlot::OffHand);
 	return true;
 }
 

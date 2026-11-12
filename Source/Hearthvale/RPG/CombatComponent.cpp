@@ -1,5 +1,6 @@
 #include "RPG/CombatComponent.h"
 #include "HearthvaleCharacter.h"
+#include "RPG/EquipmentComponent.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
@@ -179,7 +180,9 @@ void UCombatComponent::Attack()
 		Character->GetInventory()->RemoveItem(Weapon->Ammo, 1);
 	}
 	const ESkill Style = bRanged ? ESkill::Precision : ESkill::Might;
-	const int32 Accuracy = Skills->GetLevel(ESkill::Precision) + (Weapon ? Weapon->AccuracyBonus : 0);
+	// Worn things (rings, amulets) can sharpen the aim and add weight to blows.
+	const UEquipmentComponent* Equipment = Character->GetEquipment();
+	const int32 Accuracy = Skills->GetLevel(ESkill::Precision) + (Weapon ? Weapon->AccuracyBonus : 0) + Equipment->GetAccuracyBonus();
 	const EWildlifeKind Kind = Herd->GetKind();
 	const FText Name = AWildlifeHerd::GetKindName(Kind);
 	if (FMath::FRand() >= HitChance(Accuracy, AWildlifeHerd::GetDefence(Kind)))
@@ -189,7 +192,7 @@ void UCombatComponent::Attack()
 		Herd->HurtAnimal(TargetIndex, 0, Character);
 		return;
 	}
-	const int32 Rolled = FMath::RandRange(1, MaxHit(Skills->GetLevel(Style), Weapon ? Weapon->StrengthBonus : 0));
+	const int32 Rolled = FMath::RandRange(1, MaxHit(Skills->GetLevel(Style), (Weapon ? Weapon->StrengthBonus : 0) + Equipment->GetStrengthBonus()));
 	const int32 Done = Herd->HurtAnimal(TargetIndex, Rolled, Character);
 	UE_LOG(LogTemp, Log, TEXT("Combat: hit the %s for %d (%d left)."), *Name.ToString(), Done, Herd->GetAnimalHealth(TargetIndex));
 	// Each point of damage trains the style, and a little Vitality.

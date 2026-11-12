@@ -173,6 +173,22 @@ public:
 	UFUNCTION(Exec)
 	void Hurt(int32 Amount);
 
+	/** Gives an item and puts it on (Wear IronHelm). */
+	UFUNCTION(Exec)
+	void Wear(FName ItemId);
+
+	/** Takes off what's worn in a slot (TakeOff Head; TakeOff All). */
+	UFUNCTION(Exec)
+	void TakeOff(const FString& Slot);
+
+	/** Lists what's worn and the total defence. */
+	UFUNCTION(Exec)
+	void ListWorn();
+
+	/** Takes Count blows of Amount, as from an animal, and says what got through (Blows 5 10). */
+	UFUNCTION(Exec)
+	void Blows(int32 Amount, int32 Count = 10);
+
 	/** Heals: Heal 5, or Heal to full. */
 	UFUNCTION(Exec)
 	void Heal(int32 Amount = 0);
@@ -212,6 +228,10 @@ public:
 	/** Logs every boat: where it is, how deep the water is there, who's aboard and what's in its hold. */
 	UFUNCTION(Exec)
 	void ListBoats();
+
+	/** Starts making a recipe at the nearest station that offers it (CraftAt ChurnButter 2); 0 makes as many as possible. */
+	UFUNCTION(Exec)
+	void CraftAt(FName RecipeId, int32 Count = 1);
 
 private:
 	AHearthvaleCharacter* GetHearthvaleCharacter() const;
