@@ -51,22 +51,53 @@ UItemDefinition* UEquipmentComponent::GetWorn(EEquipSlot Slot) const
 	return Found ? Found->Get() : nullptr;
 }
 
-void UEquipmentComponent::SetWorn(EEquipSlot Slot, UItemDefinition* Item)
+void UEquipmentComponent::SetWorn(EEquipSlot Slot, UItemDefinition* Item, int32 Wear)
 {
 	if (Item)
 	{
 		Worn.Add(Slot, Item);
+		WornWear.Add(Slot, FMath::Max(0, Wear));
 	}
 	else
 	{
 		Worn.Remove(Slot);
+		WornWear.Remove(Slot);
 	}
 	OnEquipmentChanged.Broadcast();
+}
+
+bool UEquipmentComponent::AddWear(EEquipSlot Slot, int32 Amount)
+{
+	const UItemDefinition* Item = GetWorn(Slot);
+	if (!Item || Item->Durability <= 0 || Amount <= 0)
+	{
+		return false;
+	}
+	int32& Wear = WornWear.FindOrAdd(Slot);
+	Wear += Amount;
+	const bool bBroke = Wear >= Item->Durability;
+	if (bBroke)
+	{
+		Worn.Remove(Slot);
+		WornWear.Remove(Slot);
+	}
+	OnEquipmentChanged.Broadcast();
+	return bBroke;
+}
+
+void UEquipmentComponent::SetWornWear(EEquipSlot Slot, int32 Wear)
+{
+	if (GetWorn(Slot))
+	{
+		WornWear.Add(Slot, FMath::Max(0, Wear));
+		OnEquipmentChanged.Broadcast();
+	}
 }
 
 void UEquipmentComponent::Clear()
 {
 	Worn.Reset();
+	WornWear.Reset();
 	OnEquipmentChanged.Broadcast();
 }
 
@@ -99,22 +130,24 @@ bool UEquipmentComponent::Equip(int32 InventorySlot)
 	}
 	// One comes off the stack; whatever was worn there goes where it was (or anywhere, if some are left).
 	UItemDefinition* Old = GetWorn(Item->EquipSlot);
-	Inventory->RemoveFromSlot(InventorySlot, 1);
+	const FItemStack OldStack{Old, 1, GetWornWear(Item->EquipSlot)};
+	const FItemStack Taken = Inventory->RemoveFromSlot(InventorySlot, 1);
 	if (Old)
 	{
 		if (Inventory->GetSlot(InventorySlot).IsEmpty())
 		{
-			Inventory->SetSlot(InventorySlot, FItemStack{Old, 1});
+			Inventory->SetSlot(InventorySlot, OldStack);
 		}
-		else if (Inventory->AddItem(Old, 1) == 0)
+		else if (Inventory->AddStack(OldStack) == 0)
 		{
 			// No room for the old one after all: put things back as they were.
-			Inventory->AddItem(Item, 1);
+			Inventory->AddStack(Taken);
 			Character->ShowMessage(LOCTEXT("NoRoomSwap", "You've no room to take off what you're wearing."), EquipWarning);
 			return false;
 		}
 	}
 	Worn.Add(Item->EquipSlot, Item);
+	WornWear.Add(Item->EquipSlot, Taken.Wear);
 	Character->ShowMessage(FText::Format(LOCTEXT("PutOn", "You put on the {0}."), Item->DisplayName.ToLower()));
 	UE_LOG(LogTemp, Log, TEXT("Equipment: wore %s; defence %d."), *Item->GetItemId().ToString(), GetDefence());
 	OnEquipmentChanged.Broadcast();
@@ -129,12 +162,13 @@ bool UEquipmentComponent::Unequip(EEquipSlot Slot)
 	{
 		return false;
 	}
-	if (Character->GetInventory()->AddItem(Item, 1) == 0)
+	if (Character->GetInventory()->AddStack(FItemStack{Item, 1, GetWornWear(Slot)}) == 0)
 	{
 		Character->ShowMessage(FText::Format(LOCTEXT("NoRoom", "You've no room to take off the {0}."), Item->DisplayName.ToLower()), EquipWarning);
 		return false;
 	}
 	Worn.Remove(Slot);
+	WornWear.Remove(Slot);
 	Character->ShowMessage(FText::Format(LOCTEXT("TakeOff", "You take off the {0}."), Item->DisplayName.ToLower()));
 	UE_LOG(LogTemp, Log, TEXT("Equipment: took off %s; defence %d."), *Item->GetItemId().ToString(), GetDefence());
 	OnEquipmentChanged.Broadcast();

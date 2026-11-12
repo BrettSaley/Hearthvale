@@ -25,6 +25,10 @@ struct FSavedItemStack
 
 	UPROPERTY()
 	int32 Quantity = 0;
+
+	/** Uses spent, for things that wear out. */
+	UPROPERTY()
+	int32 Wear = 0;
 };
 
 /** Something the player built. */
@@ -92,6 +96,10 @@ public:
 	/** What's worn, by slot: item IDs. */
 	UPROPERTY()
 	TMap<EEquipSlot, FName> Equipped;
+
+	/** Uses spent on what's worn, by slot. */
+	UPROPERTY()
+	TMap<EEquipSlot, int32> EquippedWear;
 
 	/** Hit points; 0 (older saves) means full. */
 	UPROPERTY()

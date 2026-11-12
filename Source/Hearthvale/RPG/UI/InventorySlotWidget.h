@@ -8,6 +8,7 @@
 class UBorder;
 class UCharacterPanelWidget;
 class UImage;
+class USizeBox;
 class UTextBlock;
 
 /**
@@ -69,6 +70,13 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UTextBlock> KeyText;
+
+	/** How worn it is: a bar along the bottom, shorter and redder as it wears. */
+	UPROPERTY()
+	TObjectPtr<USizeBox> WearSize;
+
+	UPROPERTY()
+	TObjectPtr<UBorder> WearBar;
 
 	TWeakObjectPtr<UCharacterPanelWidget> Panel;
 	TFunction<void(bool)> ClickHandler;
