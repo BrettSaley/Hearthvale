@@ -7,6 +7,7 @@
 #include "RPG/AnimalDefinition.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/CraftingComponent.h"
+#include "RPG/CraftingStationDefinition.h"
 #include "RPG/CropDefinition.h"
 #include "RPG/RecipeDefinition.h"
 #include "RPG/FarmPatch.h"
@@ -339,6 +340,49 @@ bool FAnimalsTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("A nest box holds eggs"), Nest && Nest->bNestBox && Nest->StorageSlots > 0);
 	const UBuildPieceDefinition* Trough = UBuildPieceDefinition::FindPiece(TEXT("FeedTrough"));
 	TestTrue(TEXT("A trough holds feed"), Trough && Trough->bTrough && Trough->StorageSlots > 0);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLivestockTest, "Hearthvale.Livestock", TestFlags)
+
+bool FLivestockTest::RunTest(const FString& Parameters)
+{
+	// Cows are milked with a bucket you keep; pigs root truffles up on the ground, never into a nest box.
+	const UAnimalDefinition* Cow = LoadObject<UAnimalDefinition>(nullptr, TEXT("/Game/Farming/Animals/Cow.Cow"));
+	const UAnimalDefinition* Pig = LoadObject<UAnimalDefinition>(nullptr, TEXT("/Game/Farming/Animals/Pig.Pig"));
+	if (TestNotNull(TEXT("Cows exist"), Cow))
+	{
+		TestTrue(TEXT("Cows eat something"), !Cow->Food.IsEmpty() && !Cow->Food.Contains(nullptr));
+		TestTrue(TEXT("Cows give milk"), Cow->Produce && Cow->Produce->GetFName() == TEXT("Milk") && !Cow->bLaysProduce);
+		TestTrue(TEXT("Milking takes a bucket"), Cow->CollectTool && Cow->CollectTool->GetFName() == TEXT("Bucket"));
+		TestTrue(TEXT("A cow's head is among its parts"), Cow->Parts.IsValidIndex(Cow->FirstHeadPart));
+	}
+	if (TestNotNull(TEXT("Pigs exist"), Pig))
+	{
+		TestTrue(TEXT("Pigs eat something"), !Pig->Food.IsEmpty() && !Pig->Food.Contains(nullptr));
+		TestTrue(TEXT("Pigs root up truffles"), Pig->Produce && Pig->Produce->GetFName() == TEXT("Truffle") && Pig->bLaysProduce);
+		TestFalse(TEXT("Pigs don't use nest boxes"), Pig->bUsesNest);
+		TestNull(TEXT("Pigs need nothing to collect from"), Pig->CollectTool.Get());
+		TestTrue(TEXT("A pig's head is among its parts"), Pig->Parts.IsValidIndex(Pig->FirstHeadPart));
+	}
+	// Hens still lay in nest boxes.
+	const UAnimalDefinition* Chicken = LoadObject<UAnimalDefinition>(nullptr, TEXT("/Game/Farming/Animals/Chicken.Chicken"));
+	TestTrue(TEXT("Hens use nest boxes"), Chicken && Chicken->bUsesNest);
+
+	// The butter churn is a station you build, and it turns milk into butter and cheese for Farming XP.
+	const UBuildPieceDefinition* Churn = UBuildPieceDefinition::FindPiece(TEXT("ButterChurn"));
+	TestTrue(TEXT("A butter churn is a churn"), Churn && Churn->Station && Churn->Station->Station == ECraftStation::Churn);
+	const TArray<URecipeDefinition*> Dairy = URecipeDefinition::GetRecipesFor(ECraftStation::Churn);
+	TestTrue(TEXT("The churn makes butter and cheese"), Dairy.Num() >= 2);
+	for (const URecipeDefinition* Recipe : Dairy)
+	{
+		TestTrue(FString::Printf(TEXT("%s uses milk"), *Recipe->GetName()),
+			Recipe->Inputs.ContainsByPredicate([](const FItemAmount& In) { return In.Item && In.Item->GetFName() == TEXT("Milk"); }));
+		TestTrue(FString::Printf(TEXT("%s trains Farming"), *Recipe->GetName()), Recipe->Skill == ESkill::Farming && Recipe->XP > 0);
+	}
+	// A bucket is made at a workbench.
+	TestTrue(TEXT("A bucket is made at a workbench"), URecipeDefinition::GetRecipesFor(ECraftStation::Workbench).ContainsByPredicate(
+		[](const URecipeDefinition* R) { return R->Output && R->Output->GetFName() == TEXT("Bucket"); }));
 	return true;
 }
 

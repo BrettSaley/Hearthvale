@@ -229,6 +229,10 @@ public:
 	UFUNCTION(Exec)
 	void ListBoats();
 
+	/** Starts making a recipe at the nearest station that offers it (CraftAt ChurnButter 2); 0 makes as many as possible. */
+	UFUNCTION(Exec)
+	void CraftAt(FName RecipeId, int32 Count = 1);
+
 private:
 	AHearthvaleCharacter* GetHearthvaleCharacter() const;
 
