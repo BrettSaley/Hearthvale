@@ -12,7 +12,7 @@
 namespace
 {
 	/** Drops fall in a box this far (cm) each side of the camera, this tall, in each of its two layers. */
-	constexpr float Reach = 2500.f;
+	constexpr float DropReach = 2500.f;
 	constexpr float LayerHeight = 2000.f;
 	constexpr int32 MostDrops = 1800;
 	constexpr int32 MostFlakes = 1400;
@@ -123,7 +123,7 @@ void AWeatherEffects::Fill(int32 Count, bool bInSnow)
 	const FVector Scale = bSnow ? FVector(0.05f) : FVector(0.012f, 0.012f, 0.8f);
 	for (int32 Index = 0; Index < Count; ++Index)
 	{
-		const FVector At(Random.FRandRange(-Reach, Reach), Random.FRandRange(-Reach, Reach), Random.FRandRange(0.f, LayerHeight));
+		const FVector At(Random.FRandRange(-DropReach, DropReach), Random.FRandRange(-DropReach, DropReach), Random.FRandRange(0.f, LayerHeight));
 		Drops.Add(FTransform(FRotator::ZeroRotator, At, Scale * Random.FRandRange(0.7f, 1.2f)));
 	}
 	for (UInstancedStaticMeshComponent* Layer : DropLayers)

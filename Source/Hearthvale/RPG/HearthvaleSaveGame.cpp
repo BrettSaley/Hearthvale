@@ -57,6 +57,10 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 		{
 			Save->Clock = Clock->SaveState();
 		}
+		if (const ULostCacheRegistry* Caches = ULostCacheRegistry::Get(World))
+		{
+			Save->Caches = Caches->SaveStates();
+		}
 		Save->bHasAnimals = true;
 		for (const AFarmAnimal* Animal : TActorRange<AFarmAnimal>(World))
 		{
@@ -209,6 +213,10 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 		if (UWorldClock* Clock = UWorldClock::Get(World))
 		{
 			Clock->LoadState(Save->Clock);
+		}
+		if (ULostCacheRegistry* Caches = ULostCacheRegistry::Get(World))
+		{
+			Caches->LoadStates(Save->Caches);
 		}
 		if (Save->bHasAnimals)
 		{
