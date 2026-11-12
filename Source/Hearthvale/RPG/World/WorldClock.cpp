@@ -7,9 +7,10 @@
 #include "EngineUtils.h"
 #include "GameFramework/CheatManager.h"
 #include "Kismet/GameplayStatics.h"
-#include "Kismet/KismetMaterialLibrary.h"
 #include "HAL/IConsoleManager.h"
-#include "Materials/MaterialParameterCollection.h"
+#include "LandscapeComponent.h"
+#include "LandscapeProxy.h"
+#include "Engine/Engine.h"
 #include "RPG/World/WorldScenery.h"
 #include "HearthvaleCharacter.h"
 #include "Hearthvale.h"
@@ -68,6 +69,19 @@ void UWorldClock::OnWorldBeginPlay(UWorld& InWorld)
 	Precipitation = TargetPrecipitation(Weather);
 	Overcast = TargetOvercast(Weather);
 	ApplySky();
+}
+
+void UWorldClock::Deinitialize()
+{
+	// The grass density is a global setting: put it back for the next world (or the editor after PIE).
+	if (ShownSnow >= 0.f)
+	{
+		if (IConsoleVariable* Grass = IConsoleManager::Get().FindConsoleVariable(TEXT("grass.DensityScale")))
+		{
+			Grass->Set(1.f, ECVF_SetByCode);
+		}
+	}
+	Super::Deinitialize();
 }
 
 TStatId UWorldClock::GetStatId() const
@@ -343,17 +357,30 @@ void UWorldClock::ApplySnow()
 	}
 	const bool bWasWinter = ShownSnow >= 0.5f;
 	ShownSnow = SnowCover;
-	// Made by Scripts/create_weather.py, which also has the ground material read it.
-	static UMaterialParameterCollection* Collection = Cast<UMaterialParameterCollection>(StaticLoadObject(UMaterialParameterCollection::StaticClass(),
-		nullptr, TEXT("/Game/World/Weather/MPC_Weather.MPC_Weather"), nullptr, LOAD_NoWarn | LOAD_Quiet));
-	if (Collection)
+	// The ground material's SnowCover (added by Scripts/create_weather.py). The landscape only takes
+	// parameters through per-component dynamic instances, which the level doesn't make: switch them on once.
+	for (ALandscapeProxy* Landscape : TActorRange<ALandscapeProxy>(GetWorld()))
 	{
-		UKismetMaterialLibrary::SetScalarParameterValue(this, Collection, TEXT("SnowCover"), SnowCover);
+		if (!Landscape->bUseDynamicMaterialInstance)
+		{
+			Landscape->bUseDynamicMaterialInstance = true;
+			for (ULandscapeComponent* Component : Landscape->LandscapeComponents)
+			{
+				if (Component && Component->IsRegistered())
+				{
+					Component->ReregisterComponent();
+				}
+			}
+		}
+		Landscape->SetLandscapeMaterialScalarParameterValue(TEXT("SnowCover"), SnowCover);
 	}
-	// The grass dies back under the snow.
-	if (IConsoleVariable* Grass = IConsoleManager::Get().FindConsoleVariable(TEXT("grass.DensityScale")))
+	// The grass dies back under the snow (regrown in steps: rebuilding it is slow).
+	const float GrassScale = FMath::Lerp(1.f, 0.15f, FMath::RoundToFloat(SnowCover * 5.f) / 5.f);
+	IConsoleVariable* Grass = IConsoleManager::Get().FindConsoleVariable(TEXT("grass.DensityScale"));
+	if (Grass && !FMath::IsNearlyEqual(Grass->GetFloat(), GrassScale, 0.01f))
 	{
-		Grass->Set(FMath::Lerp(1.f, 0.15f, SnowCover), ECVF_SetByCode);
+		Grass->Set(GrassScale, ECVF_SetByCode);
+		GEngine->Exec(GetWorld(), TEXT("grass.FlushCache"));
 	}
 	if (bWasWinter != (SnowCover >= 0.5f))
 	{

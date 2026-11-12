@@ -2,9 +2,9 @@
 
 - /Game/World/Weather/M_Rain: the rain streaks, unlit and see-through
 - /Game/World/Weather/M_Snow: the snowflakes, soft white
-- /Game/World/Weather/MPC_Weather: SnowCover (0 to 1), set by the world clock
-- Snow on the ground: /Game/Ground/M_Ground's colour blends to snow on level
-  ground as SnowCover rises (patched in place; run again after rebuilding it)
+- Snow on the ground: /Game/Ground/M_Ground gets a SnowCover parameter (0 to 1,
+  set on the landscape by the world clock) and its colour blends to snow on
+  level ground as it rises (patched in place; run again after rebuilding it)
 - Seasonal catches on the fishing spots: trout running in spring, mackerel and tuna
   shoaling in summer, the salmon run in autumn, char under the winter cold
 
@@ -102,21 +102,7 @@ def create_seasonal_catches():
     unreal.log(f"create_weather: wrote 2 materials and {count} seasonal catches.")
 
 
-def create_collection():
-    path = f"{FOLDER}/MPC_Weather"
-    if assets.does_asset_exist(path):
-        collection = unreal.load_asset(path)
-    else:
-        collection = asset_tools.create_asset("MPC_Weather", FOLDER, unreal.MaterialParameterCollection, unreal.MaterialParameterCollectionFactoryNew())
-    snow = unreal.CollectionScalarParameter()
-    snow.set_editor_property("parameter_name", "SnowCover")
-    snow.set_editor_property("default_value", 0.0)
-    collection.set_editor_property("scalar_parameters", [snow])
-    assets.save_loaded_asset(collection, only_if_is_dirty=False)
-    return collection
-
-
-def add_snow_to_ground(collection):
+def add_snow_to_ground():
     """Ground colour -> lerp(colour, snow, SnowCover x how level the ground is x a little noise)."""
     ground = unreal.load_asset("/Game/Ground/M_Ground")
     if not ground:
@@ -126,9 +112,11 @@ def add_snow_to_ground(collection):
     if isinstance(color, unreal.MaterialExpressionLinearInterpolate):
         unreal.log_warning("create_weather: M_Ground already shows snow.")
         return
-    cover = mel.create_material_expression(ground, unreal.MaterialExpressionCollectionParameter, 0, -1300)
-    cover.set_editor_property("collection", collection)
+    # A plain parameter, set per landscape at runtime (ALandscapeProxy::SetLandscapeMaterialScalarParameterValue).
+    # Not a parameter collection: its node's link saved from Python without its ID, so the material failed to compile.
+    cover = mel.create_material_expression(ground, unreal.MaterialExpressionScalarParameter, 0, -1300)
     cover.set_editor_property("parameter_name", "SnowCover")
+    cover.set_editor_property("default_value", 0.0)
     normal = mel.create_material_expression(ground, unreal.MaterialExpressionVertexNormalWS, 0, -1150)
     up = mel.create_material_expression(ground, unreal.MaterialExpressionComponentMask, 150, -1150)
     for channel, on in (("r", False), ("g", False), ("b", True), ("a", False)):
@@ -167,5 +155,5 @@ def add_snow_to_ground(collection):
 
 
 create_materials()
-add_snow_to_ground(create_collection())
+add_snow_to_ground()
 create_seasonal_catches()

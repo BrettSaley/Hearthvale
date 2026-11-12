@@ -39,6 +39,7 @@ public:
 
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
+	virtual void Deinitialize() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual TStatId GetStatId() const override;
 	virtual bool DoesSupportWorldType(const EWorldType::Type WorldType) const override;
@@ -123,7 +124,7 @@ private:
 	void ApplySky();
 	void FindSky();
 	void GrowCrops(float RealSeconds);
-	/** Whitens the ground (the ground material reads MPC_Weather's SnowCover), thins the grass and hides the flowers. */
+	/** Whitens the ground (the landscape material's SnowCover), thins the grass and hides the flowers. */
 	void ApplySnow();
 
 	int32 Day = 0;
