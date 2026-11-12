@@ -23,7 +23,7 @@ namespace
 	const FLinearColor FoundColor(1.f, 0.85f, 0.45f);
 
 	template <typename T>
-	T* LoadQuietly(const TCHAR* Path)
+	T* LoadCacheAsset(const TCHAR* Path)
 	{
 		return Cast<T>(StaticLoadObject(T::StaticClass(), nullptr, Path, nullptr, LOAD_NoWarn | LOAD_Quiet));
 	}
@@ -217,10 +217,10 @@ int32 ALostCache::SpawnAll(UWorld* World)
 
 void ALostCache::Build()
 {
-	UStaticMesh* Cube = LoadQuietly<UStaticMesh>(TEXT("/Engine/BasicShapes/Cube.Cube"));
+	UStaticMesh* Cube = LoadCacheAsset<UStaticMesh>(TEXT("/Engine/BasicShapes/Cube.Cube"));
 	// Made by Scripts/create_exploration.py; plain grey without them.
-	UMaterialInterface* StoneMaterial = LoadQuietly<UMaterialInterface>(TEXT("/Game/World/Exploration/M_RuinStone.M_RuinStone"));
-	UMaterialInterface* WoodMaterial = LoadQuietly<UMaterialInterface>(TEXT("/Game/World/Exploration/M_CacheWood.M_CacheWood"));
+	UMaterialInterface* StoneMaterial = LoadCacheAsset<UMaterialInterface>(TEXT("/Game/World/Exploration/M_RuinStone.M_RuinStone"));
+	UMaterialInterface* WoodMaterial = LoadCacheAsset<UMaterialInterface>(TEXT("/Game/World/Exploration/M_CacheWood.M_CacheWood"));
 	FRandomStream Random(1000 + Index);
 	const FTransform Frame = GetActorTransform();
 	auto Place = [&](UStaticMeshComponent* Piece, const FVector& Local, const FVector& Size, const FRotator& Turn, UMaterialInterface* Material)
