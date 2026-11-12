@@ -623,10 +623,10 @@ float AWildlifeHerd::React(FAnimal& Animal, float DeltaSeconds)
 				if (Now - Warned > 15.f)
 				{
 					Warned = Now;
-					const FText Alarm = Kind == EWildlifeKind::Bear ? LOCTEXT("Bear", "A bear rears up with a roar and charges at you!")
+					const FText Shout = Kind == EWildlifeKind::Bear ? LOCTEXT("Bear", "A bear rears up with a roar and charges at you!")
 						: Kind == EWildlifeKind::Wolf ? LOCTEXT("Wolf", "A howl goes up: the wolf pack is coming for you!")
 						: LOCTEXT("Boar", "A boar lowers its tusks and charges!");
-					Player->ShowMessage(Alarm, FLinearColor(1.f, 0.35f, 0.3f));
+					Player->ShowMessage(Shout, FLinearColor(1.f, 0.35f, 0.3f));
 				}
 			}
 			else if (PickAwayFrom(Animal, PlayerAt, Random.FRandRange(1500.f, 2500.f)))
