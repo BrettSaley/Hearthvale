@@ -7,6 +7,7 @@
 #include "RPG/ItemDefinition.h"
 #include "RPG/Skills.h"
 #include "RPG/Town/RequestBoardDefinition.h"
+#include "RPG/Town/Settler.h"
 #include "HearthvaleSaveGame.generated.h"
 
 class AHearthvaleCharacter;
@@ -111,6 +112,13 @@ public:
 	/** Town notice boards' requests, by the board actor's name. */
 	UPROPERTY()
 	TMap<FString, FRequestBoardState> RequestBoards;
+
+	/** People living in houses you built; only replaces the world's when bHasSettlers (older saves have none). */
+	UPROPERTY()
+	bool bHasSettlers = false;
+
+	UPROPERTY()
+	TArray<FSavedSettler> Settlers;
 
 	/** Write a character's progress (and the farm patches in their world) to disk. */
 	static bool SaveProgress(const AHearthvaleCharacter* Character);

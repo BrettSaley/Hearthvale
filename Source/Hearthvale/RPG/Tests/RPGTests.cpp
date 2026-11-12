@@ -22,6 +22,7 @@
 #include "RPG/SkillUnlocks.h"
 #include "RPG/SkillsComponent.h"
 #include "RPG/Town/RequestBoardDefinition.h"
+#include "RPG/Town/SettlerDefinition.h"
 #include "RPG/Town/TraderDefinition.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldGenerator.h"
@@ -527,6 +528,41 @@ bool FRequestBoardTest::RunTest(const FString& Parameters)
 				Request.Item && Request.Coins > Request.Item->Value * Request.Quantity / 2);
 		}
 	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSettlersTest, "Hearthvale.Settlers", TestFlags)
+
+bool FSettlersTest::RunTest(const FString& Parameters)
+{
+	// Several different people might come, each with work to do, a look and something to say.
+	const USettlementDefinition* Settlement = USettlementDefinition::Get();
+	if (!TestNotNull(TEXT("The settlement exists"), Settlement))
+	{
+		return true;
+	}
+	TestTrue(TEXT("A few people might come"), Settlement->Settlers.Num() >= 3);
+	TSet<FString> Names;
+	bool bHerder = false;
+	for (const USettlerDefinition* Settler : Settlement->Settlers)
+	{
+		if (!TestNotNull(TEXT("Each settler exists"), Settler))
+		{
+			continue;
+		}
+		const FString Name = Settler->DisplayName.ToString();
+		TestFalse(FString::Printf(TEXT("%s has a name of their own"), *Name), Name.IsEmpty() || Names.Contains(Name));
+		Names.Add(Name);
+		TestFalse(FString::Printf(TEXT("%s has a look"), *Name), Settler->Parts.IsEmpty());
+		TestFalse(FString::Printf(TEXT("%s has things to say"), *Name), Settler->Lines.IsEmpty() || Settler->Arrival.IsEmpty());
+		if (Settler->Job == ESettlerJob::Gatherer)
+		{
+			TestTrue(FString::Printf(TEXT("%s brings something in"), *Name), Settler->Produce != nullptr && Settler->ProduceQuantity > 0);
+		}
+		bHerder |= Settler->Job == ESettlerJob::Herder;
+		TestTrue(FString::Printf(TEXT("%s eats less often than they work"), *Name), Settler->MealSeconds > Settler->WorkSeconds);
+	}
+	TestTrue(TEXT("Someone tends animals"), bHerder);
 	return true;
 }
 
