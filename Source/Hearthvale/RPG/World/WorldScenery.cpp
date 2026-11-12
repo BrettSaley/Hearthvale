@@ -84,6 +84,12 @@ void AWorldScenery::Build()
 			Component->SetCanEverAffectNavigation(bCollides);
 			Component->SetCastShadow(Look.bCastsShadow && Part.bVisible);
 			Component->SetVisibility(Part.bVisible);
+			// Its kind, so the season can find the flowers.
+			Component->ComponentTags.Add(Look.Kind);
+			if (!Part.bVisible)
+			{
+				Component->ComponentTags.Add(TEXT("Hidden"));
+			}
 			if (Look.CullDistance > 0.f)
 			{
 				Component->SetCullDistances(Look.CullDistance * 0.8f, Look.CullDistance);
@@ -98,6 +104,23 @@ void AWorldScenery::Build()
 			}
 			Component->AddInstances(Instances, false, false, false);
 			Built.Add(Component);
+		}
+	}
+}
+
+void AWorldScenery::SetWinter(bool bInWinter)
+{
+	bWinter = bInWinter;
+	for (UHierarchicalInstancedStaticMeshComponent* Component : Built)
+	{
+		if (!Component || Component->ComponentTags.Contains(TEXT("Hidden")) || Component->ComponentTags.IsEmpty())
+		{
+			continue;
+		}
+		const FString Kind = Component->ComponentTags[0].ToString();
+		if (Kind.Contains(TEXT("Flower")) || Kind.Contains(TEXT("Berry")) || Kind.Contains(TEXT("Foxglove")))
+		{
+			Component->SetVisibility(!bWinter);
 		}
 	}
 }

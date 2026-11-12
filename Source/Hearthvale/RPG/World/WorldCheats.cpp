@@ -38,11 +38,11 @@ void UWorldCheats::WorldClock()
 		{
 			Effects = Each;
 		}
-		Say(FString::Printf(TEXT("%s (day %d). Sun %.0f deg up, rises %.1f, sets %.1f%s. Falling %.2f (%d %s%s), cloud %.2f. Crops grow x%.2f, fishing %+.2f."),
+		Say(FString::Printf(TEXT("%s (day %d). Sun %.0f deg up, rises %.1f, sets %.1f%s. Falling %.2f (%d %s%s), cloud %.2f. Snow %.2f. Crops grow x%.2f, fishing %+.2f."),
 			*Clock->Describe().ToString(), Clock->GetDay() + 1, UWorldClock::SunElevation(Clock->GetDay(), Clock->GetHour()),
 			UWorldClock::SunriseHour(Clock->GetDay()), UWorldClock::SunsetHour(Clock->GetDay()), Clock->IsNight() ? TEXT(", night") : TEXT(""),
 			Clock->GetPrecipitation(), Effects ? Effects->GetFallingCount() : 0, Effects && Effects->IsShowingSnow() ? TEXT("flakes") : TEXT("drops"),
-			Effects && Effects->IsSheltered() ? TEXT(", sheltered") : TEXT(""), Clock->GetOvercast(), Clock->GetCropGrowthRate(), Clock->GetFishingShift()));
+			Effects && Effects->IsSheltered() ? TEXT(", sheltered") : TEXT(""), Clock->GetOvercast(), Clock->GetSnowCover(), Clock->GetCropGrowthRate(), Clock->GetFishingShift()));
 	}
 }
 
@@ -220,5 +220,14 @@ void UWorldCheats::SearchCache()
 	if (Best)
 	{
 		Say(Best->Search(Character) ? FString::Printf(TEXT("Searched the %s."), *Best->GetCacheName().ToString()) : FString(TEXT("Nothing left in it.")));
+	}
+}
+
+void UWorldCheats::SetSnowCover(float Cover)
+{
+	if (UWorldClock* Clock = GetClock())
+	{
+		Clock->SetSnowCover(Cover);
+		Say(FString::Printf(TEXT("Snow cover %.2f."), Clock->GetSnowCover()));
 	}
 }

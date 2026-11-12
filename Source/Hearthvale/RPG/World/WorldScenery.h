@@ -61,6 +61,9 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Scenery")
 	void Rebuild() { Build(); }
 
+	/** Under snow: the flowers and berries are gone until spring. */
+	void SetWinter(bool bInWinter);
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scenery")
 	TArray<FSceneryLook> Looks;
@@ -70,4 +73,6 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UHierarchicalInstancedStaticMeshComponent>> Built;
+
+	bool bWinter = false;
 };

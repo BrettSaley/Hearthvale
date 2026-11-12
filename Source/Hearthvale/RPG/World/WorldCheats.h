@@ -42,6 +42,10 @@ public:
 	UFUNCTION(Exec)
 	void Sleep();
 
+	/** Snow on the ground straight away, 0 to 1 (it settles over a few hours of winter snowfall). */
+	UFUNCTION(Exec)
+	void SetSnowCover(float Cover);
+
 	/** Logs how warm the player is, the air's temperature and why. */
 	UFUNCTION(Exec)
 	void Warmth();
