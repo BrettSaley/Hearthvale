@@ -4,6 +4,7 @@
 #include "HearthvaleCharacter.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
+#include "RPG/World/LostCache.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WeatherEffects.h"
 #include "RPG/World/WorldClock.h"
@@ -153,5 +154,71 @@ void UWorldCheats::Campfire()
 			Say(Character->LightFire(Index) ? TEXT("Lit a campfire.") : TEXT("Couldn't light a fire here."));
 			return;
 		}
+	}
+}
+
+void UWorldCheats::ListCaches()
+{
+	APlayerController* Controller = GetPlayerController();
+	const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+	int32 Count = 0;
+	for (const ALostCache* Cache : TActorRange<ALostCache>(GetWorld()))
+	{
+		++Count;
+		Say(FString::Printf(TEXT("%d: %s (%s), %.0f m off%s%s."), Cache->GetIndex(), *Cache->GetCacheName().ToString(),
+			*UEnum::GetDisplayValueAsText(Cache->GetBiome()).ToString(), Pawn ? FVector::Dist2D(Pawn->GetActorLocation(), Cache->GetActorLocation()) / 100.f : 0.f,
+			Cache->IsDiscovered() ? TEXT(", found") : TEXT(""), Cache->HasLoot() ? TEXT("") : TEXT(", searched")));
+	}
+	if (Count == 0)
+	{
+		Say(TEXT("No lost caches in this world (they're only on the island)."));
+	}
+}
+
+void UWorldCheats::GoToCache(int32 Index)
+{
+	APlayerController* Controller = GetPlayerController();
+	APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+	if (!Pawn)
+	{
+		return;
+	}
+	const ALostCache* Best = nullptr;
+	for (const ALostCache* Cache : TActorRange<ALostCache>(GetWorld()))
+	{
+		const bool bWanted = Index >= 0 ? Cache->GetIndex() == Index : !Cache->IsDiscovered();
+		if (bWanted && (!Best || FVector::Dist2D(Cache->GetActorLocation(), Pawn->GetActorLocation()) < FVector::Dist2D(Best->GetActorLocation(), Pawn->GetActorLocation())))
+		{
+			Best = Cache;
+		}
+	}
+	if (!Best)
+	{
+		Say(TEXT("No such cache. Try ListCaches."));
+		return;
+	}
+	// Just outside the ring of stones, facing in.
+	const FVector Side = Best->GetActorRotation().RotateVector(FVector(-450.f, 0.f, 0.f));
+	const FVector Spot = Best->GetActorLocation() + Side;
+	Pawn->TeleportTo(FVector(Spot.X, Spot.Y, UWorldGenerator::GetGroundHeight(Spot.X, Spot.Y) + 120.f), (-Side).Rotation());
+	Controller->SetControlRotation(FRotator(-15.f, (-Side).Rotation().Yaw, 0.f));
+	Say(FString::Printf(TEXT("By the %s."), *Best->GetCacheName().ToString()));
+}
+
+void UWorldCheats::SearchCache()
+{
+	APlayerController* Controller = GetPlayerController();
+	AHearthvaleCharacter* Character = Controller ? Cast<AHearthvaleCharacter>(Controller->GetPawn()) : nullptr;
+	ALostCache* Best = nullptr;
+	for (ALostCache* Cache : TActorRange<ALostCache>(GetWorld()))
+	{
+		if (Character && (!Best || FVector::Dist2D(Cache->GetActorLocation(), Character->GetActorLocation()) < FVector::Dist2D(Best->GetActorLocation(), Character->GetActorLocation())))
+		{
+			Best = Cache;
+		}
+	}
+	if (Best)
+	{
+		Say(Best->Search(Character) ? FString::Printf(TEXT("Searched the %s."), *Best->GetCacheName().ToString()) : FString(TEXT("Nothing left in it.")));
 	}
 }

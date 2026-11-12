@@ -2,7 +2,9 @@
 
 #include "Misc/AutomationTest.h"
 #include "Engine/World.h"
+#include "RPG/ItemDefinition.h"
 #include "RPG/HearthvaleSaveGame.h"
+#include "RPG/World/LostCache.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldClock.h"
@@ -183,6 +185,50 @@ bool FWarmthTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Half a minute by the fire warms you up"), UWarmthComponent::StateFor(Warmth), EWarmthState::Warm);
 	TestEqual(TEXT("Never above full"), UWarmthComponent::Step(UWarmthComponent::MaxWarmth, 40.f, 100.f), UWarmthComponent::MaxWarmth);
 	TestEqual(TEXT("Chilly in between"), UWarmthComponent::StateFor(40.f), EWarmthState::Chilly);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLostCachesTest, "Hearthvale.World.LostCaches", WorldTestFlags)
+bool FLostCachesTest::RunTest(const FString& Parameters)
+{
+	const TArray<FCacheSpot>& Spots = ALostCache::PlanCaches();
+	TestTrue(TEXT("A dozen or so caches"), Spots.Num() >= 9 && Spots.Num() <= 12);
+	TMap<EBiome, int32> ByBiome;
+	const FVector Start = UWorldGenerator::GetStartLocation();
+	for (const FCacheSpot& Spot : Spots)
+	{
+		++ByBiome.FindOrAdd(Spot.Biome);
+		TestTrue(TEXT("On dry land"), UWorldGenerator::GetGroundHeight(Spot.Location.X, Spot.Location.Y) > 100.f && Spot.Biome != EBiome::Water);
+		TestTrue(TEXT("Well away from the start"), FVector::Dist2D(Spot.Location, Start) > 20000.f);
+		TestFalse(TEXT("Named"), Spot.Name.IsEmpty());
+	}
+	TestTrue(TEXT("Some in the Meadows"), ByBiome.FindRef(EBiome::Meadows) > 0);
+	TestTrue(TEXT("Some in the Deepwood"), ByBiome.FindRef(EBiome::Deepwood) > 0);
+	TestTrue(TEXT("Most up in the Highlands"), ByBiome.FindRef(EBiome::Highlands) >= ByBiome.FindRef(EBiome::Meadows));
+
+	// Loot: coins and something else always, and richer further out.
+	int32 MeadowCoins = 0, HighlandCoins = 0;
+	for (int32 Seed = 0; Seed < 50; ++Seed)
+	{
+		const TArray<TPair<FName, int32>> Meadow = ALostCache::RollLoot(EBiome::Meadows, Seed);
+		const TArray<TPair<FName, int32>> Highland = ALostCache::RollLoot(EBiome::Highlands, Seed);
+		if (!TestTrue(TEXT("At least two finds"), Meadow.Num() >= 2 && Highland.Num() >= 2))
+		{
+			break;
+		}
+		for (const TPair<FName, int32>& Line : Meadow)
+		{
+			MeadowCoins += Line.Key == TEXT("Coins") ? Line.Value : 0;
+			TestNotNull(*FString::Printf(TEXT("%s is an item"), *Line.Key.ToString()), UItemDefinition::FindItem(Line.Key));
+		}
+		for (const TPair<FName, int32>& Line : Highland)
+		{
+			HighlandCoins += Line.Key == TEXT("Coins") ? Line.Value : 0;
+			TestNotNull(*FString::Printf(TEXT("%s is an item"), *Line.Key.ToString()), UItemDefinition::FindItem(Line.Key));
+		}
+	}
+	TestTrue(TEXT("The Highlands pay better"), HighlandCoins > MeadowCoins * 2);
+	TestEqual(TEXT("The same search finds the same"), ALostCache::RollLoot(EBiome::Deepwood, 7).Num(), ALostCache::RollLoot(EBiome::Deepwood, 7).Num());
 	return true;
 }
 

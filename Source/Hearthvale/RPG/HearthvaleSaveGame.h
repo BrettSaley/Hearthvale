@@ -6,6 +6,7 @@
 #include "RPG/FarmPatch.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/Skills.h"
+#include "RPG/World/LostCache.h"
 #include "RPG/World/Seasons.h"
 #include "RPG/Town/RequestBoardDefinition.h"
 #include "RPG/Town/Settler.h"
@@ -119,6 +120,10 @@ public:
 	/** How warm the character is; negative (older saves) means warm through. */
 	UPROPERTY()
 	float Warmth = -1.f;
+
+	/** The ruins found and searched. */
+	UPROPERTY()
+	TArray<FSavedCache> Caches;
 
 	/** Town notice boards' requests, by the board actor's name. */
 	UPROPERTY()
