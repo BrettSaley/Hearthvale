@@ -7,6 +7,7 @@
 class AFarmPatch;
 class UBoatComponent;
 class UFarmMachineComponent;
+class UTrapComponent;
 class UBuildPieceDefinition;
 class UInventoryComponent;
 class UMaterialInstanceDynamic;
@@ -65,6 +66,9 @@ public:
 	/** A farm machine's workings; null for anything else. */
 	UFarmMachineComponent* GetMachine() const { return Machine; }
 
+	/** Snares and spikes: the trap at work, or null. */
+	UTrapComponent* GetTrap() const { return Trap; }
+
 	/** Its parts, in the order its definition lists them (for machines that move them). */
 	const TArray<TObjectPtr<UStaticMeshComponent>>& GetPartMeshes() const { return PartMeshes; }
 
@@ -93,6 +97,9 @@ protected:
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Building")
 	TObjectPtr<UFarmMachineComponent> Machine;
+
+	UPROPERTY()
+	TObjectPtr<UTrapComponent> Trap;
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Building")
 	TObjectPtr<UBoatComponent> Boat;
