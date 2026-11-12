@@ -49,6 +49,8 @@ private:
 	void DrawKeyHints();
 	/** The health bar over the hotbar, and a red flash when hurt. */
 	void DrawHealth(AHearthvaleCharacter* Character);
+	/** The season, day, time and weather, top right. */
+	void DrawClock();
 	/** What's being fought, and its health, at the top of the screen. */
 	void DrawTarget(AHearthvaleCharacter* Character);
 	void DrawXPDrops(float DeltaSeconds);

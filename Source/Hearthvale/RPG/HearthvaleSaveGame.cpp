@@ -10,6 +10,8 @@
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
+#include "RPG/World/WarmthComponent.h"
+#include "RPG/World/WorldClock.h"
 #include "Hearthvale.h"
 
 const FString UHearthvaleSaveGame::SlotName = TEXT("Hearthvale");
@@ -37,6 +39,10 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 		}
 	}
 	Save->Health = Character->GetHealth()->GetHealth();
+	if (const UWarmthComponent* Warmth = Character->FindComponentByClass<UWarmthComponent>())
+	{
+		Save->Warmth = Warmth->GetWarmth();
+	}
 	if (UWorld* World = Character->GetWorld())
 	{
 		for (const AFarmPatch* Patch : TActorRange<AFarmPatch>(World))
@@ -46,6 +52,10 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 			{
 				Save->FarmPatches.Add(Patch->GetName(), Patch->SaveState());
 			}
+		}
+		if (const UWorldClock* Clock = UWorldClock::Get(World))
+		{
+			Save->Clock = Clock->SaveState();
 		}
 		Save->bHasAnimals = true;
 		for (const AFarmAnimal* Animal : TActorRange<AFarmAnimal>(World))
@@ -147,6 +157,7 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 	{
 		Character->GetHealth()->Restore();
 	}
+	UWarmthComponent::FindOrAdd(Character)->SetWarmth(Save->Warmth < 0.f ? UWarmthComponent::MaxWarmth : Save->Warmth);
 	if (UWorld* World = Character->GetWorld())
 	{
 		for (AFarmPatch* Patch : TActorRange<AFarmPatch>(World))
@@ -194,6 +205,10 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 			{
 				UE_LOG(LogHearthvale, Warning, TEXT("Save has an unknown build piece '%s'; dropping it."), *Saved.PieceId.ToString());
 			}
+		}
+		if (UWorldClock* Clock = UWorldClock::Get(World))
+		{
+			Clock->LoadState(Save->Clock);
 		}
 		if (Save->bHasAnimals)
 		{

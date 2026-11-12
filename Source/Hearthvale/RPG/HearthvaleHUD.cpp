@@ -1,4 +1,6 @@
 #include "RPG/HearthvaleHUD.h"
+#include "RPG/World/WarmthComponent.h"
+#include "RPG/World/WorldClock.h"
 #include "RPG/SkillUnlocks.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
@@ -47,6 +49,7 @@ void AHearthvaleHUD::DrawHUD()
 
 	DrawKeyHints();
 	DrawHealth(Character);
+	DrawClock();
 	DrawTarget(Character);
 	if (Character->GetBuilding()->IsBuilding())
 	{
@@ -149,6 +152,46 @@ void AHearthvaleHUD::DrawHealth(AHearthvaleCharacter* Character)
 	float TextWidth, TextHeight;
 	GetTextSize(Text, TextWidth, TextHeight, Font);
 	DrawText(Text, FLinearColor::White, X + (Width - TextWidth) * 0.5f, Y + 6.f - TextHeight * 0.5f, Font);
+}
+
+void AHearthvaleHUD::DrawClock()
+{
+	const UWorldClock* Clock = UWorldClock::Get(this);
+	const AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(PlayerOwner);
+	if (!Clock || (Controller && Controller->IsPanelOpen()))
+	{
+		return;
+	}
+	const FString Text = Clock->Describe().ToString();
+	UFont* Font = GEngine->GetSmallFont();
+	float TextWidth, TextHeight;
+	GetTextSize(Text, TextWidth, TextHeight, Font);
+	const float X = Canvas->ClipX - TextWidth - 24.f;
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.45f), X - 8.f, 14.f, TextWidth + 16.f, TextHeight + 8.f);
+	DrawText(Text, Clock->IsNight() ? FLinearColor(0.7f, 0.8f, 1.f) : FLinearColor(1.f, 0.95f, 0.8f), X, 18.f, Font);
+
+	// Warmth: a bar from icy blue to fire orange, with the air temperature and how you feel.
+	const UWarmthComponent* Warmth = GetOwningPawn() ? GetOwningPawn()->FindComponentByClass<UWarmthComponent>() : nullptr;
+	if (!Warmth)
+	{
+		return;
+	}
+	const float Fraction = Warmth->GetWarmth() / UWarmthComponent::MaxWarmth;
+	const FString Label = FString::Printf(TEXT("%s  %d°%s"), *UWarmthComponent::StateName(Warmth->GetState()).ToString(),
+		FMath::RoundToInt(Warmth->GetTemperature()), Warmth->IsNearFire() ? TEXT("  by a fire") : Warmth->IsSheltered() ? TEXT("  sheltered") : TEXT(""));
+	float LabelWidth, LabelHeight;
+	GetTextSize(Label, LabelWidth, LabelHeight, Font);
+	const float BarWidth = 120.f;
+	const float Right = Canvas->ClipX - 24.f;
+	const float Y = 22.f + TextHeight + 8.f;
+	const bool bThrob = Warmth->GetState() == EWarmthState::Freezing;
+	const float Throb = bThrob ? 0.6f + 0.4f * FMath::Sin(GetWorld()->GetTimeSeconds() * 8.f) : 1.f;
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.45f), Right - BarWidth - LabelWidth - 24.f, Y - 4.f, BarWidth + LabelWidth + 32.f, LabelHeight + 8.f);
+	DrawText(Label, FLinearColor(0.85f, 0.9f, 1.f), Right - BarWidth - LabelWidth - 16.f, Y, Font);
+	const float BarY = Y + LabelHeight * 0.5f - 4.f;
+	DrawRect(FLinearColor(0.08f, 0.1f, 0.15f, 0.9f), Right - BarWidth, BarY, BarWidth, 8.f);
+	const FLinearColor IcyColor(0.35f, 0.6f, 1.f), FireColor(1.f, 0.55f, 0.2f);
+	DrawRect(FLinearColor::LerpUsingHSV(IcyColor, FireColor, Fraction) * Throb, Right - BarWidth, BarY, BarWidth * Fraction, 8.f);
 }
 
 void AHearthvaleHUD::DrawTarget(AHearthvaleCharacter* Character)

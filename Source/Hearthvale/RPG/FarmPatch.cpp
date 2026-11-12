@@ -127,6 +127,15 @@ void AFarmPatch::Water(float ExtraSeconds)
 	}
 }
 
+void AFarmPatch::AdjustGrowth(float Seconds)
+{
+	if (!Crop || GetState() == EPatchState::Ready)
+	{
+		return;
+	}
+	PlantedAt = FMath::Min(PlantedAt - FTimespan::FromSeconds(Seconds), FDateTime::UtcNow());
+}
+
 bool AFarmPatch::UseFertiliser(UInventoryComponent* From)
 {
 	UItemDefinition* Fertiliser = UItemDefinition::FindItem(TEXT("Fertiliser"));
