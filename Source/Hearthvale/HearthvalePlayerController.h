@@ -15,6 +15,8 @@ class UCraftingMenuWidget;
 class ACraftingStation;
 class UBuildingComponent;
 class UChestWidget;
+class UShopWidget;
+class ATrader;
 class ABuildPiece;
 
 /**
@@ -59,6 +61,17 @@ public:
 
 	UFUNCTION(BlueprintPure, Category="UI")
 	UChestWidget* GetChestWindow() const { return ChestWindow; }
+
+	/** Opens a trader's shop, or closes it if it's already open on them. */
+	void ToggleShop(ATrader* Trader);
+
+	void CloseShop();
+
+	UFUNCTION(BlueprintPure, Category="UI")
+	bool IsShopOpen() const;
+
+	UFUNCTION(BlueprintPure, Category="UI")
+	UShopWidget* GetShopWindow() const { return ShopWindow; }
 
 	UFUNCTION(BlueprintPure, Category="UI")
 	bool IsCraftingMenuOpen() const;
@@ -113,6 +126,10 @@ protected:
 	/** A chest's contents and the backpack, side by side */
 	UPROPERTY()
 	TObjectPtr<UChestWidget> ChestWindow;
+
+	/** A trader's stock and the backpack */
+	UPROPERTY()
+	TObjectPtr<UShopWidget> ShopWindow;
 
 	/** The hotbar along the bottom of the screen */
 	UPROPERTY()

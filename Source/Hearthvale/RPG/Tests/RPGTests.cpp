@@ -21,6 +21,7 @@
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillUnlocks.h"
 #include "RPG/SkillsComponent.h"
+#include "RPG/Town/TraderDefinition.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldGenerator.h"
 
@@ -383,6 +384,75 @@ bool FLivestockTest::RunTest(const FString& Parameters)
 	// A bucket is made at a workbench.
 	TestTrue(TEXT("A bucket is made at a workbench"), URecipeDefinition::GetRecipesFor(ECraftStation::Workbench).ContainsByPredicate(
 		[](const URecipeDefinition* R) { return R->Output && R->Output->GetFName() == TEXT("Bucket"); }));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTradingTest, "Hearthvale.Trading", TestFlags)
+
+bool FTradingTest::RunTest(const FString& Parameters)
+{
+	// A trader with coins, selling buckets (worth 10) and paying half for wool (worth 12).
+	UTraderDefinition* Trader = NewObject<UTraderDefinition>();
+	UItemDefinition* Coins = MakeItem(true);
+	Coins->Category = EItemCategory::Currency;
+	UItemDefinition* Bucket = MakeItem(false);
+	Bucket->Value = 10;
+	UItemDefinition* Wool = MakeItem(true);
+	Wool->Value = 12;
+	UItemDefinition* Junk = MakeItem(false);
+	Trader->Currency = Coins;
+	Trader->Markup = 1.5f;
+	Trader->Stock.Add(FTraderStock{Bucket});
+	FTraderStock Dear{Wool};
+	Dear.Price = 100;
+	Trader->Stock.Add(Dear);
+
+	TestEqual(TEXT("Stock is priced at value times markup"), Trader->GetBuyPrice(Trader->Stock[0]), 15);
+	TestEqual(TEXT("A set price wins"), Trader->GetBuyPrice(Trader->Stock[1]), 100);
+	TestEqual(TEXT("They pay half value"), Trader->GetSellPrice(Wool), 6);
+	TestEqual(TEXT("They won't buy worthless things"), Trader->GetSellPrice(Junk), 0);
+	TestEqual(TEXT("They won't buy coins"), Trader->GetSellPrice(Coins), 0);
+
+	UInventoryComponent* Inventory = NewObject<UInventoryComponent>();
+	Inventory->AddItem(Coins, 40);
+	TestEqual(TEXT("Buys as many as the coins cover"), Trader->BuyItems(Inventory, 0, 5), 2);
+	TestEqual(TEXT("Paid for them"), Inventory->CountItem(Coins), 10);
+	TestEqual(TEXT("Got them"), Inventory->CountItem(Bucket), 2);
+	TestEqual(TEXT("Can't afford the dear line"), Trader->BuyItems(Inventory, 1, 1), 0);
+	TestEqual(TEXT("Nothing taken for it"), Inventory->CountItem(Coins), 10);
+
+	Inventory->AddItem(Wool, 5);
+	TestEqual(TEXT("Sells only what you have"), Trader->SellItems(Inventory, Wool, 9), 5);
+	TestEqual(TEXT("Paid for the wool"), Inventory->CountItem(Coins), 40);
+	TestEqual(TEXT("Junk doesn't sell"), Trader->SellItems(Inventory, Junk, 1), 0);
+
+	// A full backpack: spending the last coins makes room for one more thing.
+	UInventoryComponent* Full = NewObject<UInventoryComponent>();
+	Full->AddItem(Coins, 15);
+	Full->AddItem(Junk, Full->GetCapacity() - 1);
+	TestEqual(TEXT("The last coins' slot takes the bucket"), Trader->BuyItems(Full, 0, 1), 1);
+	TestEqual(TEXT("And the coins are gone"), Full->CountItem(Coins), 0);
+
+	// The game's trader: everything for sale costs more than they'd pay for it, and there's livestock.
+	const UTraderDefinition* Odile = LoadObject<UTraderDefinition>(nullptr, TEXT("/Game/Town/Traders/Odile.Odile"));
+	if (TestNotNull(TEXT("The town trader exists"), Odile))
+	{
+		TestNotNull(TEXT("They take coins"), Odile->Currency.Get());
+		TestFalse(TEXT("They have something to say"), Odile->Greetings.IsEmpty());
+		bool bAnimals = false;
+		for (const FTraderStock& Line : Odile->Stock)
+		{
+			const FString Name = UTraderDefinition::GetStockName(Line).ToString();
+			TestTrue(FString::Printf(TEXT("%s is an item or an animal"), *Name), (Line.Item != nullptr) != (Line.Animal != nullptr));
+			TestTrue(FString::Printf(TEXT("%s has a price"), *Name), Odile->GetBuyPrice(Line) > 0);
+			if (Line.Item)
+			{
+				TestTrue(FString::Printf(TEXT("%s can't be sold back for profit"), *Name), Odile->GetSellPrice(Line.Item) < Odile->GetBuyPrice(Line));
+			}
+			bAnimals |= Line.Animal != nullptr;
+		}
+		TestTrue(TEXT("They sell livestock"), bAnimals);
+	}
 	return true;
 }
 

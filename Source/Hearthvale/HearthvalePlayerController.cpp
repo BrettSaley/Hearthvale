@@ -9,6 +9,7 @@
 #include "RPG/Building/BuildingComponent.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/UI/ChestWidget.h"
+#include "RPG/UI/ShopWidget.h"
 #include "RPG/UI/CraftingMenuWidget.h"
 #include "RPG/UI/HotbarWidget.h"
 #include "Engine/LocalPlayer.h"
@@ -55,6 +56,9 @@ void AHearthvalePlayerController::BeginPlay()
 		ChestWindow = CreateWidget<UChestWidget>(this, UChestWidget::StaticClass());
 		ChestWindow->AddToPlayerScreen(10);
 		ChestWindow->SetVisibility(ESlateVisibility::Collapsed);
+		ShopWindow = CreateWidget<UShopWidget>(this, UShopWidget::StaticClass());
+		ShopWindow->AddToPlayerScreen(10);
+		ShopWindow->SetVisibility(ESlateVisibility::Collapsed);
 		Hotbar = CreateWidget<UHotbarWidget>(this, UHotbarWidget::StaticClass());
 		Hotbar->AddToPlayerScreen(5);
 		Hotbar->BindCharacter(Cast<AHearthvaleCharacter>(GetPawn()));
@@ -174,6 +178,7 @@ void AHearthvalePlayerController::SetPanelOpen(bool bOpen, EPanelTab Tab)
 	{
 		CloseCraftingMenu();
 		CloseChest();
+		CloseShop();
 		Panel->BindCharacter(Cast<AHearthvaleCharacter>(GetPawn()));
 		Panel->ShowTab(Tab);
 		Panel->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
@@ -199,6 +204,7 @@ void AHearthvalePlayerController::ToggleCraftingMenu(ACraftingStation* Station)
 	}
 	SetPanelOpen(false);
 	CloseChest();
+	CloseShop();
 	CraftingMenu->Open(Cast<AHearthvaleCharacter>(GetPawn()), Station);
 	CraftingMenu->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 	UpdateInputMode();
@@ -227,10 +233,12 @@ void AHearthvalePlayerController::ToggleChest(ABuildPiece* Chest)
 	if (IsChestOpen() && ChestWindow->GetChest() == Chest)
 	{
 		CloseChest();
+		CloseShop();
 		return;
 	}
 	SetPanelOpen(false);
 	CloseCraftingMenu();
+	CloseShop();
 	ChestWindow->Open(Cast<AHearthvaleCharacter>(GetPawn()), Chest);
 	ChestWindow->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 	UpdateInputMode();
@@ -250,9 +258,42 @@ bool AHearthvalePlayerController::IsChestOpen() const
 	return ChestWindow && ChestWindow->GetVisibility() != ESlateVisibility::Collapsed;
 }
 
+void AHearthvalePlayerController::ToggleShop(ATrader* Trader)
+{
+	if (!ShopWindow)
+	{
+		return;
+	}
+	if (IsShopOpen() && ShopWindow->GetTrader() == Trader)
+	{
+		CloseShop();
+		return;
+	}
+	SetPanelOpen(false);
+	CloseCraftingMenu();
+	CloseChest();
+	ShopWindow->Open(Cast<AHearthvaleCharacter>(GetPawn()), Trader);
+	ShopWindow->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+	UpdateInputMode();
+}
+
+void AHearthvalePlayerController::CloseShop()
+{
+	if (IsShopOpen())
+	{
+		ShopWindow->SetVisibility(ESlateVisibility::Collapsed);
+		UpdateInputMode();
+	}
+}
+
+bool AHearthvalePlayerController::IsShopOpen() const
+{
+	return ShopWindow && ShopWindow->GetVisibility() != ESlateVisibility::Collapsed;
+}
+
 bool AHearthvalePlayerController::IsMenuOpen() const
 {
-	return IsPanelOpen() || IsCraftingMenuOpen() || IsChestOpen();
+	return IsPanelOpen() || IsCraftingMenuOpen() || IsChestOpen() || IsShopOpen();
 }
 
 void AHearthvalePlayerController::UpdateInputMode()
@@ -260,7 +301,7 @@ void AHearthvalePlayerController::UpdateInputMode()
 	const bool bMenu = IsMenuOpen();
 	if (Hotbar)
 	{
-		Hotbar->SetVisibility(IsPanelOpen() || IsChestOpen() ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
+		Hotbar->SetVisibility(IsPanelOpen() || IsChestOpen() || IsShopOpen() ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
 	}
 	if (bMenu)
 	{
@@ -317,6 +358,7 @@ void AHearthvalePlayerController::ToggleBuildMode()
 		SetPanelOpen(false);
 		CloseCraftingMenu();
 		CloseChest();
+		CloseShop();
 	}
 	Building->SetBuildMode(bOn);
 }
