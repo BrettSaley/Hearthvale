@@ -13,6 +13,7 @@
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
 #include "RPG/Town/SettlerDefinition.h"
+#include "RPG/World/WorldClock.h"
 
 #define LOCTEXT_NAMESPACE "Settler"
 
@@ -119,12 +120,13 @@ void ASettler::Tick(float DeltaSeconds)
 	{
 		return;
 	}
-	if (!Bed.IsValid())
+	if (!Bed.IsValid() || Bed->IsClaimed())
 	{
-		// Nowhere to sleep: they move on.
+		// Nowhere to sleep (or you've taken their bed): they move on.
 		if (const AHearthvaleCharacter* Player = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
 		{
-			Player->ShowMessage(FText::Format(LOCTEXT("Leaves", "{0} has nowhere to sleep and leaves."), GetFullName()), SettlerSpeech);
+			Player->ShowMessage(FText::Format(Bed.IsValid() ? LOCTEXT("BedTaken", "You've taken {0}'s bed, so they leave.")
+				: LOCTEXT("Leaves", "{0} has nowhere to sleep and leaves."), GetFullName()), SettlerSpeech);
 		}
 		Destroy();
 		return;
@@ -149,6 +151,11 @@ void ASettler::Tick(float DeltaSeconds)
 	if (!Eat(Chest))
 	{
 		Trouble = ESettlerTrouble::Hungry;
+		return;
+	}
+	// They sleep at night: no work till morning.
+	if (const UWorldClock* Clock = UWorldClock::Get(this); Clock && Clock->IsNight())
+	{
 		return;
 	}
 	Work += Elapsed;
@@ -315,6 +322,13 @@ void ASettler::Interact(AHearthvaleCharacter* Character)
 		return;
 	}
 	FText Line;
+	const UWorldClock* Clock = UWorldClock::Get(this);
+	if (Clock && Clock->IsNight())
+	{
+		Character->ShowMessage(FText::Format(LOCTEXT("Asleep", "{0}: Mm? It's the middle of the night. Let me sleep."),
+			Settler->DisplayName), SettlerSpeech);
+		return;
+	}
 	switch (Trouble)
 	{
 	case ESettlerTrouble::NoChest:

@@ -213,6 +213,11 @@ int32 ATrader::Sell(AHearthvaleCharacter* Character, UItemDefinition* Item, int3
 	{
 		return 0;
 	}
+	// Nothing to sell: nothing to say.
+	if (!Character->GetInventory()->HasItem(Item))
+	{
+		return 0;
+	}
 	const int32 Price = Definition->GetSellPrice(Item);
 	if (Price <= 0)
 	{
