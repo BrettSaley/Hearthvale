@@ -92,7 +92,7 @@ void UWarmthComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 		if (HurtTimer >= FreezeHurtSeconds)
 		{
 			HurtTimer = 0.f;
-			Health->ApplyDamage(1, LOCTEXT("TheCold", "the cold"));
+			Health->ApplyDamage(1, LOCTEXT("TheCold", "the cold"), false);
 			UE_LOG(LogHearthvale, Log, TEXT("World: the cold hurts (health %d)."), Health->GetHealth());
 		}
 	}
