@@ -16,7 +16,7 @@
 
 namespace
 {
-	const FLinearColor Warning(1.f, 0.45f, 0.4f);
+	const FLinearColor BoatWarning(1.f, 0.45f, 0.4f);
 }
 
 UBoatComponent::UBoatComponent()
@@ -85,7 +85,7 @@ bool UBoatComponent::Board(AHearthvaleCharacter* Character)
 	}
 	if (Rider.IsValid())
 	{
-		Character->ShowMessage(LOCTEXT("Taken", "Someone's already aboard."), Warning);
+		Character->ShowMessage(LOCTEXT("Taken", "Someone's already aboard."), BoatWarning);
 		return false;
 	}
 	Character->StopActions();
@@ -131,7 +131,7 @@ bool UBoatComponent::Disembark(bool bForce)
 	{
 		if (!bForce)
 		{
-			Character->ShowMessage(LOCTEXT("NoShore", "It's too deep to step off here: steer closer to the shore."), Warning);
+			Character->ShowMessage(LOCTEXT("NoShore", "It's too deep to step off here: steer closer to the shore."), BoatWarning);
 			return false;
 		}
 		Best = BoardedFrom - FVector(0.f, 0.f, Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
@@ -254,7 +254,7 @@ void UBoatComponent::Warn(const FText& Text, float& LastSaid)
 {
 	if (Rider.IsValid() && Age - LastSaid > 4.f)
 	{
-		Rider->ShowMessage(Text, Warning);
+		Rider->ShowMessage(Text, BoatWarning);
 	}
 	LastSaid = Age;
 }
