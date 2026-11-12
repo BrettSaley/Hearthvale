@@ -13,6 +13,7 @@
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WorldClock.h"
 #include "RPG/Town/RequestBoard.h"
+#include "RPG/Town/Settler.h"
 #include "Hearthvale.h"
 
 const FString UHearthvaleSaveGame::SlotName = TEXT("Hearthvale");
@@ -61,6 +62,14 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 		for (const ARequestBoard* Board : TActorRange<ARequestBoard>(World))
 		{
 			Save->RequestBoards.Add(Board->GetName(), Board->GetState());
+		}
+		Save->bHasSettlers = true;
+		for (const ASettler* Settler : TActorRange<ASettler>(World))
+		{
+			if (Settler->GetSettler() && Settler->GetBed() && !Settler->IsActorBeingDestroyed())
+			{
+				Save->Settlers.Add(Settler->SaveState());
+			}
 		}
 		Save->bHasAnimals = true;
 		for (const AFarmAnimal* Animal : TActorRange<AFarmAnimal>(World))
@@ -233,6 +242,21 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 				if (!AFarmAnimal::SpawnSaved(World, Saved))
 				{
 					UE_LOG(LogHearthvale, Warning, TEXT("Save has an unknown animal '%s'; dropping it."), *Saved.Animal);
+				}
+			}
+		}
+		// After the build pieces: settlers find their beds again.
+		if (Save->bHasSettlers)
+		{
+			for (ASettler* Settler : TActorRange<ASettler>(World))
+			{
+				Settler->Destroy();
+			}
+			for (const FSavedSettler& Saved : Save->Settlers)
+			{
+				if (!ASettler::SpawnSaved(World, Saved))
+				{
+					UE_LOG(LogHearthvale, Warning, TEXT("Save has a settler '%s' without a bed; dropping them."), *Saved.Settler);
 				}
 			}
 		}
