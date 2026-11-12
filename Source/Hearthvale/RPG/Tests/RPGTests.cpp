@@ -438,6 +438,28 @@ bool FTradingTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("The last coins' slot takes the bucket"), Trader->BuyItems(Full, 0, 1), 1);
 	TestEqual(TEXT("And the coins are gone"), Full->CountItem(Coins), 0);
 
+	// Daily stock: two a day, counted per day.
+	FTraderStock Limited{Bucket};
+	Limited.PerDay = 2;
+	FTraderDayState Day;
+	Day.Roll(3, 2);
+	TestEqual(TEXT("Two left on a new day"), Day.Left(Limited, 0), 2);
+	Day.Sold[0] = 2;
+	TestEqual(TEXT("None left once they're sold"), Day.Left(Limited, 0), 0);
+	TestEqual(TEXT("No limit on the rest"), Day.Left(Trader->Stock[0], 1), MAX_int32);
+	Day.Roll(3, 2);
+	TestEqual(TEXT("The same day keeps its count"), Day.Left(Limited, 0), 0);
+	Day.Roll(4, 2);
+	TestEqual(TEXT("More came in overnight"), Day.Left(Limited, 0), 2);
+
+	// A worn tool fetches less, but something.
+	UItemDefinition* Axe = MakeItem(false);
+	Axe->Value = 40;
+	Axe->Durability = 100;
+	TestEqual(TEXT("A new axe fetches half value"), Trader->GetSellPrice(Axe, 0), 20);
+	TestEqual(TEXT("A half-worn axe fetches half that"), Trader->GetSellPrice(Axe, 50), 10);
+	TestEqual(TEXT("A nearly broken axe still fetches a coin"), Trader->GetSellPrice(Axe, 99), 1);
+
 	// The game's trader: everything for sale costs more than they'd pay for it, and there's livestock.
 	const UTraderDefinition* Odile = LoadObject<UTraderDefinition>(nullptr, TEXT("/Game/Town/Traders/Odile.Odile"));
 	if (TestNotNull(TEXT("The town trader exists"), Odile))
@@ -457,6 +479,12 @@ bool FTradingTest::RunTest(const FString& Parameters)
 			bAnimals |= Line.Animal != nullptr;
 		}
 		TestTrue(TEXT("They sell livestock"), bAnimals);
+		bool bLimited = false;
+		for (const FTraderStock& Line : Odile->Stock)
+		{
+			bLimited |= Line.PerDay > 0;
+		}
+		TestTrue(TEXT("Some stock runs out each day"), bLimited);
 	}
 	return true;
 }

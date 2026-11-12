@@ -24,6 +24,11 @@ void UMenuButtonWidget::Setup(const FText& Label, TFunction<void()> InOnClicked,
 	OnClicked = MoveTemp(InOnClicked);
 }
 
+void UMenuButtonWidget::SetLabel(const FText& Label)
+{
+	Text->SetText(Label);
+}
+
 void UMenuButtonWidget::SetDimmed(bool bInDimmed)
 {
 	bDimmed = bInDimmed;

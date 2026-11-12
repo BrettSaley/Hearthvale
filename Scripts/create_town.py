@@ -132,7 +132,8 @@ def stall():
             + [part("Cube", "Wood", (-30, y, 22), (0.45, 0.45, 0.44), (0, 0, 12), collides=True) for y in (-80, 85)])
 
 
-# --- Traders: ID: (name, title, greetings, call-outs, stock [(item or "@animal", price or 0)], markup) ---
+# --- Traders: ID: (name, title, greetings, call-outs, stock [(item or "@animal", price or 0, how many a day or 0)], markup) ---
+# She's open by day; at night she goes home and the stall is shut.
 
 TRADERS = {
     "Odile": ("Odile", "Trader",
@@ -142,9 +143,9 @@ TRADERS = {
               ["Seeds and stock! Hens, sheep, pigs, cows!",
                "Got anything to sell? Come and see me.",
                "Fine day for the market!"],
-              [("PotatoSeed", 0), ("OnionSeed", 0), ("CabbageSeed", 0), ("PumpkinSeed", 0), ("Bucket", 0), ("Bait", 0),
-               ("CopperAxe", 0), ("CopperPickaxe", 0), ("CopperSickle", 0),
-               ("@Chicken", 40), ("@Sheep", 120), ("@Pig", 160), ("@Cow", 260)],
+              [("PotatoSeed", 0, 0), ("OnionSeed", 0, 0), ("CabbageSeed", 0, 0), ("PumpkinSeed", 0, 0), ("Bucket", 0, 2), ("Bait", 0, 0),
+               ("CopperAxe", 0, 2), ("CopperPickaxe", 0, 2), ("CopperSickle", 0, 2),
+               ("@Chicken", 40, 2), ("@Sheep", 120, 1), ("@Pig", 160, 1), ("@Cow", 260, 1)],
               1.5),
 }
 
@@ -156,13 +157,14 @@ def create_traders():
     for trader_id, (name, title, greetings, callouts, stock, markup) in TRADERS.items():
         trader, _ = create(trader_id, "/Game/Town/Traders", unreal.TraderDefinition, factory)
         lines = []
-        for what, price in stock:
+        for what, price, per_day in stock:
             line = unreal.TraderStock()
             if what.startswith("@"):
                 line.set_editor_property("animal", animal(what[1:]))
             else:
                 line.set_editor_property("item", item(what))
             line.set_editor_property("price", price)
+            line.set_editor_property("per_day", per_day)
             lines.append(line)
         for prop, value in [("display_name", unreal.Text(name)), ("title", unreal.Text(title)),
                             ("greetings", [unreal.Text(t) for t in greetings]),
@@ -316,44 +318,54 @@ def create_villagers():
 
 
 def place_villagers(villagers):
-    """Round the square in front of the first trader's stall: a home out on the edge, and a few spots near the middle."""
+    """Round the square in front of the first trader's stall: a home out on the edge, and a few spots near the middle,
+    none of them by the stall's counter or the notice board (where they'd be in your way). Villagers already in the
+    level get their stops redone too."""
     subsystem = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
     actors = subsystem.get_all_level_actors()
     traders = [a for a in actors if isinstance(a, unreal.Trader)]
     if not traders:
         unreal.log_warning("create_town: no trader to put the villagers round.")
         return
-    here = {a.get_editor_property("definition").get_name() for a in actors
-            if isinstance(a, unreal.Villager) and a.get_editor_property("definition")}
+    existing = {a.get_editor_property("definition").get_name(): a for a in actors
+                if isinstance(a, unreal.Villager) and a.get_editor_property("definition")}
     stall = traders[0]
     square = stall.get_actor_location() + stall.get_actor_forward_vector() * 600.0
+    # Where the player stands to trade or read: keep clear.
+    keep_clear = [stall.get_actor_location() + stall.get_actor_forward_vector() * 190.0]
+    keep_clear += [b.get_actor_location() + b.get_actor_forward_vector() * 170.0 for b in actors if isinstance(b, unreal.RequestBoard)]
     height = unreal.WorldGenerator.get_ground_height
 
+    def clear(x, y):
+        return all(math.hypot(x - c.x, y - c.y) > 450.0 for c in keep_clear)
+
     def dry(angle_deg, distance):
-        # The first dry spot out along a bearing, coming in towards the square.
-        for step in range(8):
-            d = distance * (1.0 - step * 0.1)
-            x = square.x + d * math.cos(math.radians(angle_deg))
-            y = square.y + d * math.sin(math.radians(angle_deg))
-            if height(x, y) > 120:
-                return V(x, y, height(x, y))
+        # The first dry spot out along a bearing that's clear of the counter and board, coming in towards the square.
+        for turn in (0.0, 30.0, -30.0, 60.0, -60.0, 90.0):
+            for step in range(8):
+                d = distance * (1.0 - step * 0.1)
+                x = square.x + d * math.cos(math.radians(angle_deg + turn))
+                y = square.y + d * math.sin(math.radians(angle_deg + turn))
+                if height(x, y) > 120 and clear(x, y):
+                    return V(x, y, height(x, y))
         return V(square.x, square.y, height(square.x, square.y))
 
     placed = 0
     for i, (villager_id, villager) in enumerate(villagers.items()):
-        if villager_id in here:
-            continue
         bearing = i * 72.0 + 20.0
         stops = [dry(bearing, 1500.0), dry(bearing + 25.0, 500.0), dry(bearing - 40.0, 350.0), dry(bearing + 140.0, 650.0)]
-        actor = subsystem.spawn_actor_from_class(unreal.Villager, stops[1], unreal.Rotator(0, 0, bearing))
-        actor.set_editor_property("definition", villager)
+        actor = existing.get(villager_id)
+        if actor is None:
+            actor = subsystem.spawn_actor_from_class(unreal.Villager, stops[1], unreal.Rotator(0, 0, bearing))
+            actor.set_editor_property("definition", villager)
+            actor.set_actor_label(f"Villager_{villager_id}")
+            actor.set_folder_path("Town")
+            placed += 1
+        else:
+            actor.set_actor_location(stops[1], False, False)
         actor.set_editor_property("stops", stops)
-        actor.set_actor_label(f"Villager_{villager_id}")
-        actor.set_folder_path("Town")
-        placed += 1
-    if placed:
-        unreal.EditorLoadingAndSavingUtils.save_dirty_packages(True, True)
-    unreal.log(f"create_town: placed {placed} villagers.")
+    unreal.EditorLoadingAndSavingUtils.save_dirty_packages(True, True)
+    unreal.log(f"create_town: placed {placed} villagers, updated {len(villagers) - placed}.")
 
 
 # --- Quests, in order: (title, giver, offer, thanks, steps, coins, (reward item, how many) or None, skill, XP) ---

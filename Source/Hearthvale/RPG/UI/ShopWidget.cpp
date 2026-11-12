@@ -172,7 +172,16 @@ void UShopWidget::Refresh()
 	Purse->SetText(FText::Format(LOCTEXT("Purse", "{0} coins"), Coins));
 	for (int32 Index = 0; Index < StockButtons.Num() && Index < Definition->Stock.Num(); ++Index)
 	{
-		StockButtons[Index]->SetDimmed(Definition->GetBuyPrice(Definition->Stock[Index]) > Coins);
+		const FTraderStock& Line = Definition->Stock[Index];
+		const int32 Left = Trader->GetLeft(Index);
+		FText Label = FText::Format(Line.Animal ? LOCTEXT("AnimalLine", "{0} (tame)  -  {1} coins") : LOCTEXT("ItemLine", "{0}  -  {1} coins"),
+			UTraderDefinition::GetStockName(Line), Definition->GetBuyPrice(Line));
+		if (Left != MAX_int32)
+		{
+			Label = Left > 0 ? FText::Format(LOCTEXT("Left", "{0}  ({1} left)"), Label, Left) : FText::Format(LOCTEXT("SoldOutLine", "{0}  (sold out)"), Label);
+		}
+		StockButtons[Index]->SetLabel(Label);
+		StockButtons[Index]->SetDimmed(Definition->GetBuyPrice(Line) > Coins || Left <= 0);
 	}
 	for (UInventorySlotWidget* SlotWidget : BackpackSlots)
 	{
@@ -182,7 +191,9 @@ void UShopWidget::Refresh()
 
 int32 UShopWidget::BuyLine(int32 StockIndex, int32 Count)
 {
-	return Trader.IsValid() && Character.IsValid() ? Trader->Buy(Character.Get(), StockIndex, Count) : 0;
+	const int32 Bought = Trader.IsValid() && Character.IsValid() ? Trader->Buy(Character.Get(), StockIndex, Count) : 0;
+	Refresh();
+	return Bought;
 }
 
 int32 UShopWidget::SellSlot(int32 SlotIndex, bool bAll)
@@ -192,12 +203,7 @@ int32 UShopWidget::SellSlot(int32 SlotIndex, bool bAll)
 	{
 		return 0;
 	}
-	const FItemStack Stack = Owner->GetInventory()->GetSlot(SlotIndex);
-	if (Stack.IsEmpty())
-	{
-		return 0;
-	}
-	return Trader->Sell(Owner, Stack.Item, bAll ? Stack.Quantity : 1);
+	return Trader->SellSlot(Owner, SlotIndex, bAll);
 }
 
 void UShopWidget::Unbind()
@@ -226,7 +232,7 @@ void UShopWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 		return;
 	}
 	const AHearthvaleCharacter* Owner = Character.Get();
-	if (!Owner || !Trader.IsValid() || FVector::Dist2D(Owner->GetActorLocation(), Trader->GetActorLocation()) > ShopCloseDistance)
+	if (!Owner || !Trader.IsValid() || !Trader->IsOpen() || FVector::Dist2D(Owner->GetActorLocation(), Trader->GetActorLocation()) > ShopCloseDistance)
 	{
 		Close();
 	}

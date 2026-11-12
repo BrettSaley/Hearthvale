@@ -17,6 +17,7 @@
 #include "RPG/Town/Settler.h"
 #include "RPG/Town/Villager.h"
 #include "RPG/Town/QuestSubsystem.h"
+#include "RPG/Town/Trader.h"
 #include "Hearthvale.h"
 
 const FString UHearthvaleSaveGame::SlotName = TEXT("Hearthvale");
@@ -81,6 +82,10 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 		if (const UQuestSubsystem* Quests = World->GetSubsystem<UQuestSubsystem>())
 		{
 			Save->Quests = Quests->GetState();
+		}
+		for (const ATrader* Trader : TActorRange<ATrader>(World))
+		{
+			Save->Traders.Add(Trader->GetName(), Trader->GetDayState());
 		}
 		Save->bHasSettlers = true;
 		for (const ASettler* Settler : TActorRange<ASettler>(World))
@@ -209,6 +214,13 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 		if (UQuestSubsystem* Quests = World->GetSubsystem<UQuestSubsystem>())
 		{
 			Quests->LoadState(Save->Quests);
+		}
+		for (ATrader* Trader : TActorRange<ATrader>(World))
+		{
+			if (const FTraderDayState* Saved = Save->Traders.Find(Trader->GetName()))
+			{
+				Trader->LoadDayState(*Saved);
+			}
 		}
 		for (AVillager* Villager : TActorRange<AVillager>(World))
 		{

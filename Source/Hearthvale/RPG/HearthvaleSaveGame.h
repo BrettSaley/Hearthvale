@@ -12,6 +12,7 @@
 #include "RPG/Town/Settler.h"
 #include "RPG/Town/VillagerDefinition.h"
 #include "RPG/Town/QuestDefinition.h"
+#include "RPG/Town/TraderDefinition.h"
 #include "HearthvaleSaveGame.generated.h"
 
 class AHearthvaleCharacter;
@@ -155,6 +156,10 @@ public:
 	/** Where you are in the town's quests. */
 	UPROPERTY()
 	FQuestLogState Quests;
+
+	/** What each trader's sold today, by the trader actor's name. */
+	UPROPERTY()
+	TMap<FString, FTraderDayState> Traders;
 
 	/** Write a character's progress (and the farm patches in their world) to disk. */
 	static bool SaveProgress(const AHearthvaleCharacter* Character);
