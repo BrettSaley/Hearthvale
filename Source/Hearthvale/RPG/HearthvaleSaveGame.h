@@ -7,6 +7,7 @@
 #include "RPG/ItemDefinition.h"
 #include "RPG/Skills.h"
 #include "RPG/World/Seasons.h"
+#include "RPG/Town/RequestBoardDefinition.h"
 #include "HearthvaleSaveGame.generated.h"
 
 class AHearthvaleCharacter;
@@ -115,6 +116,10 @@ public:
 	/** How warm the character is; negative (older saves) means warm through. */
 	UPROPERTY()
 	float Warmth = -1.f;
+
+	/** Town notice boards' requests, by the board actor's name. */
+	UPROPERTY()
+	TMap<FString, FRequestBoardState> RequestBoards;
 
 	/** Write a character's progress (and the farm patches in their world) to disk. */
 	static bool SaveProgress(const AHearthvaleCharacter* Character);

@@ -13,7 +13,9 @@
 #include "RPG/CraftingStation.h"
 #include "RPG/CraftingComponent.h"
 #include "RPG/RecipeDefinition.h"
+#include "RPG/Town/RequestBoard.h"
 #include "RPG/Town/Trader.h"
+#include "RPG/UI/RequestBoardWidget.h"
 #include "RPG/Town/TraderDefinition.h"
 #include "RPG/UI/ShopWidget.h"
 #include "RPG/UI/ChestWidget.h"
@@ -968,4 +970,60 @@ void UHearthvaleCheatManager::Sell(FName ItemId, int32 Count)
 		return;
 	}
 	Say(FString::Printf(TEXT("Sold %d."), Controller->GetShopWindow()->GetTrader()->Sell(Character, UItemDefinition::FindItem(ItemId), Count)));
+}
+
+void UHearthvaleCheatManager::Notices()
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(GetOuterAPlayerController());
+	ARequestBoard* Nearest = nullptr;
+	for (ARequestBoard* Board : TActorRange<ARequestBoard>(GetWorld()))
+	{
+		if (Character && (!Nearest || FVector::Dist(Board->GetActorLocation(), Character->GetActorLocation())
+			< FVector::Dist(Nearest->GetActorLocation(), Character->GetActorLocation())))
+		{
+			Nearest = Board;
+		}
+	}
+	if (!Nearest || !Controller)
+	{
+		Say(TEXT("No notice board here."));
+		return;
+	}
+	const FVector Front = Nearest->GetActorLocation() + Nearest->GetActorForwardVector() * 170.f + FVector(0.f, 0.f, 100.f);
+	Character->TeleportTo(Front, (-Nearest->GetActorForwardVector()).Rotation());
+	Controller->SetControlRotation(FRotator(-10.f, (-Nearest->GetActorForwardVector()).Rotation().Yaw, 0.f));
+	if (!Controller->IsBoardOpen())
+	{
+		Nearest->Interact(Character);
+	}
+	Say(TEXT("Reading the notice board."));
+}
+
+void UHearthvaleCheatManager::Deliver(int32 Spot)
+{
+	AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(GetOuterAPlayerController());
+	if (!Controller || !Controller->IsBoardOpen())
+	{
+		Say(TEXT("No notice board is open."));
+		return;
+	}
+	Say(Controller->GetBoardWindow()->DeliverSpot(Spot) ? TEXT("Delivered.") : TEXT("Not delivered."));
+}
+
+void UHearthvaleCheatManager::Repost()
+{
+	for (ARequestBoard* Board : TActorRange<ARequestBoard>(GetWorld()))
+	{
+		Board->Repost();
+		const URequestBoardDefinition* Definition = Board->GetDefinition();
+		for (int32 Spot = 0; Definition && Spot < Board->GetState().Posted.Num(); ++Spot)
+		{
+			const FTownRequest* Request = Board->GetState().GetRequest(*Definition, Spot);
+			Say(Request && Request->Item
+				? FString::Printf(TEXT("Spot %d: %s wants %d x %s for %d coins."), Spot, *Request->Asker.ToString(), Request->Quantity,
+					*Request->Item->GetName(), Request->Coins)
+				: FString::Printf(TEXT("Spot %d: empty."), Spot));
+		}
+	}
 }

@@ -245,6 +245,18 @@ public:
 	UFUNCTION(Exec)
 	void Sell(FName ItemId, int32 Count = 1);
 
+	/** Walks up to the nearest notice board and opens its requests. */
+	UFUNCTION(Exec)
+	void Notices();
+
+	/** Delivers the request in a spot of the open notice board (Deliver 0). */
+	UFUNCTION(Exec)
+	void Deliver(int32 Spot);
+
+	/** Puts new requests up in every empty spot of every notice board now, and lists what's up. */
+	UFUNCTION(Exec)
+	void Repost();
+
 private:
 	AHearthvaleCharacter* GetHearthvaleCharacter() const;
 

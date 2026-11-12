@@ -21,6 +21,7 @@
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillUnlocks.h"
 #include "RPG/SkillsComponent.h"
+#include "RPG/Town/RequestBoardDefinition.h"
 #include "RPG/Town/TraderDefinition.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldGenerator.h"
@@ -452,6 +453,79 @@ bool FTradingTest::RunTest(const FString& Parameters)
 			bAnimals |= Line.Animal != nullptr;
 		}
 		TestTrue(TEXT("They sell livestock"), bAnimals);
+	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRequestBoardTest, "Hearthvale.RequestBoard", TestFlags)
+
+bool FRequestBoardTest::RunTest(const FString& Parameters)
+{
+	// A two-spot board with three requests, one only for people who've done two already.
+	URequestBoardDefinition* Board = NewObject<URequestBoardDefinition>();
+	UItemDefinition* Coins = MakeItem(true);
+	UItemDefinition* Wool = MakeItem(true);
+	UItemDefinition* Egg = MakeItem(true);
+	UItemDefinition* Truffle = MakeItem(true);
+	Board->Currency = Coins;
+	Board->Spots = 2;
+	Board->RepostSeconds = 100.f;
+	auto Ask = [Board](UItemDefinition* Item, int32 Quantity, int32 Pay, int32 MinDone)
+	{
+		FTownRequest& Request = Board->Requests.AddDefaulted_GetRef();
+		Request.Item = Item;
+		Request.Quantity = Quantity;
+		Request.Coins = Pay;
+		Request.MinDone = MinDone;
+	};
+	Ask(Wool, 4, 70, 0);
+	Ask(Egg, 6, 40, 0);
+	Ask(Truffle, 1, 200, 2);
+
+	FRequestBoardState State;
+	State.Advance(*Board, 0.f);
+	TestEqual(TEXT("A spot per spot"), State.Posted.Num(), 2);
+	TestTrue(TEXT("Both spots fill straight away"), State.GetRequest(*Board, 0) && State.GetRequest(*Board, 1));
+	TestNotEqual(TEXT("Two different requests"), State.Posted[0], State.Posted[1]);
+	TestFalse(TEXT("The big job waits until you're known"), State.Posted.Contains(2));
+
+	UInventoryComponent* Inventory = NewObject<UInventoryComponent>();
+	const int32 WoolSpot = State.Posted.Find(0);
+	Inventory->AddItem(Wool, 3);
+	TestFalse(TEXT("Three wool isn't four"), State.Deliver(*Board, WoolSpot, Inventory, nullptr));
+	TestEqual(TEXT("Nothing taken"), Inventory->CountItem(Wool), 3);
+	Inventory->AddItem(Wool, 2);
+	TestTrue(TEXT("Five wool will do"), State.Deliver(*Board, WoolSpot, Inventory, nullptr));
+	TestEqual(TEXT("Four taken"), Inventory->CountItem(Wool), 1);
+	TestEqual(TEXT("Paid"), Inventory->CountItem(Coins), 70);
+	TestEqual(TEXT("Counted"), State.Done, 1);
+	TestNull(TEXT("The spot is empty"), State.GetRequest(*Board, WoolSpot));
+
+	State.Advance(*Board, 50.f);
+	TestNull(TEXT("Still empty halfway"), State.GetRequest(*Board, WoolSpot));
+	State.Advance(*Board, 60.f);
+	TestNotNull(TEXT("Filled once the wait's up"), State.GetRequest(*Board, WoolSpot));
+
+	// Saved state from a bigger board, or a pool that's shrunk, tidies itself.
+	FRequestBoardState Odd;
+	Odd.Posted = {7, 1, 0, 1};
+	Odd.Waits = {0.f, 0.f, 0.f, 0.f};
+	Odd.Advance(*Board, 0.f);
+	TestEqual(TEXT("Trimmed to the board's spots"), Odd.Posted.Num(), 2);
+	TestTrue(TEXT("The unknown request is replaced"), Board->Requests.IsValidIndex(Odd.Posted[0]) && Odd.Posted[0] != Odd.Posted[1]);
+
+	// The game's board: every request asks for something and pays.
+	const URequestBoardDefinition* Town = LoadObject<URequestBoardDefinition>(nullptr, TEXT("/Game/Town/RequestBoard.RequestBoard"));
+	if (TestNotNull(TEXT("The town board exists"), Town))
+	{
+		TestNotNull(TEXT("It pays in coins"), Town->Currency.Get());
+		TestTrue(TEXT("It has more requests than spots"), Town->Requests.Num() > Town->Spots);
+		for (const FTownRequest& Request : Town->Requests)
+		{
+			TestTrue(FString::Printf(TEXT("%s asks for something"), *Request.Asker.ToString()), Request.Item != nullptr && Request.Quantity > 0);
+			TestTrue(FString::Printf(TEXT("%s pays better than selling"), *Request.Asker.ToString()),
+				Request.Item && Request.Coins > Request.Item->Value * Request.Quantity / 2);
+		}
 	}
 	return true;
 }

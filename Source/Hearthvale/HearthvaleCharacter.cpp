@@ -533,7 +533,7 @@ bool AHearthvaleCharacter::LightFire(int32 SlotIndex)
 	{
 		return false;
 	}
-	const FLinearColor Warning(1.f, 0.45f, 0.4f);
+	const FLinearColor FireWarning(1.f, 0.45f, 0.4f);
 	const FVector Feet = GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
 	const FVector Spot = Feet + GetActorForwardVector() * 110.f;
 	for (const ACraftingStation* Station : TActorRange<ACraftingStation>(GetWorld()))
@@ -541,7 +541,7 @@ bool AHearthvaleCharacter::LightFire(int32 SlotIndex)
 		// Built walls and floors don't burn; other fires and benches are in the way.
 		if (Station->GetDefinition() && FVector::Dist2D(Station->GetActorLocation(), Spot) < 160.f)
 		{
-			ShowMessage(NSLOCTEXT("Hearthvale", "FireTooClose", "There's already something burning here."), Warning);
+			ShowMessage(NSLOCTEXT("Hearthvale", "FireTooClose", "There's already something burning here."), FireWarning);
 			return false;
 		}
 	}
