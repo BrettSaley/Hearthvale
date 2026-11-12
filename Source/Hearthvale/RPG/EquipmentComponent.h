@@ -37,7 +37,16 @@ public:
 	UItemDefinition* GetWorn(EEquipSlot Slot) const;
 
 	/** Straight into a slot, no questions asked (loading, tests). */
-	void SetWorn(EEquipSlot Slot, UItemDefinition* Item);
+	void SetWorn(EEquipSlot Slot, UItemDefinition* Item, int32 Wear = 0);
+
+	/** Uses spent on what's worn in a slot. */
+	int32 GetWornWear(EEquipSlot Slot) const { return WornWear.FindRef(Slot); }
+
+	/** Wears what's in a slot by Amount; when it's used up it breaks and is gone. True if it broke. */
+	bool AddWear(EEquipSlot Slot, int32 Amount = 1);
+
+	/** Sets the wear of what's worn in a slot (repairs). */
+	void SetWornWear(EEquipSlot Slot, int32 Wear);
 
 	/** Takes everything off and throws it away (a new character). */
 	void Clear();
@@ -76,4 +85,8 @@ public:
 private:
 	UPROPERTY(VisibleInstanceOnly, Category = "Equipment")
 	TMap<EEquipSlot, TObjectPtr<UItemDefinition>> Worn;
+
+	/** Uses spent on each worn thing that wears out. */
+	UPROPERTY(VisibleInstanceOnly, Category = "Equipment")
+	TMap<EEquipSlot, int32> WornWear;
 };

@@ -32,7 +32,7 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 	Save->SkillXP = Character->GetSkills()->GetAllXP();
 	for (const FItemStack& Slot : Character->GetInventory()->GetSlots())
 	{
-		Save->Inventory.Add(Slot.IsEmpty() ? FSavedItemStack() : FSavedItemStack{Slot.Item->GetItemId(), Slot.Quantity});
+		Save->Inventory.Add(Slot.IsEmpty() ? FSavedItemStack() : FSavedItemStack{Slot.Item->GetItemId(), Slot.Quantity, Slot.Wear});
 	}
 	Save->HeldSlot = Character->GetHeldSlot();
 	for (const TPair<EEquipSlot, TObjectPtr<UItemDefinition>>& Worn : Character->GetEquipment()->GetAllWorn())
@@ -40,6 +40,7 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 		if (Worn.Value)
 		{
 			Save->Equipped.Add(Worn.Key, Worn.Value->GetItemId());
+			Save->EquippedWear.Add(Worn.Key, Character->GetEquipment()->GetWornWear(Worn.Key));
 		}
 	}
 	Save->Health = Character->GetHealth()->GetHealth();
@@ -117,7 +118,7 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 				{
 					for (const FItemStack& Slot : Storage->GetSlots())
 					{
-						Saved.Items.Add(Slot.IsEmpty() ? FSavedItemStack() : FSavedItemStack{Slot.Item->GetItemId(), Slot.Quantity});
+						Saved.Items.Add(Slot.IsEmpty() ? FSavedItemStack() : FSavedItemStack{Slot.Item->GetItemId(), Slot.Quantity, Slot.Wear});
 					}
 				}
 			}
@@ -159,7 +160,7 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 		}
 		if (UItemDefinition* Item = UItemDefinition::FindItem(UpgradeItemId(Saved.ItemId)))
 		{
-			Inventory->SetSlot(Index, FItemStack{Item, Saved.Quantity});
+			Inventory->SetSlot(Index, FItemStack{Item, Saved.Quantity, Saved.Wear});
 		}
 		else
 		{
@@ -173,7 +174,7 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 	{
 		if (UItemDefinition* Item = UItemDefinition::FindItem(UpgradeItemId(Worn.Value)))
 		{
-			Equipment->SetWorn(Worn.Key, Item);
+			Equipment->SetWorn(Worn.Key, Item, Save->EquippedWear.FindRef(Worn.Key));
 		}
 		else
 		{
@@ -248,7 +249,7 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 					UItemDefinition* Item = Saved.Items[Index].ItemId.IsNone() ? nullptr : UItemDefinition::FindItem(UpgradeItemId(Saved.Items[Index].ItemId));
 					if (Item)
 					{
-						Storage->SetSlot(Index, FItemStack{Item, Saved.Items[Index].Quantity});
+						Storage->SetSlot(Index, FItemStack{Item, Saved.Items[Index].Quantity, Saved.Items[Index].Wear});
 					}
 				}
 			}

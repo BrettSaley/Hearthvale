@@ -94,7 +94,7 @@ void AGroundItem::Interact(AHearthvaleCharacter* Character)
 	{
 		return;
 	}
-	const int32 Taken = Character->GetInventory()->AddItem(Stack.Item, Stack.Quantity);
+	const int32 Taken = Character->GetInventory()->AddStack(Stack);
 	if (Taken <= 0)
 	{
 		Character->ShowMessage(LOCTEXT("Full", "Your inventory is too full to pick that up."), FLinearColor(1.f, 0.45f, 0.4f));

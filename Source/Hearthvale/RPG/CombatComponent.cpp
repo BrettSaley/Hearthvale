@@ -1,4 +1,5 @@
 #include "RPG/CombatComponent.h"
+#include "RPG/Durability.h"
 #include "HearthvaleCharacter.h"
 #include "RPG/EquipmentComponent.h"
 #include "RPG/GatheringComponent.h"
@@ -179,6 +180,8 @@ void UCombatComponent::Attack()
 		}
 		Character->GetInventory()->RemoveItem(Weapon->Ammo, 1);
 	}
+	// Every blow or shot, landed or not, wears the weapon a little.
+	FDurability::WearCarried(Character, Weapon);
 	const ESkill Style = bRanged ? ESkill::Precision : ESkill::Might;
 	// Worn things (rings, amulets) can sharpen the aim and add weight to blows.
 	const UEquipmentComponent* Equipment = Character->GetEquipment();

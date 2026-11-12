@@ -181,6 +181,14 @@ public:
 	UFUNCTION(Exec)
 	void TakeOff(const FString& Slot);
 
+	/** Wears the item in an inventory slot Amount uses, as if used (WearOut 0 140); says what's left. */
+	UFUNCTION(Exec)
+	void WearOut(int32 Slot, int32 Amount = 1);
+
+	/** Mends the item in an inventory slot, as the item menu's Mend does (stand at an anvil or workbench). */
+	UFUNCTION(Exec)
+	void Mend(int32 Slot);
+
 	/** Lists what's worn and the total defence. */
 	UFUNCTION(Exec)
 	void ListWorn();
