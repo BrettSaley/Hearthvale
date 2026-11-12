@@ -54,7 +54,10 @@ protected:
 private:
 	void BuildLook();
 	void Walk(float DeltaSeconds);
+	/** The height of the land (never anything built on it) at a spot. */
 	float GroundAt(const FVector& Spot) const;
+	/** Whether something solid (a wall, a stall, a rock) stands in the way of a step from here towards Direction. */
+	bool IsBlocked(const FVector& From, const FVector& Direction) const;
 	void Say(const AHearthvaleCharacter* Character, const FText& Line) const;
 
 	UPROPERTY(VisibleAnywhere, Category = "Villager")

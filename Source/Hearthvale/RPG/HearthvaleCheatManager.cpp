@@ -1216,9 +1216,9 @@ void UHearthvaleCheatManager::ListVillagers()
 	for (const AVillager* Villager : TActorRange<AVillager>(GetWorld()))
 	{
 		const FVillagerBond& Bond = Villager->GetBond();
-		Say(FString::Printf(TEXT("%s at (%.0f, %.0f): friendship %d, talked day %d, gift day %d, present day %d (today %d)"),
+		Say(FString::Printf(TEXT("%s at (%.0f, %.0f, %.0f): friendship %d, talked day %d, gift day %d, present day %d (today %d)"),
 			Villager->GetDefinition() ? *Villager->GetDefinition()->GetFullName().ToString() : TEXT("?"),
-			Villager->GetActorLocation().X, Villager->GetActorLocation().Y, Bond.Friendship, Bond.LastTalkDay, Bond.LastGiftDay,
+			Villager->GetActorLocation().X, Villager->GetActorLocation().Y, Villager->GetActorLocation().Z, Bond.Friendship, Bond.LastTalkDay, Bond.LastGiftDay,
 			Bond.LastPresentDay, Villager->GetToday()));
 	}
 }

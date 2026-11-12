@@ -2,6 +2,8 @@
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
+#include "LandscapeProxy.h"
+#include "RPG/World/WorldGenerator.h"
 #include "HearthvaleCharacter.h"
 #include "RPG/GroundItem.h"
 #include "RPG/InventoryComponent.h"
@@ -19,6 +21,9 @@ namespace
 	constexpr float VillagerLingerMax = 16.f;
 	/** Rain or snow this heavy and they mention it. */
 	constexpr float VillagerWetEnough = 0.3f;
+	/** How far ahead (cm) they look for something in the way, at about knee height. */
+	constexpr float VillagerLookAhead = 70.f;
+	constexpr float VillagerKnee = 40.f;
 	const FLinearColor VillagerSpeech(0.95f, 0.85f, 0.6f);
 	const FLinearColor VillagerWarmer(1.f, 0.6f, 0.75f);
 }
@@ -89,10 +94,33 @@ int32 AVillager::GetToday() const
 
 float AVillager::GroundAt(const FVector& Spot) const
 {
-	FHitResult Hit;
+	// The land itself: floors, roofs and stalls in the way don't count (they walk round those).
+	TArray<FHitResult> Hits;
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(VillagerGround), false, this);
-	return GetWorld()->LineTraceSingleByChannel(Hit, Spot + FVector(0.f, 0.f, 300.f), Spot - FVector(0.f, 0.f, 1000.f), ECC_Visibility, Params)
-		? Hit.ImpactPoint.Z : Spot.Z;
+	GetWorld()->LineTraceMultiByObjectType(Hits, Spot + FVector(0.f, 0.f, 5000.f), Spot - FVector(0.f, 0.f, 5000.f),
+		FCollisionObjectQueryParams(ECC_WorldStatic), Params);
+	for (const FHitResult& Hit : Hits)
+	{
+		if (Cast<ALandscapeProxy>(Hit.GetActor()))
+		{
+			return Hit.ImpactPoint.Z;
+		}
+	}
+	return UWorldGenerator::GetGroundHeight(Spot.X, Spot.Y);
+}
+
+bool AVillager::IsBlocked(const FVector& From, const FVector& Direction) const
+{
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(VillagerAhead), false, this);
+	const FVector Knee = From + FVector(0.f, 0.f, VillagerKnee);
+	if (!GetWorld()->LineTraceSingleByChannel(Hit, Knee, Knee + Direction.GetSafeNormal2D() * VillagerLookAhead, ECC_Visibility, Params))
+	{
+		return false;
+	}
+	// The land rising ahead isn't in the way; anything standing on it is.
+	const AActor* InTheWay = Hit.GetActor();
+	return !InTheWay || (!Cast<ALandscapeProxy>(InTheWay) && !InTheWay->IsA<APawn>());
 }
 
 void AVillager::Tick(float DeltaSeconds)
@@ -133,7 +161,29 @@ void AVillager::Walk(float DeltaSeconds)
 		Idle = bNight ? 1.f : FMath::FRandRange(VillagerLingerMin, VillagerLingerMax);
 		return;
 	}
-	const FVector Move = ToGoal.GetSafeNormal() * FMath::Min(ToGoal.Size(), VillagerWalkSpeed * DeltaSeconds);
+	// Something built (or a rock) in the way: step round it if they can, else try somewhere else.
+	FVector Heading = ToGoal.GetSafeNormal();
+	if (IsBlocked(Location, Heading))
+	{
+		bool bFound = false;
+		for (const float Turn : {45.f, -45.f, 90.f, -90.f})
+		{
+			const FVector Side = Heading.RotateAngleAxis(Turn, FVector::UpVector);
+			if (!IsBlocked(Location, Side))
+			{
+				Heading = Side;
+				bFound = true;
+				break;
+			}
+		}
+		if (!bFound)
+		{
+			// Boxed in: wait a moment, then head for another stop.
+			Idle = bNight ? 1.f : FMath::FRandRange(1.f, 3.f);
+			return;
+		}
+	}
+	const FVector Move = Heading * FMath::Min(ToGoal.Size(), VillagerWalkSpeed * DeltaSeconds);
 	Location += Move;
 	Location.Z = GroundAt(Location);
 	SetActorLocationAndRotation(Location, FMath::RInterpTo(GetActorRotation(), Move.Rotation(), DeltaSeconds, 6.f));
@@ -184,8 +234,9 @@ void AVillager::Interact(AHearthvaleCharacter* Character)
 		return;
 	}
 	UItemDefinition* Held = Character->GetHeldItem();
-	if (Held && Definition->Likes.Contains(Held) && Gift(Character, Held))
+	if (Held && Definition->Likes.Contains(Held))
 	{
+		Gift(Character, Held);
 		return;
 	}
 	Talk(Character);
