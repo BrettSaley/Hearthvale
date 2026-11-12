@@ -47,4 +47,8 @@ struct FSavedWorldClock
 	/** Game hours before the weather turns. */
 	UPROPERTY()
 	float WeatherHoursLeft = 4.f;
+
+	/** How much snow lies on the ground, 0 to 1; negative (older saves) means as the season has it. */
+	UPROPERTY()
+	float SnowCover = -1.f;
 };

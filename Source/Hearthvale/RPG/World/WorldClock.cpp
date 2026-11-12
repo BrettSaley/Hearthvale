@@ -7,6 +7,10 @@
 #include "EngineUtils.h"
 #include "GameFramework/CheatManager.h"
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMaterialLibrary.h"
+#include "HAL/IConsoleManager.h"
+#include "Materials/MaterialParameterCollection.h"
+#include "RPG/World/WorldScenery.h"
 #include "HearthvaleCharacter.h"
 #include "Hearthvale.h"
 #include "RPG/FarmPatch.h"
@@ -126,6 +130,7 @@ void UWorldClock::AdvanceHours(float Hours)
 		Announce(Arrivals[static_cast<int32>(NewSeason)]);
 		UE_LOG(LogHearthvale, Log, TEXT("World: %s begins (day %d)."), *SeasonName(NewSeason).ToString(), Day + 1);
 	}
+	SnowCover = StepSnowCover(SnowCover, GetSeason(), Weather, Hours);
 	WeatherHoursLeft -= Hours;
 	if (WeatherHoursLeft <= 0.f)
 	{
@@ -243,6 +248,7 @@ FSavedWorldClock UWorldClock::SaveState() const
 	Saved.Hour = Hour;
 	Saved.Weather = Weather;
 	Saved.WeatherHoursLeft = WeatherHoursLeft;
+	Saved.SnowCover = SnowCover;
 	return Saved;
 }
 
@@ -256,6 +262,7 @@ void UWorldClock::LoadState(const FSavedWorldClock& Saved)
 	Hour = FMath::Clamp(Saved.Hour, 0.f, 23.99f);
 	Weather = AdjustForSeason(Saved.Weather, GetSeason());
 	WeatherHoursLeft = FMath::Max(0.1f, Saved.WeatherHoursLeft);
+	SnowCover = Saved.SnowCover >= 0.f ? FMath::Min(Saved.SnowCover, 1.f) : GetSeason() == ESeason::Winter ? 1.f : 0.f;
 	Precipitation = TargetPrecipitation(Weather);
 	Overcast = TargetOvercast(Weather);
 	ApplySky();
@@ -318,6 +325,43 @@ void UWorldClock::ApplySky()
 	if (AWeatherEffects* Sky = Effects.Get())
 	{
 		Sky->Show(this, Daylight);
+	}
+	ApplySnow();
+}
+
+void UWorldClock::SetSnowCover(float Cover)
+{
+	SnowCover = FMath::Clamp(Cover, 0.f, 1.f);
+	ApplySnow();
+}
+
+void UWorldClock::ApplySnow()
+{
+	if (!GetWorld() || !GetWorld()->HasBegunPlay() || FMath::Abs(SnowCover - ShownSnow) < 0.02f)
+	{
+		return;
+	}
+	const bool bWasWinter = ShownSnow >= 0.5f;
+	ShownSnow = SnowCover;
+	// Made by Scripts/create_weather.py, which also has the ground material read it.
+	static UMaterialParameterCollection* Collection = Cast<UMaterialParameterCollection>(StaticLoadObject(UMaterialParameterCollection::StaticClass(),
+		nullptr, TEXT("/Game/World/Weather/MPC_Weather.MPC_Weather"), nullptr, LOAD_NoWarn | LOAD_Quiet));
+	if (Collection)
+	{
+		UKismetMaterialLibrary::SetScalarParameterValue(this, Collection, TEXT("SnowCover"), SnowCover);
+	}
+	// The grass dies back under the snow.
+	if (IConsoleVariable* Grass = IConsoleManager::Get().FindConsoleVariable(TEXT("grass.DensityScale")))
+	{
+		Grass->Set(FMath::Lerp(1.f, 0.15f, SnowCover), ECVF_SetByCode);
+	}
+	if (bWasWinter != (SnowCover >= 0.5f))
+	{
+		for (AWorldScenery* Scenery : TActorRange<AWorldScenery>(GetWorld()))
+		{
+			Scenery->SetWinter(SnowCover >= 0.5f);
+		}
+		UE_LOG(LogHearthvale, Log, TEXT("World: snow %s (cover %.2f)."), SnowCover >= 0.5f ? TEXT("lies on the ground") : TEXT("has melted"), SnowCover);
 	}
 }
 
@@ -509,6 +553,18 @@ float UWorldClock::TargetPrecipitation(EWeather Weather)
 	case EWeather::Snow:  return 0.7f;
 	default:              return 0.f;
 	}
+}
+
+float UWorldClock::StepSnowCover(float Cover, ESeason Season, EWeather Weather, float Hours)
+{
+	if (Season == ESeason::Winter)
+	{
+		const bool bFalling = Weather == EWeather::Snow || Weather == EWeather::Storm;
+		// Settles over three hours of snowfall; a dusting of frost builds over a day without.
+		return FMath::Min(1.f, Cover + Hours / (bFalling ? 3.f : 24.f));
+	}
+	// Melts over eight hours, faster in the rain.
+	return FMath::Max(0.f, Cover - Hours / (Weather == EWeather::Rain || Weather == EWeather::Storm ? 4.f : 8.f));
 }
 
 float UWorldClock::TargetOvercast(EWeather Weather)

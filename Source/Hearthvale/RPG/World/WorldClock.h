@@ -55,6 +55,10 @@ public:
 	float GetPrecipitation() const { return Precipitation; }
 	/** How cloudy, 0 to 1. */
 	float GetOvercast() const { return Overcast; }
+	/** How much snow lies on the ground, 0 to 1: it settles while it snows in winter and melts after. */
+	float GetSnowCover() const { return SnowCover; }
+	/** Sets it straight away (for testing). */
+	void SetSnowCover(float Cover);
 	/** Whether what falls at a spot is snow (in winter, in snow weather, or up in the Highlands). */
 	bool IsSnowAt(const FVector& Location) const;
 	/** "Spring, day 2  14:05  Rain" */
@@ -109,6 +113,8 @@ public:
 	/** The sky has two settings per weather: how much falls, how cloudy it is. */
 	static float TargetPrecipitation(EWeather Weather);
 	static float TargetOvercast(EWeather Weather);
+	/** Snow cover after Hours: it settles fast while snowing in winter, slowly with frost on other winter days, and melts out of winter. */
+	static float StepSnowCover(float Cover, ESeason Season, EWeather Weather, float Hours);
 
 private:
 	void RollWeather();
@@ -117,6 +123,8 @@ private:
 	void ApplySky();
 	void FindSky();
 	void GrowCrops(float RealSeconds);
+	/** Whitens the ground (the ground material reads MPC_Weather's SnowCover), thins the grass and hides the flowers. */
+	void ApplySnow();
 
 	int32 Day = 0;
 	float Hour = StartHour;
@@ -124,6 +132,9 @@ private:
 	float WeatherHoursLeft = 4.f;
 	float Precipitation = 0.f;
 	float Overcast = 0.f;
+	float SnowCover = 0.f;
+	/** What the ground, grass and flowers were last shown with, so they're only changed when it moves. */
+	float ShownSnow = -1.f;
 	float TimeScale = 1.f;
 	float CropTimer = 0.f;
 	FRandomStream Random;

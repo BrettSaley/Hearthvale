@@ -2,12 +2,15 @@
 
 - /Game/World/Weather/M_Rain: the rain streaks, unlit and see-through
 - /Game/World/Weather/M_Snow: the snowflakes, soft white
+- /Game/World/Weather/MPC_Weather: SnowCover (0 to 1), set by the world clock
+- Snow on the ground: /Game/Ground/M_Ground's colour blends to snow on level
+  ground as SnowCover rises (patched in place; run again after rebuilding it)
 - Seasonal catches on the fishing spots: trout running in spring, mackerel and tuna
   shoaling in summer, the salmon run in autumn, char under the winter cold
 
 Without the materials the weather still works, with plain grey drops.
 
-Run after create_gathering.py and create_fishing.py (it adds to their fishing
+Run after create_ground_material.py, create_gathering.py and create_fishing.py (it adds to their fishing
 spots, and they overwrite these settings when run again), headless with the editor closed:
     UnrealEditor-Cmd.exe Hearthvale.uproject -run=pythonscript -script="<path>/Scripts/create_weather.py"
 """
@@ -99,5 +102,70 @@ def create_seasonal_catches():
     unreal.log(f"create_weather: wrote 2 materials and {count} seasonal catches.")
 
 
+def create_collection():
+    path = f"{FOLDER}/MPC_Weather"
+    if assets.does_asset_exist(path):
+        collection = unreal.load_asset(path)
+    else:
+        collection = asset_tools.create_asset("MPC_Weather", FOLDER, unreal.MaterialParameterCollection, unreal.MaterialParameterCollectionFactoryNew())
+    snow = unreal.CollectionScalarParameter()
+    snow.set_editor_property("parameter_name", "SnowCover")
+    snow.set_editor_property("default_value", 0.0)
+    collection.set_editor_property("scalar_parameters", [snow])
+    assets.save_loaded_asset(collection, only_if_is_dirty=False)
+    return collection
+
+
+def add_snow_to_ground(collection):
+    """Ground colour -> lerp(colour, snow, SnowCover x how level the ground is x a little noise)."""
+    ground = unreal.load_asset("/Game/Ground/M_Ground")
+    if not ground:
+        unreal.log_warning("create_weather: no /Game/Ground/M_Ground (run create_ground_material.py); the ground won't show snow.")
+        return
+    color = mel.get_material_property_input_node(ground, unreal.MaterialProperty.MP_BASE_COLOR)
+    if isinstance(color, unreal.MaterialExpressionLinearInterpolate):
+        unreal.log_warning("create_weather: M_Ground already shows snow.")
+        return
+    cover = mel.create_material_expression(ground, unreal.MaterialExpressionCollectionParameter, 0, -1300)
+    cover.set_editor_property("collection", collection)
+    cover.set_editor_property("parameter_name", "SnowCover")
+    normal = mel.create_material_expression(ground, unreal.MaterialExpressionVertexNormalWS, 0, -1150)
+    up = mel.create_material_expression(ground, unreal.MaterialExpressionComponentMask, 150, -1150)
+    for channel, on in (("r", False), ("g", False), ("b", True), ("a", False)):
+        up.set_editor_property(channel, on)
+    mel.connect_material_expressions(normal, "", up, "")
+    # Snow lies on ground flatter than about 55 degrees, thinning on the slopes.
+    lift = mel.create_material_expression(ground, unreal.MaterialExpressionSubtract, 300, -1150)
+    lift.set_editor_property("const_b", 0.55)
+    mel.connect_material_expressions(up, "", lift, "A")
+    steep = mel.create_material_expression(ground, unreal.MaterialExpressionMultiply, 450, -1150)
+    steep.set_editor_property("const_b", 4.0)
+    mel.connect_material_expressions(lift, "", steep, "A")
+    level = mel.create_material_expression(ground, unreal.MaterialExpressionSaturate, 600, -1150)
+    mel.connect_material_expressions(steep, "", level, "")
+    patches = mel.create_material_expression(ground, unreal.MaterialExpressionNoise, 300, -1000)
+    for prop, value in (("scale", 0.01), ("levels", 2), ("output_min", 0.75), ("output_max", 1.25)):
+        patches.set_editor_property(prop, value)
+    amount = mel.create_material_expression(ground, unreal.MaterialExpressionMultiply, 750, -1250)
+    mel.connect_material_expressions(cover, "", amount, "A")
+    mel.connect_material_expressions(level, "", amount, "B")
+    patchy = mel.create_material_expression(ground, unreal.MaterialExpressionMultiply, 900, -1200)
+    mel.connect_material_expressions(amount, "", patchy, "A")
+    mel.connect_material_expressions(patches, "", patchy, "B")
+    alpha = mel.create_material_expression(ground, unreal.MaterialExpressionSaturate, 1050, -1200)
+    mel.connect_material_expressions(patchy, "", alpha, "")
+    white = mel.create_material_expression(ground, unreal.MaterialExpressionConstant3Vector, 900, -1050)
+    white.set_editor_property("constant", unreal.LinearColor(0.62, 0.64, 0.68, 1.0))
+    lerp = mel.create_material_expression(ground, unreal.MaterialExpressionLinearInterpolate, 1200, -700)
+    mel.connect_material_expressions(color, "", lerp, "A")
+    mel.connect_material_expressions(white, "", lerp, "B")
+    mel.connect_material_expressions(alpha, "", lerp, "Alpha")
+    mel.connect_material_property(lerp, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.recompile_material(ground)
+    assets.save_loaded_asset(ground, only_if_is_dirty=False)
+    unreal.log_warning("create_weather: M_Ground now shows snow cover.")
+
+
 create_materials()
+add_snow_to_ground(create_collection())
 create_seasonal_catches()
