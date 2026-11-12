@@ -1,6 +1,10 @@
 #include "RPG/World/WorldCheats.h"
 #include "GameFramework/PlayerController.h"
 #include "Hearthvale.h"
+#include "HearthvaleCharacter.h"
+#include "RPG/InventoryComponent.h"
+#include "RPG/ItemDefinition.h"
+#include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WeatherEffects.h"
 #include "RPG/World/WorldClock.h"
 #include "EngineUtils.h"
@@ -104,5 +108,50 @@ void UWorldCheats::Sleep()
 	{
 		Say(Clock->SleepUntilMorning() ? TEXT("Slept until morning.") : TEXT("It's not time for bed."));
 		WorldClock();
+	}
+}
+
+void UWorldCheats::Warmth()
+{
+	APlayerController* Controller = GetPlayerController();
+	const UWarmthComponent* Component = Controller && Controller->GetPawn() ? Controller->GetPawn()->FindComponentByClass<UWarmthComponent>() : nullptr;
+	if (!Component)
+	{
+		Say(TEXT("No warmth yet (the clock gives it to the player once they're in the world)."));
+		return;
+	}
+	Say(FString::Printf(TEXT("Warmth %.0f (%s). Air %.0f degrees%s%s."), Component->GetWarmth(), *UWarmthComponent::StateName(Component->GetState()).ToString(),
+		Component->GetTemperature(), Component->IsSheltered() ? TEXT(", sheltered") : TEXT(""), Component->IsNearFire() ? TEXT(", by a fire") : TEXT("")));
+}
+
+void UWorldCheats::SetWarmth(float Value)
+{
+	APlayerController* Controller = GetPlayerController();
+	if (UWarmthComponent* Component = Controller ? UWarmthComponent::FindOrAdd(Controller->GetPawn()) : nullptr)
+	{
+		Component->SetWarmth(Value);
+		this->Warmth();
+	}
+}
+
+void UWorldCheats::Campfire()
+{
+	APlayerController* Controller = GetPlayerController();
+	AHearthvaleCharacter* Character = Controller ? Cast<AHearthvaleCharacter>(Controller->GetPawn()) : nullptr;
+	UItemDefinition* Logs = UItemDefinition::FindItem(TEXT("Logs"));
+	if (!Character || !Logs)
+	{
+		Say(TEXT("Needs the Hearthvale character and the Logs item."));
+		return;
+	}
+	Character->GetInventory()->AddItem(Logs, 1);
+	const TArray<FItemStack>& Slots = Character->GetInventory()->GetSlots();
+	for (int32 Index = 0; Index < Slots.Num(); ++Index)
+	{
+		if (Slots[Index].Item == Logs)
+		{
+			Say(Character->LightFire(Index) ? TEXT("Lit a campfire.") : TEXT("Couldn't light a fire here."));
+			return;
+		}
 	}
 }

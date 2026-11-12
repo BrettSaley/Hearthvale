@@ -9,6 +9,7 @@
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
+#include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WorldClock.h"
 #include "Hearthvale.h"
 
@@ -30,6 +31,10 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 	}
 	Save->HeldSlot = Character->GetHeldSlot();
 	Save->Health = Character->GetHealth()->GetHealth();
+	if (const UWarmthComponent* Warmth = Character->FindComponentByClass<UWarmthComponent>())
+	{
+		Save->Warmth = Warmth->GetWarmth();
+	}
 	if (UWorld* World = Character->GetWorld())
 	{
 		for (const AFarmPatch* Patch : TActorRange<AFarmPatch>(World))
@@ -131,6 +136,7 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 	{
 		Character->GetHealth()->Restore();
 	}
+	UWarmthComponent::FindOrAdd(Character)->SetWarmth(Save->Warmth < 0.f ? UWarmthComponent::MaxWarmth : Save->Warmth);
 	if (UWorld* World = Character->GetWorld())
 	{
 		for (AFarmPatch* Patch : TActorRange<AFarmPatch>(World))

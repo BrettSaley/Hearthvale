@@ -3,6 +3,7 @@
 #include "Misc/AutomationTest.h"
 #include "Engine/World.h"
 #include "RPG/HearthvaleSaveGame.h"
+#include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldClock.h"
 
@@ -137,6 +138,51 @@ bool FWorldClockTest::RunTest(const FString& Parameters)
 	Fresh->LoadState(FSavedWorldClock());
 	TestEqual(TEXT("An old save without a clock starts on day 0"), Fresh->GetDay(), 0);
 	World->DestroyWorld(false);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWarmthTest, "Hearthvale.World.Warmth", WorldTestFlags)
+bool FWarmthTest::RunTest(const FString& Parameters)
+{
+	FWarmthConditions Summer;
+	Summer.Season = ESeason::Summer;
+	TestTrue(TEXT("A summer day is comfortable"), UWarmthComponent::AirTemperature(Summer) >= UWarmthComponent::Comfort);
+	FWarmthConditions Winter;
+	Winter.Season = ESeason::Winter;
+	Winter.Weather = EWeather::Snow;
+	Winter.bNight = true;
+	const float WinterNight = UWarmthComponent::AirTemperature(Winter);
+	TestTrue(TEXT("A snowy winter night is cold"), WinterNight < UWarmthComponent::Comfort);
+	FWarmthConditions Highlands = Winter;
+	Highlands.bHighlands = true;
+	TestTrue(TEXT("Colder still up in the Highlands"), UWarmthComponent::AirTemperature(Highlands) < WinterNight);
+	FWarmthConditions Roofed = Winter;
+	Roofed.bSheltered = true;
+	TestTrue(TEXT("A roof keeps the snow off"), UWarmthComponent::AirTemperature(Roofed) > WinterNight);
+	FWarmthConditions ByFire = Winter;
+	ByFire.FireHeat = UWarmthComponent::FireHeatAt(200.f);
+	TestTrue(TEXT("Beside a fire it's warm even on a winter night"), UWarmthComponent::AirTemperature(ByFire) >= UWarmthComponent::Comfort);
+	FWarmthConditions Swimming = Summer;
+	Swimming.bInWater = true;
+	TestTrue(TEXT("Swimming chills you"), UWarmthComponent::AirTemperature(Swimming) < UWarmthComponent::AirTemperature(Summer));
+
+	TestEqual(TEXT("No heat from a fire far off"), UWarmthComponent::FireHeatAt(UWarmthComponent::FireReach + 1.f), 0.f);
+	TestTrue(TEXT("Closer is hotter"), UWarmthComponent::FireHeatAt(400.f) > UWarmthComponent::FireHeatAt(700.f));
+
+	// Losing and regaining warmth
+	float Warmth = UWarmthComponent::MaxWarmth;
+	float Seconds = 0.f;
+	while (Warmth > 0.f && Seconds < 3600.f)
+	{
+		Warmth = UWarmthComponent::Step(Warmth, WinterNight, 1.f);
+		Seconds += 1.f;
+	}
+	TestTrue(TEXT("A winter night out freezes you in a few minutes"), Seconds > 60.f && Seconds < 600.f);
+	TestEqual(TEXT("Frozen through"), UWarmthComponent::StateFor(Warmth), EWarmthState::Freezing);
+	Warmth = UWarmthComponent::Step(Warmth, UWarmthComponent::AirTemperature(ByFire), 30.f);
+	TestEqual(TEXT("Half a minute by the fire warms you up"), UWarmthComponent::StateFor(Warmth), EWarmthState::Warm);
+	TestEqual(TEXT("Never above full"), UWarmthComponent::Step(UWarmthComponent::MaxWarmth, 40.f, 100.f), UWarmthComponent::MaxWarmth);
+	TestEqual(TEXT("Chilly in between"), UWarmthComponent::StateFor(40.f), EWarmthState::Chilly);
 	return true;
 }
 

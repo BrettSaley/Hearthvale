@@ -10,6 +10,7 @@
  *   SetHour 21.5               SetSeason Winter         SetWeather Storm 3
  *   TimeScale 60               (a game hour a second)   SkipDays 4
  *   Sleep                      (as a bed does at night)
+ *   Warmth                     SetWarmth 10             Campfire (lights one just ahead)
  */
 UCLASS()
 class HEARTHVALE_API UWorldCheats : public UCheatManagerExtension
@@ -39,6 +40,17 @@ public:
 
 	UFUNCTION(Exec)
 	void Sleep();
+
+	/** Logs how warm the player is, the air's temperature and why. */
+	UFUNCTION(Exec)
+	void Warmth();
+
+	UFUNCTION(Exec)
+	void SetWarmth(float Value);
+
+	/** Lights a campfire just ahead, with logs given for it (as using logs does). */
+	UFUNCTION(Exec)
+	void Campfire();
 
 private:
 	class UWorldClock* GetClock() const;

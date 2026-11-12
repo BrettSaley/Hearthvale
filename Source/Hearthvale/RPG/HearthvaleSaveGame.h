@@ -107,6 +107,10 @@ public:
 	UPROPERTY()
 	FSavedWorldClock Clock;
 
+	/** How warm the character is; negative (older saves) means warm through. */
+	UPROPERTY()
+	float Warmth = -1.f;
+
 	/** Write a character's progress (and the farm patches in their world) to disk. */
 	static bool SaveProgress(const AHearthvaleCharacter* Character);
 

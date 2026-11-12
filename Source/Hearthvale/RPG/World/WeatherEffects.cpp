@@ -108,7 +108,7 @@ void AWeatherEffects::Show(const UWorldClock* Clock, float Daylight)
 	const float Night = 1.f - Daylight;
 	const float Gloom = Clock->GetOvercast() + (bStorm ? 0.5f : 0.f);
 	FPostProcessSettings& Settings = Grade->Settings;
-	Settings.AutoExposureBias = -3.f * Night - 0.8f * Gloom;
+	Settings.AutoExposureBias = -2.3f * Night - 0.8f * Gloom;
 	const float Saturation = FMath::Max(0.35f, 1.f - 0.3f * Gloom - 0.35f * Night);
 	Settings.ColorSaturation = FVector4(Saturation, Saturation, Saturation, 1.f);
 	Settings.ColorGain = FVector4(FMath::Lerp(1.f, 0.72f, Night), FMath::Lerp(1.f, 0.85f, Night), 1.f, 1.f);

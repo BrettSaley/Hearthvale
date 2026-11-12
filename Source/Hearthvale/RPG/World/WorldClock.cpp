@@ -10,6 +10,7 @@
 #include "HearthvaleCharacter.h"
 #include "Hearthvale.h"
 #include "RPG/FarmPatch.h"
+#include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WeatherEffects.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldCheats.h"
@@ -81,6 +82,10 @@ void UWorldClock::Tick(float DeltaTime)
 	Precipitation = FMath::FInterpConstantTo(Precipitation, TargetPrecipitation(Weather), DeltaTime, 1.f / PrecipitationEase);
 	Overcast = FMath::FInterpConstantTo(Overcast, TargetOvercast(Weather), DeltaTime, 1.f / OvercastEase);
 	ApplySky();
+	if (AHearthvaleCharacter* Player = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
+	{
+		UWarmthComponent::FindOrAdd(Player);
+	}
 	CropTimer += DeltaTime;
 	if (CropTimer >= 1.f)
 	{
