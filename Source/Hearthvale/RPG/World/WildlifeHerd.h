@@ -91,6 +91,9 @@ public:
 	static TArray<TPair<FName, int32>> GetLoot(EWildlifeKind InKind);
 
 	bool IsAlive(int32 Index) const;
+
+	/** Whether the whole herd is asleep for the season (bears in winter). */
+	bool IsHibernating() const { return bHibernating; }
 	int32 GetAnimalHealth(int32 Index) const;
 	int32 GetAnimalMaxHealth(int32 Index) const;
 
@@ -199,4 +202,8 @@ private:
 	FRandomStream Random;
 	/** When the herd last warned the player (game seconds), so a pack doesn't shout five times. */
 	float Warned = -100.f;
+	/** Asleep for the season (bears in winter): hidden, and nothing to fight. */
+	bool bHibernating = false;
+	/** How far off they notice the player, as a multiple: the season, weather and time of day change it. */
+	float Wariness = 1.f;
 };

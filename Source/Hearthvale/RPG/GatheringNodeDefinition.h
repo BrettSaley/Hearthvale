@@ -5,6 +5,7 @@
 #include "RPG/Gatherable.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/Skills.h"
+#include "RPG/World/Seasons.h"
 #include "GatheringNodeDefinition.generated.h"
 
 class UAnimMontage;
@@ -34,6 +35,19 @@ struct HEARTHVALE_API FNodeMeshPart
 	/** Off for a part that's only there to collide (a cylinder around a detailed tree's trunk). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Mesh")
 	bool bVisible = true;
+};
+
+/** A find that only turns up in one season: a run of salmon in autumn, char under the winter ice. */
+USTRUCT(BlueprintType)
+struct HEARTHVALE_API FSeasonalDrop
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Drop")
+	ESeason Season = ESeason::Spring;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Drop")
+	FBonusDrop Drop;
 };
 
 /**
@@ -102,6 +116,10 @@ public:
 	/** Rare extra finds rolled on each success (seeds from trees, gems from rocks). */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gathering")
 	TArray<FBonusDrop> BonusDrops;
+
+	/** Extra finds only in their season (set by Scripts/create_weather.py). Fishing spots also bite better or worse with the weather and time of day. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gathering")
+	TArray<FSeasonalDrop> SeasonalDrops;
 
 	/** Played on each attempt, if set (needs the character's anim blueprint to have a montage slot). */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visuals")
