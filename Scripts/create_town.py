@@ -9,6 +9,10 @@
 - The town notice board (/Game/Town/RequestBoard, a URequestBoardDefinition):
   three requests up at a time from the pool below, each paying coins and XP;
   bigger jobs go up once you've done a few. One placed beside Odile's stall
+- Settlers (/Game/Town/Settlers) and the settlement that lists them
+  (/Game/Town/Settlement): people who move into a house you build (a bed under
+  a roof that isn't yours) and work for their keep: a woodcutter, a miner, a
+  fisher and a herder
 
 Run after create_livestock.py (she sells cows, pigs and buckets), headless with the
 editor closed:
@@ -58,7 +62,8 @@ def animal(name):
 SHAPES = {name: unreal.load_asset(f"/Engine/BasicShapes/{name}") for name in ["Cube", "Sphere", "Cylinder", "Cone"]}
 COLORS = {"Skin": (0.55, 0.36, 0.26), "Hair": (0.12, 0.06, 0.03), "Shirt": (0.12, 0.2, 0.32), "Apron": (0.62, 0.58, 0.48),
           "Trousers": (0.1, 0.08, 0.07), "Boots": (0.05, 0.035, 0.025), "AwningRed": (0.45, 0.06, 0.04),
-          "AwningCream": (0.7, 0.64, 0.5)}
+          "AwningCream": (0.7, 0.64, 0.5), "ShirtGreen": (0.12, 0.24, 0.1), "ShirtRed": (0.35, 0.08, 0.06),
+          "ShirtBrown": (0.25, 0.15, 0.08), "HairBlond": (0.5, 0.36, 0.12), "HairGrey": (0.32, 0.31, 0.3)}
 MATERIALS = {"Face": unreal.load_asset("/Game/Farming/Materials/MI_AnimalFace"),
              "Wood": unreal.load_asset("/Game/Crafting/Materials/MI_Wood"),
              "Bark": unreal.load_asset("/Game/Gathering/Materials/MI_Bark")}
@@ -89,17 +94,17 @@ def part(shape, material, location, scale, rotation=(0, 0, 0), collides=False):
 
 # --- Looks: facing +X, feet at the origin ---
 
-def person():
+def person(shirt="Shirt", hair="Hair", apron="Apron"):
     return ([part("Cylinder", "Trousers", (0, y, 42), (0.13, 0.13, 0.84)) for y in (-10, 10)]
             + [part("Cube", "Boots", (4, y, 5), (0.26, 0.13, 0.1)) for y in (-10, 10)]
-            + [part("Cylinder", "Shirt", (0, 0, 112), (0.4, 0.3, 0.6)),
-               part("Cube", "Apron", (14, 0, 96), (0.04, 0.34, 0.66))]
-            + [part("Cylinder", "Shirt", (0, y, 114), (0.1, 0.1, 0.5), (y * 0.3, 0, 0)) for y in (-25, 25)]
+            + [part("Cylinder", shirt, (0, 0, 112), (0.4, 0.3, 0.6))]
+            + ([part("Cube", apron, (14, 0, 96), (0.04, 0.34, 0.66))] if apron else [])
+            + [part("Cylinder", shirt, (0, y, 114), (0.1, 0.1, 0.5), (y * 0.3, 0, 0)) for y in (-25, 25)]
             + [part("Sphere", "Skin", (0, y, 86), (0.1, 0.1, 0.1)) for y in (-28, 28)]
             + [part("Cylinder", "Skin", (0, 0, 144), (0.11, 0.11, 0.1)),
                part("Sphere", "Skin", (0, 0, 162), (0.3, 0.27, 0.32)),
-               part("Sphere", "Hair", (-4, 0, 168), (0.31, 0.29, 0.27)),
-               part("Sphere", "Hair", (-14, 0, 150), (0.14, 0.2, 0.22)),
+               part("Sphere", hair, (-4, 0, 168), (0.31, 0.29, 0.27)),
+               part("Sphere", hair, (-14, 0, 150), (0.14, 0.2, 0.22)),
                part("Sphere", "Skin", (15, 0, 159), (0.05, 0.05, 0.06))]
             + [part("Cylinder", "Face", (14, y, 164), (0.03, 0.03, 0.01), (90, 0, 0)) for y in (-6, 6)])
 
@@ -212,6 +217,47 @@ def create_board():
     return made
 
 
+# --- Settlers: ID: (name, title, arrival, lines, job, produce, how many, work seconds, shirt, hair) ---
+
+GATHERER = unreal.SettlerJob.GATHERER
+HERDER = unreal.SettlerJob.HERDER
+SETTLERS = {
+    "Wren": ("Wren", "Woodcutter", "A roof and a bed! I'll keep you in logs.",
+             ["Good wood round here.", "Mind your fingers near the axe.", "Smell that? Fresh-cut pine."],
+             GATHERER, "Logs", 2, 60.0, "ShirtGreen", "HairBlond"),
+    "Dace": ("Dace", "Miner", "Somewhere dry to sleep at last. I'll dig you some ore.",
+             ["There's copper in those hills.", "Dark work, mining. I like it.", "My back's not what it was."],
+             GATHERER, "CopperOre", 2, 90.0, "ShirtBrown", "HairGrey"),
+    "Marlo": ("Marlo", "Fisher", "A house by the water? I'll fill your chest with fish.",
+              ["They're biting today.", "Nothing like a quiet morning on the water.", "Caught one this long. Honest."],
+              GATHERER, "Perch", 2, 80.0, "Shirt", "Hair"),
+    "Sorrel": ("Sorrel", "Herder", "I'll mind your animals: wool, milk and eggs, into the chest.",
+               ["Happy animals give more, you know.", "The sheep have names. Don't ask.", "Keep the trough full, would you?"],
+               HERDER, None, 1, 30.0, "ShirtRed", "Hair"),
+}
+
+
+def create_settlers():
+    factory = unreal.DataAssetFactory()
+    factory.set_editor_property("data_asset_class", unreal.SettlerDefinition)
+    made = []
+    for settler_id, (name, title, arrival, lines, job, produce, count, work, shirt, hair) in SETTLERS.items():
+        settler, _ = create(settler_id, "/Game/Town/Settlers", unreal.SettlerDefinition, factory)
+        for prop, value in [("display_name", unreal.Text(name)), ("title", unreal.Text(title)),
+                            ("arrival", unreal.Text(arrival)), ("lines", [unreal.Text(t) for t in lines]),
+                            ("job", job), ("produce", item(produce) if produce else None), ("produce_quantity", count),
+                            ("work_seconds", work), ("meal_seconds", 480.0), ("parts", person(shirt, hair, None))]:
+            settler.set_editor_property(prop, value)
+        save(settler)
+        made.append(settler)
+    factory = unreal.DataAssetFactory()
+    factory.set_editor_property("data_asset_class", unreal.SettlementDefinition)
+    settlement, _ = create("Settlement", "/Game/Town", unreal.SettlementDefinition, factory)
+    for prop, value in [("settlers", made), ("arrival_seconds", 120.0), ("home_range", 1200.0)]:
+        settlement.set_editor_property(prop, value)
+    save(settlement)
+
+
 # --- Odile's stall, a little way from where you start, facing it ---
 
 def place(traders):
@@ -263,5 +309,6 @@ def place_board(notice_board):
 
 
 create_materials()
+create_settlers()
 place(create_traders())
 place_board(create_board())

@@ -14,6 +14,8 @@
 #include "RPG/CraftingComponent.h"
 #include "RPG/RecipeDefinition.h"
 #include "RPG/Town/RequestBoard.h"
+#include "RPG/Town/SettlementSubsystem.h"
+#include "RPG/Town/Settler.h"
 #include "RPG/Town/Trader.h"
 #include "RPG/UI/RequestBoardWidget.h"
 #include "RPG/Town/TraderDefinition.h"
@@ -1025,5 +1027,140 @@ void UHearthvaleCheatManager::Repost()
 					*Request->Item->GetName(), Request->Coins)
 				: FString::Printf(TEXT("Spot %d: empty."), Spot));
 		}
+	}
+}
+
+void UHearthvaleCheatManager::BuildHut()
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	if (!Character)
+	{
+		return;
+	}
+	const float Grid = UBuildPieceDefinition::GridSize;
+	const FVector Ahead = Character->GetActorLocation() + Character->GetActorForwardVector() * 600.f;
+	// The hut's south-west corner, on the grid.
+	const float X0 = FMath::FloorToFloat(Ahead.X / Grid) * Grid;
+	const float Y0 = FMath::FloorToFloat(Ahead.Y / Grid) * Grid;
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(CheatHut), false, Character);
+	const FVector Middle(X0 + Grid, Y0 + Grid, Ahead.Z);
+	if (!GetWorld()->LineTraceSingleByChannel(Hit, Middle + FVector(0.f, 0.f, 2000.f), Middle - FVector(0.f, 0.f, 3000.f), ECC_Visibility, Params))
+	{
+		Say(TEXT("Nothing to build on there."));
+		return;
+	}
+	const float Ground = Hit.ImpactPoint.Z;
+	UBuildPieceDefinition* Floor = UBuildPieceDefinition::FindPiece(TEXT("StoneFoundation"));
+	UBuildPieceDefinition* Wall = UBuildPieceDefinition::FindPiece(TEXT("WoodWall"));
+	UBuildPieceDefinition* Door = UBuildPieceDefinition::FindPiece(TEXT("WoodDoor"));
+	UBuildPieceDefinition* Roof = UBuildPieceDefinition::FindPiece(TEXT("WoodRoof"));
+	UBuildPieceDefinition* Bed = UBuildPieceDefinition::FindPiece(TEXT("WoodBed"));
+	UBuildPieceDefinition* Chest = UBuildPieceDefinition::FindPiece(TEXT("WoodChest"));
+	if (!Floor || !Wall || !Door || !Roof || !Bed || !Chest)
+	{
+		Say(TEXT("Missing a hut piece."));
+		return;
+	}
+	const float FloorTop = Ground + Floor->Height;
+	// The door's left open, to see in.
+	auto Place = [this, Door](UBuildPieceDefinition* Piece, const FVector& At, float Yaw)
+	{
+		ABuildPiece::Spawn(GetWorld(), Piece, FTransform(FRotator(0.f, Yaw, 0.f), At), Piece == Door);
+	};
+	for (int32 CX = 0; CX < 2; ++CX)
+	{
+		for (int32 CY = 0; CY < 2; ++CY)
+		{
+			const FVector Cell(X0 + (CX + 0.5f) * Grid, Y0 + (CY + 0.5f) * Grid, 0.f);
+			Place(Floor, FVector(Cell.X, Cell.Y, Ground), 0.f);
+			Place(Roof, FVector(Cell.X, Cell.Y, FloorTop + Wall->Height), 0.f);
+			// Walls round the outside: west and east run north-south, south and north east-west. The door's on the south.
+			if (CX == 0)
+			{
+				Place(Wall, FVector(X0, Cell.Y, FloorTop), 90.f);
+			}
+			else
+			{
+				Place(Wall, FVector(X0 + 2.f * Grid, Cell.Y, FloorTop), 90.f);
+			}
+			if (CY == 0)
+			{
+				Place(CX == 0 ? Door : Wall, FVector(Cell.X, Y0, FloorTop), 0.f);
+			}
+			else
+			{
+				Place(Wall, FVector(Cell.X, Y0 + 2.f * Grid, FloorTop), 0.f);
+			}
+		}
+	}
+	Place(Bed, FVector(X0 + 1.4f * Grid, Y0 + 1.5f * Grid, FloorTop), 0.f);
+	Place(Chest, FVector(X0 + 1.6f * Grid, Y0 + 0.4f * Grid, FloorTop), 90.f);
+	Say(FString::Printf(TEXT("Built a hut at (%.0f, %.0f)."), X0 + Grid, Y0 + Grid));
+}
+
+void UHearthvaleCheatManager::Settle()
+{
+	USettlementSubsystem* Settlement = GetWorld()->GetSubsystem<USettlementSubsystem>();
+	if (!Settlement)
+	{
+		Say(TEXT("No settlement here."));
+		return;
+	}
+	const int32 Free = Settlement->FindFreeHomes().Num();
+	Say(FString::Printf(TEXT("%d free home(s); %d moved in."), Free, Settlement->SettleNow()));
+}
+
+void UHearthvaleCheatManager::WorkSettlers(int32 Jobs)
+{
+	for (ASettler* Settler : TActorRange<ASettler>(GetWorld()))
+	{
+		Settler->WorkNow(Jobs);
+	}
+	ListSettlers();
+}
+
+void UHearthvaleCheatManager::TalkSettler()
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	ASettler* Nearest = nullptr;
+	for (ASettler* Settler : TActorRange<ASettler>(GetWorld()))
+	{
+		if (Character && (!Nearest || FVector::Dist(Settler->GetActorLocation(), Character->GetActorLocation())
+			< FVector::Dist(Nearest->GetActorLocation(), Character->GetActorLocation())))
+		{
+			Nearest = Settler;
+		}
+	}
+	if (Nearest)
+	{
+		Nearest->Interact(Character);
+	}
+	else
+	{
+		Say(TEXT("Nobody's settled here."));
+	}
+}
+
+void UHearthvaleCheatManager::ListSettlers()
+{
+	static const TCHAR* Troubles[] = {TEXT("working"), TEXT("no chest"), TEXT("hungry"), TEXT("chest full")};
+	for (ASettler* Settler : TActorRange<ASettler>(GetWorld()))
+	{
+		FString Chest = TEXT("none");
+		if (const UInventoryComponent* Storage = Settler->FindChest())
+		{
+			Chest.Reset();
+			for (const FItemStack& Slot : Storage->GetSlots())
+			{
+				if (!Slot.IsEmpty())
+				{
+					Chest += FString::Printf(TEXT("%d %s, "), Slot.Quantity, *Slot.Item->GetName());
+				}
+			}
+		}
+		Say(FString::Printf(TEXT("%s at (%.0f, %.0f): %s, made %d. Chest: %s"), *Settler->GetFullName().ToString(),
+			Settler->GetActorLocation().X, Settler->GetActorLocation().Y, Troubles[static_cast<int32>(Settler->GetTrouble())],
+			Settler->GetMade(), *Chest));
 	}
 }

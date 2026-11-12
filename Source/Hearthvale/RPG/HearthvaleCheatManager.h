@@ -257,6 +257,26 @@ public:
 	UFUNCTION(Exec)
 	void Repost();
 
+	/** Builds a 2x2 hut ahead (floor, walls with a door, roof, a bed and a chest), free. */
+	UFUNCTION(Exec)
+	void BuildHut();
+
+	/** Moves settlers into every free home now. */
+	UFUNCTION(Exec)
+	void Settle();
+
+	/** Makes every settler do some rounds of work now. */
+	UFUNCTION(Exec)
+	void WorkSettlers(int32 Jobs = 1);
+
+	/** Talks to the nearest settler. */
+	UFUNCTION(Exec)
+	void TalkSettler();
+
+	/** Logs every settler: where they live, whether they're working, and what's in their chest. */
+	UFUNCTION(Exec)
+	void ListSettlers();
+
 private:
 	AHearthvaleCharacter* GetHearthvaleCharacter() const;
 
