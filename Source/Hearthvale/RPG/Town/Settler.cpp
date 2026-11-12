@@ -13,14 +13,15 @@
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
 #include "RPG/Town/SettlerDefinition.h"
+#include "RPG/World/WorldClock.h"
 
 #define LOCTEXT_NAMESPACE "Settler"
 
 namespace
 {
 	/** How far (cm) from beside their bed they potter, and how fast. */
-	constexpr float PotterRange = 140.f;
-	constexpr float PotterSpeed = 70.f;
+	constexpr float SettlerPotterRange = 140.f;
+	constexpr float SettlerPotterSpeed = 70.f;
 	const FLinearColor SettlerSpeech(0.75f, 0.9f, 0.7f);
 }
 
@@ -119,12 +120,13 @@ void ASettler::Tick(float DeltaSeconds)
 	{
 		return;
 	}
-	if (!Bed.IsValid())
+	if (!Bed.IsValid() || Bed->IsClaimed())
 	{
-		// Nowhere to sleep: they move on.
+		// Nowhere to sleep (or you've taken their bed): they move on.
 		if (const AHearthvaleCharacter* Player = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
 		{
-			Player->ShowMessage(FText::Format(LOCTEXT("Leaves", "{0} has nowhere to sleep and leaves."), GetFullName()), SettlerSpeech);
+			Player->ShowMessage(FText::Format(Bed.IsValid() ? LOCTEXT("BedTaken", "You've taken {0}'s bed, so they leave.")
+				: LOCTEXT("Leaves", "{0} has nowhere to sleep and leaves."), GetFullName()), SettlerSpeech);
 		}
 		Destroy();
 		return;
@@ -151,6 +153,11 @@ void ASettler::Tick(float DeltaSeconds)
 		Trouble = ESettlerTrouble::Hungry;
 		return;
 	}
+	// They sleep at night: no work till morning.
+	if (const UWorldClock* Clock = UWorldClock::Get(this); Clock && Clock->IsNight())
+	{
+		return;
+	}
 	Work += Elapsed;
 	if (Work >= Settler->WorkSeconds)
 	{
@@ -172,7 +179,7 @@ void ASettler::Potter(float DeltaSeconds)
 		Idle -= DeltaSeconds;
 		if (Idle <= 0.f)
 		{
-			const FVector2D Step = FMath::RandPointInCircle(PotterRange);
+			const FVector2D Step = FMath::RandPointInCircle(SettlerPotterRange);
 			Target = Home + FVector(Step, 0.f);
 		}
 		return;
@@ -184,7 +191,7 @@ void ASettler::Potter(float DeltaSeconds)
 		Idle = FMath::FRandRange(2.f, 6.f);
 		return;
 	}
-	const FVector Move = ToTarget.GetSafeNormal() * FMath::Min(ToTarget.Size(), PotterSpeed * DeltaSeconds);
+	const FVector Move = ToTarget.GetSafeNormal() * FMath::Min(ToTarget.Size(), SettlerPotterSpeed * DeltaSeconds);
 	// Stand on the floor of the house (or the ground) where they are.
 	Location += Move;
 	Location.Z = Home.Z;
@@ -315,6 +322,13 @@ void ASettler::Interact(AHearthvaleCharacter* Character)
 		return;
 	}
 	FText Line;
+	const UWorldClock* Clock = UWorldClock::Get(this);
+	if (Clock && Clock->IsNight())
+	{
+		Character->ShowMessage(FText::Format(LOCTEXT("Asleep", "{0}: Mm? It's the middle of the night. Let me sleep."),
+			Settler->DisplayName), SettlerSpeech);
+		return;
+	}
 	switch (Trouble)
 	{
 	case ESettlerTrouble::NoChest:

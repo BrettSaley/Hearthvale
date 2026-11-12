@@ -285,6 +285,30 @@ public:
 	UFUNCTION(Exec)
 	void ListSettlers();
 
+	/** Walks up to a villager (TalkVillager Bryn; the nearest if none) and talks to them. */
+	UFUNCTION(Exec)
+	void TalkVillager(const FString& Name = TEXT(""));
+
+	/** Gives a villager one of an item from the backpack (GiftVillager Bryn Wool). */
+	UFUNCTION(Exec)
+	void GiftVillager(const FString& Name, FName ItemId);
+
+	/** Logs every villager: where they are and how well you know them. */
+	UFUNCTION(Exec)
+	void ListVillagers();
+
+	/** Logs the quest you're on and how far along each step is. */
+	UFUNCTION(Exec)
+	void Quests();
+
+	/** Walks up to the current quest's giver and talks to them (to take it on or hand it in). */
+	UFUNCTION(Exec)
+	void QuestTalk();
+
+	/** Takes on the current quest and gives you the items it asks for (other steps you still do). */
+	UFUNCTION(Exec)
+	void HurryQuest();
+
 private:
 	AHearthvaleCharacter* GetHearthvaleCharacter() const;
 

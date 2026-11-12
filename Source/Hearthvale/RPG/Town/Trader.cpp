@@ -15,14 +15,14 @@
 
 namespace
 {
-	/** They watch you within this (cm), and call out when you first come within CallOutRange. */
-	constexpr float WatchRange = 900.f;
-	constexpr float CallOutRange = 700.f;
+	/** They watch you within this (cm), and call out when you first come within TraderCallOutRange. */
+	constexpr float TraderWatchRange = 900.f;
+	constexpr float TraderCallOutRange = 700.f;
 	/** Seconds between call-outs. */
-	constexpr float CallOutGap = 90.f;
+	constexpr float TraderCallOutGap = 90.f;
 	/** How far (degrees) they'll turn from facing over the counter, and how fast. */
-	constexpr float MaxTurn = 75.f;
-	constexpr float TurnSpeed = 4.f;
+	constexpr float TraderMaxTurn = 75.f;
+	constexpr float TraderTurnSpeed = 4.f;
 	const FLinearColor TraderSpeech(0.95f, 0.85f, 0.6f);
 }
 
@@ -107,20 +107,20 @@ void ATrader::Tick(float DeltaSeconds)
 
 	// Watch the player go by, within reason.
 	float WantYaw = 0.f;
-	if (Distance < WatchRange)
+	if (Distance < TraderWatchRange)
 	{
 		const FVector Local = GetActorTransform().InverseTransformPosition(Player->GetActorLocation());
-		WantYaw = FMath::Clamp(FMath::RadiansToDegrees(FMath::Atan2(Local.Y, Local.X)), -MaxTurn, MaxTurn);
+		WantYaw = FMath::Clamp(FMath::RadiansToDegrees(FMath::Atan2(Local.Y, Local.X)), -TraderMaxTurn, TraderMaxTurn);
 	}
-	const float Yaw = FMath::FInterpTo(Person->GetRelativeRotation().Yaw, WantYaw, DeltaSeconds, TurnSpeed);
+	const float Yaw = FMath::FInterpTo(Person->GetRelativeRotation().Yaw, WantYaw, DeltaSeconds, TraderTurnSpeed);
 	Person->SetRelativeRotation(FRotator(0.f, Yaw, 0.f));
 
 	// A call as you come by, every so often.
 	CallOutWait -= DeltaSeconds;
-	const bool bNear = Distance < CallOutRange;
+	const bool bNear = Distance < TraderCallOutRange;
 	if (bNear && !bPlayerNear && CallOutWait <= 0.f && Definition && !Definition->CallOuts.IsEmpty())
 	{
-		CallOutWait = CallOutGap;
+		CallOutWait = TraderCallOutGap;
 		Say(Player, Definition->CallOuts[FMath::RandHelper(Definition->CallOuts.Num())]);
 	}
 	bPlayerNear = bNear;
@@ -158,7 +158,7 @@ void ATrader::Interact(AHearthvaleCharacter* Character)
 		Say(Character, Definition->Greetings[FMath::RandHelper(Definition->Greetings.Num())]);
 	}
 	// Already talking: no calling out to you as well.
-	CallOutWait = CallOutGap;
+	CallOutWait = TraderCallOutGap;
 	bPlayerNear = true;
 	Controller->ToggleShop(this);
 }
@@ -210,6 +210,11 @@ int32 ATrader::Buy(AHearthvaleCharacter* Character, int32 StockIndex, int32 Coun
 int32 ATrader::Sell(AHearthvaleCharacter* Character, UItemDefinition* Item, int32 Count)
 {
 	if (!Character || !Definition || !Item)
+	{
+		return 0;
+	}
+	// Nothing to sell: nothing to say.
+	if (!Character->GetInventory()->HasItem(Item))
 	{
 		return 0;
 	}

@@ -14,6 +14,8 @@
 #include "RPG/World/WorldClock.h"
 #include "RPG/Town/RequestBoard.h"
 #include "RPG/Town/Settler.h"
+#include "RPG/Town/Villager.h"
+#include "RPG/Town/QuestSubsystem.h"
 #include "Hearthvale.h"
 
 const FString UHearthvaleSaveGame::SlotName = TEXT("Hearthvale");
@@ -67,6 +69,17 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 		for (const ARequestBoard* Board : TActorRange<ARequestBoard>(World))
 		{
 			Save->RequestBoards.Add(Board->GetName(), Board->GetState());
+		}
+		for (const AVillager* Villager : TActorRange<AVillager>(World))
+		{
+			if (Villager->GetDefinition())
+			{
+				Save->Villagers.Add(Villager->GetDefinition()->GetName(), Villager->GetBond());
+			}
+		}
+		if (const UQuestSubsystem* Quests = World->GetSubsystem<UQuestSubsystem>())
+		{
+			Save->Quests = Quests->GetState();
 		}
 		Save->bHasSettlers = true;
 		for (const ASettler* Settler : TActorRange<ASettler>(World))
@@ -186,6 +199,18 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 			if (Saved)
 			{
 				Patch->LoadState(*Saved);
+			}
+		}
+		if (UQuestSubsystem* Quests = World->GetSubsystem<UQuestSubsystem>())
+		{
+			Quests->LoadState(Save->Quests);
+		}
+		for (AVillager* Villager : TActorRange<AVillager>(World))
+		{
+			const FVillagerBond* Saved = Villager->GetDefinition() ? Save->Villagers.Find(Villager->GetDefinition()->GetName()) : nullptr;
+			if (Saved)
+			{
+				Villager->SetBond(*Saved);
 			}
 		}
 		for (ARequestBoard* Board : TActorRange<ARequestBoard>(World))

@@ -13,6 +13,13 @@
   (/Game/Town/Settlement): people who move into a house you build (a bed under
   a roof that isn't yours) and work for their keep: a woodcutter, a miner, a
   fisher and a herder
+- Villagers (/Game/Town/Villagers): Bryn, Ivo, Greta, Tam and Hal, who stroll
+  between a few spots round the stall by day and go home at night. Talk to them
+  each day, or give them things they like, to make friends: friends give presents.
+  Placed in Lvl_World (each only if they aren't there yet)
+- The quests (/Game/Town/Quests, a UQuestBookDefinition): five, one after
+  another, from the villagers: build a home, keep hens, take in a settler, bring
+  the smith iron and make friends in town. A tracker in the corner says what's next
 
 Run after create_livestock.py (she sells cows, pigs and buckets), headless with the
 editor closed:
@@ -258,6 +265,163 @@ def create_settlers():
     save(settlement)
 
 
+# --- Villagers: ID: (title, stranger, friend, close, night, wet, likes, (present, how many), shirt, hair, apron) ---
+
+VILLAGERS = {
+    "Bryn": ("Weaver", ["Morning. You're new here, aren't you?", "Mind the loom threads if you come by."],
+             ["Good wool makes good cloth. You've been a help.", "Fancy a scarf? Bring me wool and I'll see."],
+             ["Honestly, the town's better for having you.", "I wove your name into the hall banner. Don't tell anyone."],
+             "Off home. The loom can wait till morning.", "Wet wool smells awful. Truly.",
+             ["Wool", "Cheese"], ("Wool", 3), "ShirtRed", "HairBlond", "Apron"),
+    "Ivo": ("Carpenter", ["Hm. Need something built?", "Measure twice, cut once."],
+            ["You've a good eye for a beam.", "That hut of yours is coming on."],
+            ["Take these planks. I cut them too long for my job anyway.", "If you ever build a hall, I'm your man."],
+            "Too dark to saw straight. Night.", "Rain warps the timber. I hate rain.",
+            ["OakLogs", "Plank"], ("Plank", 4), "ShirtBrown", "HairGrey", None),
+    "Greta": ("Smith", ["Stand back from the forge.", "Iron doesn't work itself."],
+              ["You've got the arms for smithing, you know.", "Bring me good ore and I'll remember it."],
+              ["You're the only one who doesn't flinch at the sparks.", "Here, I kept the best bar back for you."],
+              "Fire's banked for the night.", "Rain on a hot anvil. What a hiss.",
+              ["IronBar", "CopperOre"], ("IronBar", 1), "Shirt", "Hair", "Apron"),
+    "Tam": ("Cook", ["Hungry? Everyone's hungry.", "The stew's not ready yet."],
+            ["You bring the fish, I'll bring the pot.", "Try the chowder. Go on."],
+            ["You eat at my table any time, friend.", "Saved you a bowl. Don't tell Hal."],
+            "Kitchen's closed. Come back for breakfast.", "Good weather for soup, this.",
+            ["Trout", "Truffle", "Onion"], ("FishChowder", 1), "ShirtGreen", "Hair", "Apron"),
+    "Hal": ("Baker", ["Up before dawn, me. Every day.", "Bread's a tuppence. Or it was."],
+            ["Fresh milk makes the best bread.", "You're a good sort. Have a roll."],
+            ["I'd bake you a cake if I had the eggs. Hint.", "The whole town's talking about you. Nicely."],
+            "Bed now. The ovens start at four.", "Damp gets into the flour. Ruins it.",
+            ["Milk", "Butter", "Egg"], ("ButteredPotato", 2), "Shirt", "HairBlond", "Apron"),
+}
+
+
+def create_villagers():
+    factory = unreal.DataAssetFactory()
+    factory.set_editor_property("data_asset_class", unreal.VillagerDefinition)
+    made = {}
+    for villager_id, (title, stranger, friend, close, night, wet, likes, present, shirt, hair, apron) in VILLAGERS.items():
+        villager, _ = create(villager_id, "/Game/Town/Villagers", unreal.VillagerDefinition, factory)
+        for prop, value in [("display_name", unreal.Text(villager_id)), ("title", unreal.Text(title)),
+                            ("stranger_lines", [unreal.Text(t) for t in stranger]),
+                            ("friend_lines", [unreal.Text(t) for t in friend]),
+                            ("close_lines", [unreal.Text(t) for t in close]),
+                            ("night_line", unreal.Text(night)), ("wet_line", unreal.Text(wet)),
+                            ("likes", [item(i) for i in likes]), ("present", item(present[0])),
+                            ("present_quantity", present[1]), ("parts", person(shirt, hair, apron))]:
+            villager.set_editor_property(prop, value)
+        save(villager)
+        made[villager_id] = villager
+    return made
+
+
+def place_villagers(villagers):
+    """Round the square in front of the first trader's stall: a home out on the edge, and a few spots near the middle."""
+    subsystem = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+    actors = subsystem.get_all_level_actors()
+    traders = [a for a in actors if isinstance(a, unreal.Trader)]
+    if not traders:
+        unreal.log_warning("create_town: no trader to put the villagers round.")
+        return
+    here = {a.get_editor_property("definition").get_name() for a in actors
+            if isinstance(a, unreal.Villager) and a.get_editor_property("definition")}
+    stall = traders[0]
+    square = stall.get_actor_location() + stall.get_actor_forward_vector() * 600.0
+    height = unreal.WorldGenerator.get_ground_height
+
+    def dry(angle_deg, distance):
+        # The first dry spot out along a bearing, coming in towards the square.
+        for step in range(8):
+            d = distance * (1.0 - step * 0.1)
+            x = square.x + d * math.cos(math.radians(angle_deg))
+            y = square.y + d * math.sin(math.radians(angle_deg))
+            if height(x, y) > 120:
+                return V(x, y, height(x, y))
+        return V(square.x, square.y, height(square.x, square.y))
+
+    placed = 0
+    for i, (villager_id, villager) in enumerate(villagers.items()):
+        if villager_id in here:
+            continue
+        bearing = i * 72.0 + 20.0
+        stops = [dry(bearing, 1500.0), dry(bearing + 25.0, 500.0), dry(bearing - 40.0, 350.0), dry(bearing + 140.0, 650.0)]
+        actor = subsystem.spawn_actor_from_class(unreal.Villager, stops[1], unreal.Rotator(0, 0, bearing))
+        actor.set_editor_property("definition", villager)
+        actor.set_editor_property("stops", stops)
+        actor.set_actor_label(f"Villager_{villager_id}")
+        actor.set_folder_path("Town")
+        placed += 1
+    if placed:
+        unreal.EditorLoadingAndSavingUtils.save_dirty_packages(True, True)
+    unreal.log(f"create_town: placed {placed} villagers.")
+
+
+# --- Quests, in order: (title, giver, offer, thanks, steps, coins, (reward item, how many) or None, skill, XP) ---
+# A step: (text, goal, how many, what: an item, piece, animal or villager ID; hand items in?)
+
+G = unreal.QuestGoal
+QUESTS = [
+    ("A roof of your own", "Ivo", "You'll want a roof over your head. Build a bed, a chest and a roof.",
+     "A proper home! Here, planks for the next one.",
+     [("Build a bed", G.BUILD, 1, "WoodBed", False), ("Build a chest", G.BUILD, 1, "WoodChest", False),
+      ("Build a roof", G.BUILD, 1, "WoodRoof", False)],
+     60, ("Plank", 6), S.WOODCUTTING, 80),
+    ("Eggs for the bakery", "Hal", "Tame two hens, build them a nest box, and bring me four eggs?",
+     "Lovely and fresh. Have some of my buttered potatoes.",
+     [("Tame hens", G.TAME, 2, "Chicken", False), ("Build a nest box", G.BUILD, 1, "NestBox", False),
+      ("Bring Hal eggs", G.HAVE_ITEM, 4, "Egg", True)],
+     80, ("ButteredPotato", 3), S.FARMING, 100),
+    ("A neighbour", "Bryn", "A town needs people. Build a house with a spare bed: someone will come.",
+     "Someone's moved in! Here, cheese for the housewarming.",
+     [("Get a settler to move in", G.SETTLERS, 1, None, False)],
+     120, ("Cheese", 1), S.FARMING, 60),
+    ("The town smithy", "Greta", "My forge eats iron like bread. Bring me five iron bars?",
+     "Fine bars. You'll make a smith yet.",
+     [("Bring Greta iron bars", G.HAVE_ITEM, 5, "IronBar", True)],
+     200, None, S.SMITHING, 200),
+    ("Friends in town", "Tam", "Get to know people: make friends with Bryn and Hal. I'll cook you something.",
+     "Everyone's talking about you. Here, my best dish.",
+     [("Be friends with Bryn", G.FRIENDSHIP, 4, "Bryn", False), ("Be friends with Hal", G.FRIENDSHIP, 4, "Hal", False)],
+     150, ("TruffleOmelette", 1), None, 0),
+]
+
+
+def create_quests():
+    factory = unreal.DataAssetFactory()
+    factory.set_editor_property("data_asset_class", unreal.QuestBookDefinition)
+    book, _ = create("Quests", "/Game/Town", unreal.QuestBookDefinition, factory)
+    quests = []
+    for title, giver, offer, thanks, steps, coins, reward, skill, xp in QUESTS:
+        q = unreal.Quest()
+        made_steps = []
+        for text, goal, count, what, hand_in in steps:
+            step = unreal.QuestStep()
+            for prop, value in [("text", unreal.Text(text)), ("goal", goal), ("quantity", count), ("hand_in", hand_in)]:
+                step.set_editor_property(prop, value)
+            if goal == G.HAVE_ITEM:
+                step.set_editor_property("item", item(what))
+            elif goal == G.BUILD:
+                step.set_editor_property("piece", unreal.load_asset(f"/Game/Building/Pieces/{what}"))
+            elif goal == G.TAME:
+                step.set_editor_property("animal", animal(what))
+            elif goal == G.FRIENDSHIP:
+                step.set_editor_property("villager", unreal.load_asset(f"/Game/Town/Villagers/{what}"))
+            made_steps.append(step)
+        for prop, value in [("title", unreal.Text(title)), ("giver", unreal.load_asset(f"/Game/Town/Villagers/{giver}")),
+                            ("offer", unreal.Text(offer)), ("thanks", unreal.Text(thanks)), ("steps", made_steps),
+                            ("coins", coins), ("xp", xp)]:
+            q.set_editor_property(prop, value)
+        if reward:
+            q.set_editor_property("reward_item", item(reward[0]))
+            q.set_editor_property("reward_quantity", reward[1])
+        if skill is not None:
+            q.set_editor_property("skill", skill)
+        quests.append(q)
+    book.set_editor_property("quests", quests)
+    book.set_editor_property("currency", item("Coins"))
+    save(book)
+
+
 # --- Odile's stall, a little way from where you start, facing it ---
 
 def place(traders):
@@ -312,3 +476,5 @@ create_materials()
 create_settlers()
 place(create_traders())
 place_board(create_board())
+place_villagers(create_villagers())
+create_quests()
