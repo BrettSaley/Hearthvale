@@ -178,7 +178,7 @@ bool ATrader::GetInteractionPrompt(const AHearthvaleCharacter* Character, FInter
 	{
 		OutPrompt.Action = LOCTEXT("Stall", "Stall of");
 		OutPrompt.bAvailable = false;
-		OutPrompt.Requirement = LOCTEXT("Shut", "shut till morning");
+		OutPrompt.Status = LOCTEXT("Shut", "shut till morning");
 	}
 	return true;
 }
