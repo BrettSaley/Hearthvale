@@ -18,6 +18,10 @@ struct HEARTHVALE_API FItemStack
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Inventory")
 	int32 Quantity = 0;
 
+	/** Uses spent, for things that wear out (see UItemDefinition::Durability); 0 for anything else. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Inventory")
+	int32 Wear = 0;
+
 	bool IsEmpty() const { return Item == nullptr || Quantity <= 0; }
 };
 
@@ -42,6 +46,15 @@ public:
 	/** Adds as many as fit; returns how many were added. */
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
 	int32 AddItem(UItemDefinition* Item, int32 Quantity = 1);
+
+	/** Adds a stack as it is, keeping its wear; returns how many were added. */
+	int32 AddStack(const FItemStack& Stack);
+
+	/** Wears the thing in a slot by Amount uses; when it's used up it breaks and is gone. True if it broke. */
+	bool AddWear(int32 Index, int32 Amount = 1);
+
+	/** Sets the wear of the thing in a slot (repairs, loading). */
+	void SetWear(int32 Index, int32 Wear);
 
 	/** Whether all of them would fit. */
 	UFUNCTION(BlueprintPure, Category = "Inventory")

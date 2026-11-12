@@ -1,4 +1,5 @@
 #include "RPG/GatheringComponent.h"
+#include "RPG/Durability.h"
 #include "RPG/Building/BoatComponent.h"
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
@@ -236,6 +237,11 @@ void UGatheringComponent::Attempt()
 		}
 	}
 	Skills->AddXP(Info.Skill, Info.XP);
+	// Each thing gathered wears the tool a little.
+	if (Info.Tool != EToolType::None)
+	{
+		FDurability::WearCarried(Character, FindBestTool(Inventory, Skills, Info.Tool, Character->GetHeldItem()));
+	}
 	// The RareFinds perk makes each 1-in-N roll come up more often.
 	const float Rare = 1.f + USkillUnlocks::GetPerk(Info.Skill, Level, ESkillPerk::RareFinds);
 	for (const FBonusDrop& Drop : Info.BonusDrops)

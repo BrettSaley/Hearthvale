@@ -1,4 +1,6 @@
 #include "RPG/HealthComponent.h"
+#include "HearthvaleCharacter.h"
+#include "RPG/Durability.h"
 #include "RPG/EquipmentComponent.h"
 #include "RPG/Skills.h"
 #include "RPG/SkillsComponent.h"
@@ -61,6 +63,11 @@ int32 UHealthComponent::ApplyDamage(int32 Amount, const FText& Cause, bool bArmo
 	const int32 Taken = FMath::Min(Health, ThroughArmour(Softened, Equipment ? Equipment->GetDefence() : 0, FMath::FRand()));
 	SinceHurt = 0.f;
 	Resting = 0.f;
+	// Armour that took the blow wears a little.
+	if (Equipment && Equipment->GetDefence() > 0)
+	{
+		FDurability::WearArmour(Cast<AHearthvaleCharacter>(GetOwner()));
+	}
 	// What doesn't kill you: a little Guard and Vitality for each point taken (and Guard for a blow turned aside).
 	if (Skills)
 	{

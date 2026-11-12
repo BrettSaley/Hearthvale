@@ -28,6 +28,7 @@
 #include "RPG/HearthvaleSaveGame.h"
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/CombatComponent.h"
+#include "RPG/Durability.h"
 #include "RPG/EquipmentComponent.h"
 #include "RPG/HealthComponent.h"
 #include "RPG/InventoryComponent.h"
@@ -414,6 +415,38 @@ void UHearthvaleCheatManager::TakeOff(const FString& Slot)
 	Say(FString::Printf(TEXT("Defence %d"), Character->GetEquipment()->GetDefence()));
 }
 
+void UHearthvaleCheatManager::WearOut(int32 Slot, int32 Amount)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	const FItemStack Stack = Character ? Character->GetInventory()->GetSlot(Slot) : FItemStack();
+	if (Stack.IsEmpty() || Stack.Item->Durability <= 0)
+	{
+		Say(FString::Printf(TEXT("Nothing that wears in slot %d."), Slot));
+		return;
+	}
+	UItemDefinition* Item = Stack.Item;
+	Character->SelectHotbarSlot(Slot < UInventoryComponent::HotbarSize ? Slot : Character->GetHeldSlot());
+	for (int32 Use = 0; Use < Amount && Character->GetInventory()->GetSlot(Slot).Item == Item; ++Use)
+	{
+		FDurability::WearCarried(Character, Item);
+	}
+	const FItemStack After = Character->GetInventory()->GetSlot(Slot);
+	Say(After.Item == Item ? FString::Printf(TEXT("%s: %d / %d uses left"), *Item->DisplayName.ToString(), FDurability::UsesLeft(Item, After.Wear), Item->Durability)
+		: FString::Printf(TEXT("%s is gone"), *Item->DisplayName.ToString()));
+}
+
+void UHearthvaleCheatManager::Mend(int32 Slot)
+{
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		const bool bMended = FDurability::Repair(Character, Slot);
+		const FItemStack Stack = Character->GetInventory()->GetSlot(Slot);
+		Say(FString::Printf(TEXT("%s; %s %d / %d uses left"), bMended ? TEXT("Mended") : TEXT("Not mended"),
+			Stack.IsEmpty() ? TEXT("-") : *Stack.Item->DisplayName.ToString(), Stack.IsEmpty() ? 0 : FDurability::UsesLeft(Stack.Item, Stack.Wear),
+			Stack.IsEmpty() ? 0 : Stack.Item->Durability));
+	}
+}
+
 void UHearthvaleCheatManager::ListWorn()
 {
 	if (const AHearthvaleCharacter* Character = GetHearthvaleCharacter())
@@ -422,7 +455,10 @@ void UHearthvaleCheatManager::ListWorn()
 		for (EEquipSlot Each : UEquipmentComponent::GetSlotOrder())
 		{
 			const UItemDefinition* Item = Character->GetEquipment()->GetWorn(Each);
-			Lines.Add(FString::Printf(TEXT("%s: %s"), *UEquipmentComponent::GetSlotName(Each).ToString(), Item ? *Item->DisplayName.ToString() : TEXT("-")));
+			Lines.Add(Item && Item->Durability > 0
+				? FString::Printf(TEXT("%s: %s (%d/%d)"), *UEquipmentComponent::GetSlotName(Each).ToString(), *Item->DisplayName.ToString(),
+					FDurability::UsesLeft(Item, Character->GetEquipment()->GetWornWear(Each)), Item->Durability)
+				: FString::Printf(TEXT("%s: %s"), *UEquipmentComponent::GetSlotName(Each).ToString(), Item ? *Item->DisplayName.ToString() : TEXT("-")));
 		}
 		const int32 Defence = Character->GetEquipment()->GetDefence();
 		Say(FString::Printf(TEXT("%s; defence %d (blows %d%% through)"), *FString::Join(Lines, TEXT(", ")), Defence,
