@@ -284,13 +284,32 @@ int32 AWildlifeHerd::HurtAnimal(int32 Index, int32 Damage, const AActor* Attacke
 	return Taken;
 }
 
-void AWildlifeHerd::Kill(FAnimal& Animal)
+bool AWildlifeHerd::IsSnareable(EWildlifeKind InKind)
+{
+	return InKind == EWildlifeKind::Rabbit || InKind == EWildlifeKind::Fox;
+}
+
+bool AWildlifeHerd::SnareAnimal(int32 Index)
+{
+	if (!IsAlive(Index) || !IsSnareable(Kind) || bHibernating)
+	{
+		return false;
+	}
+	Kill(Animals[Index], false);
+	return true;
+}
+
+void AWildlifeHerd::Kill(FAnimal& Animal, bool bDropLoot)
 {
 	// It drops where it fell, and another turns up at home a while later.
 	Animal.Health = 0;
 	Animal.DeadFor = FightOf(Kind).Respawn;
 	Animal.Mood = EMood::Calm;
 	Animal.Body->SetVisibility(false, true);
+	if (!bDropLoot)
+	{
+		return;
+	}
 	const FVector Where(Animal.Position, UWorldGenerator::GetGroundHeight(Animal.Position.X, Animal.Position.Y));
 	for (const TPair<FName, int32>& Drop : GetLoot(Kind))
 	{

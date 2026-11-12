@@ -841,6 +841,29 @@ bool FDurabilityTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTrapsTest, "Hearthvale.Traps", TestFlags)
+
+bool FTrapsTest::RunTest(const FString& Parameters)
+{
+	// Snares are for small game; spikes are for the fierce.
+	TestTrue(TEXT("Rabbits can be snared"), AWildlifeHerd::IsSnareable(EWildlifeKind::Rabbit));
+	TestTrue(TEXT("Foxes can be snared"), AWildlifeHerd::IsSnareable(EWildlifeKind::Fox));
+	TestFalse(TEXT("Bears can't"), AWildlifeHerd::IsSnareable(EWildlifeKind::Bear));
+	TestFalse(TEXT("Nor deer"), AWildlifeHerd::IsSnareable(EWildlifeKind::Deer));
+	TestTrue(TEXT("Boars are fierce enough for spikes"), AWildlifeHerd::IsFierce(EWildlifeKind::Boar));
+
+	const UBuildPieceDefinition* Snare = UBuildPieceDefinition::FindPiece(TEXT("Snare"));
+	const UBuildPieceDefinition* Wooden = UBuildPieceDefinition::FindPiece(TEXT("WoodenSpikes"));
+	const UBuildPieceDefinition* Iron = UBuildPieceDefinition::FindPiece(TEXT("IronSpikes"));
+	TestTrue(TEXT("A snare is a snare with room for its catch"), Snare && Snare->Trap == ETrapKind::Snare && Snare->StorageSlots > 0
+		&& Snare->CatchChance > 0.f && Snare->Category == EBuildCategory::Traps);
+	TestTrue(TEXT("Snares can be set out in the wild"), Snare && !Snare->bNeedsWorkbench);
+	TestTrue(TEXT("Spikes are spikes"), Wooden && Iron && Wooden->Trap == ETrapKind::Spikes && Iron->Trap == ETrapKind::Spikes
+		&& Wooden->TrapDamage > 0 && Wooden->TrapUses > 0);
+	TestTrue(TEXT("Iron spikes hit harder and last longer"), Wooden && Iron && Iron->TrapDamage > Wooden->TrapDamage && Iron->TrapUses > Wooden->TrapUses);
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWildlifeTest, "Hearthvale.Wildlife", TestFlags)
 
 bool FWildlifeTest::RunTest(const FString& Parameters)

@@ -189,6 +189,18 @@ public:
 	UFUNCTION(Exec)
 	void Mend(int32 Slot);
 
+	/** Checks every snare now, Times times over, and says what's in them (CheckSnares 20). */
+	UFUNCTION(Exec)
+	void CheckSnares(int32 Times = 1);
+
+	/** Sets a trap down Ahead cm in front of the player, free and with no checks (SetTrap WoodenSpikes 0). */
+	UFUNCTION(Exec)
+	void SetTrap(FName PieceId, float Ahead = 150.f);
+
+	/** Lists the traps: where, and how worn or full. */
+	UFUNCTION(Exec)
+	void ListTraps();
+
 	/** Lists what's worn and the total defence. */
 	UFUNCTION(Exec)
 	void ListWorn();

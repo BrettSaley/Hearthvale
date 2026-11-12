@@ -10,6 +10,7 @@
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/Building/FarmMachineComponent.h"
+#include "RPG/Building/TrapComponent.h"
 #include "RPG/CraftingStation.h"
 #include "RPG/CraftingComponent.h"
 #include "RPG/RecipeDefinition.h"
@@ -445,6 +446,60 @@ void UHearthvaleCheatManager::Mend(int32 Slot)
 			Stack.IsEmpty() ? TEXT("-") : *Stack.Item->DisplayName.ToString(), Stack.IsEmpty() ? 0 : FDurability::UsesLeft(Stack.Item, Stack.Wear),
 			Stack.IsEmpty() ? 0 : Stack.Item->Durability));
 	}
+}
+
+void UHearthvaleCheatManager::CheckSnares(int32 Times)
+{
+	int32 Caught = 0;
+	for (ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		for (int32 Check = 0; Built->GetTrap() && Check < Times; ++Check)
+		{
+			Caught += Built->GetTrap()->CheckSnare() ? 1 : 0;
+		}
+	}
+	Say(FString::Printf(TEXT("Snares caught %d."), Caught));
+	ListTraps();
+}
+
+void UHearthvaleCheatManager::SetTrap(FName PieceId, float Ahead)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	UBuildPieceDefinition* Piece = UBuildPieceDefinition::FindPiece(PieceId);
+	if (!Character || !Piece || Piece->Trap == ETrapKind::None)
+	{
+		Say(FString::Printf(TEXT("No trap called '%s'."), *PieceId.ToString()));
+		return;
+	}
+	const FVector At = Character->GetActorLocation() + Character->GetActorForwardVector() * Ahead;
+	const FVector Ground(At.X, At.Y, UWorldGenerator::GetGroundHeight(At.X, At.Y));
+	const ABuildPiece* Built = ABuildPiece::Spawn(GetWorld(), Piece, FTransform(Character->GetActorRotation(), Ground));
+	Say(Built ? FString::Printf(TEXT("Set %s at %s"), *PieceId.ToString(), *Ground.ToCompactString()) : TEXT("Couldn't set it."));
+}
+
+void UHearthvaleCheatManager::ListTraps()
+{
+	TArray<FString> Lines;
+	for (const ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		if (const UTrapComponent* Trap = Built->GetTrap())
+		{
+			TArray<FString> Held;
+			if (const UInventoryComponent* Storage = Built->GetStorage())
+			{
+				for (const FItemStack& Slot : Storage->GetSlots())
+				{
+					if (!Slot.IsEmpty())
+					{
+						Held.Add(FString::Printf(TEXT("%d %s"), Slot.Quantity, *Slot.Item->GetItemId().ToString()));
+					}
+				}
+			}
+			Lines.Add(FString::Printf(TEXT("%s at %s (%s)%s%s"), *Built->GetPiece()->GetPieceId().ToString(), *Built->GetActorLocation().ToCompactString(),
+				*Trap->GetStatus().ToString(), Held.IsEmpty() ? TEXT("") : TEXT(": "), *FString::Join(Held, TEXT(", "))));
+		}
+	}
+	Say(Lines.IsEmpty() ? TEXT("No traps.") : FString::Join(Lines, TEXT("; ")));
 }
 
 void UHearthvaleCheatManager::ListWorn()

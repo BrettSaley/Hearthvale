@@ -59,6 +59,10 @@ struct FSavedBuildPiece
 	UPROPERTY()
 	int32 Fuel = 0;
 
+	/** Spikes: blows they've dealt. */
+	UPROPERTY()
+	int32 TrapWear = 0;
+
 	/** Garden plots: what's growing. */
 	UPROPERTY()
 	FSavedFarmPatch Patch;
