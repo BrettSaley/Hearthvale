@@ -166,7 +166,8 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 	{
 		Character->GetHealth()->Restore();
 	}
-	UWarmthComponent::FindOrAdd(Character)->SetWarmth(Save->Warmth < 0.f ? UWarmthComponent::MaxWarmth : Save->Warmth);
+	// A save made while freezing gives a moment's grace to reach a fire.
+	UWarmthComponent::FindOrAdd(Character)->SetWarmth(Save->Warmth < 0.f ? UWarmthComponent::MaxWarmth : FMath::Max(Save->Warmth, 30.f));
 	if (UWorld* World = Character->GetWorld())
 	{
 		for (AFarmPatch* Patch : TActorRange<AFarmPatch>(World))

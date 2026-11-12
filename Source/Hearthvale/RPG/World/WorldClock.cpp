@@ -101,6 +101,7 @@ void UWorldClock::AdvanceHours(float Hours)
 		return;
 	}
 	const ESeason OldSeason = GetSeason();
+	const int32 OldDay = Day;
 	Hour += Hours;
 	while (Hour >= 24.f)
 	{
@@ -108,6 +109,12 @@ void UWorldClock::AdvanceHours(float Hours)
 		++Day;
 	}
 	const ESeason NewSeason = GetSeason();
+	// The last day of autumn: a warning before the first winter catches anyone out.
+	if (Day != OldDay && NewSeason == ESeason::Autumn && GetDayOfSeason() == DaysPerSeason)
+	{
+		Announce(LOCTEXT("WinterComing", "Frost on the grass: winter is a day away. Gather logs for fires, and get a roof over your bed."));
+		UE_LOG(LogHearthvale, Log, TEXT("World: winter is coming (day %d)."), Day + 1);
+	}
 	if (NewSeason != OldSeason)
 	{
 		Weather = AdjustForSeason(Weather, NewSeason);
@@ -200,7 +207,19 @@ bool UWorldClock::SleepUntilMorning()
 		return false;
 	}
 	const float Wake = SunriseHour(Day + (bEvening ? 1 : 0)) + 0.5f;
-	AdvanceHours(bEvening ? 24.f - Hour + Wake : Wake - Hour);
+	const float Slept = bEvening ? 24.f - Hour + Wake : Wake - Hour;
+	AdvanceHours(Slept);
+	// Crops grow on real time, so the hours slept count for them too; and you wake warm.
+	const float Seconds = Slept * RealSecondsPerHour * GetCropGrowthRate();
+	for (AFarmPatch* Patch : TActorRange<AFarmPatch>(GetWorld()))
+	{
+		Patch->AdjustGrowth(Seconds);
+	}
+	if (AHearthvaleCharacter* Player = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
+	{
+		UWarmthComponent::FindOrAdd(Player)->SetWarmth(UWarmthComponent::MaxWarmth);
+	}
+	UE_LOG(LogHearthvale, Log, TEXT("World: slept %.1f hours; crops grew %.0f seconds' worth."), Slept, Seconds);
 	return true;
 }
 
