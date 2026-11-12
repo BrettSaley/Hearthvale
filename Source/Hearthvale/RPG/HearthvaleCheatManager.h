@@ -233,6 +233,30 @@ public:
 	UFUNCTION(Exec)
 	void CraftAt(FName RecipeId, int32 Count = 1);
 
+	/** Walks up to the nearest trader's counter and opens their shop. */
+	UFUNCTION(Exec)
+	void Trade();
+
+	/** Buys from a line of the open shop's stock (Buy 0 5). */
+	UFUNCTION(Exec)
+	void Buy(int32 Line, int32 Count = 1);
+
+	/** Sells to the open shop (Sell Wool 4). */
+	UFUNCTION(Exec)
+	void Sell(FName ItemId, int32 Count = 1);
+
+	/** Walks up to the nearest notice board and opens its requests. */
+	UFUNCTION(Exec)
+	void Notices();
+
+	/** Delivers the request in a spot of the open notice board (Deliver 0). */
+	UFUNCTION(Exec)
+	void Deliver(int32 Spot);
+
+	/** Puts new requests up in every empty spot of every notice board now, and lists what's up. */
+	UFUNCTION(Exec)
+	void Repost();
+
 private:
 	AHearthvaleCharacter* GetHearthvaleCharacter() const;
 

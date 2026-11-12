@@ -12,6 +12,7 @@
 #include "RPG/SkillsComponent.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WorldClock.h"
+#include "RPG/Town/RequestBoard.h"
 #include "Hearthvale.h"
 
 const FString UHearthvaleSaveGame::SlotName = TEXT("Hearthvale");
@@ -60,6 +61,10 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 		if (const ULostCacheRegistry* Caches = ULostCacheRegistry::Get(World))
 		{
 			Save->Caches = Caches->SaveStates();
+		}
+		for (const ARequestBoard* Board : TActorRange<ARequestBoard>(World))
+		{
+			Save->RequestBoards.Add(Board->GetName(), Board->GetState());
 		}
 		Save->bHasAnimals = true;
 		for (const AFarmAnimal* Animal : TActorRange<AFarmAnimal>(World))
@@ -170,6 +175,13 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 			if (Saved)
 			{
 				Patch->LoadState(*Saved);
+			}
+		}
+		for (ARequestBoard* Board : TActorRange<ARequestBoard>(World))
+		{
+			if (const FRequestBoardState* Saved = Save->RequestBoards.Find(Board->GetName()))
+			{
+				Board->LoadState(*Saved);
 			}
 		}
 		// What was built replaces whatever is standing now.
