@@ -163,10 +163,10 @@ bool UChestWidget::MoveStack(bool bFromChest, int32 SlotIndex)
 	}
 	// As much as fits goes across; the rest stays where it was.
 	From->RemoveFromSlot(SlotIndex);
-	const int32 Moved = To->AddItem(Stack.Item, Stack.Quantity);
+	const int32 Moved = To->AddStack(Stack);
 	if (Moved < Stack.Quantity)
 	{
-		From->SetSlot(SlotIndex, FItemStack{Stack.Item, Stack.Quantity - Moved});
+		From->SetSlot(SlotIndex, FItemStack{Stack.Item, Stack.Quantity - Moved, Stack.Wear});
 		Owner->ShowMessage(bFromChest ? LOCTEXT("BackpackFull", "Your backpack is full.") : LOCTEXT("ChestFull", "The chest is full."),
 			HearthvaleUI::BadColor);
 	}

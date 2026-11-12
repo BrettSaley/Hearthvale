@@ -9,6 +9,7 @@
 #include "Components/SizeBox.h"
 #include "Components/TextBlock.h"
 #include "Engine/Texture2D.h"
+#include "RPG/Durability.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/UI/CharacterPanelWidget.h"
 #include "RPG/UI/HearthvaleUIStyle.h"
@@ -55,6 +56,15 @@ void UInventorySlotWidget::NativeOnInitialized()
 	KeySlot->SetHorizontalAlignment(HAlign_Right);
 	KeySlot->SetVerticalAlignment(VAlign_Top);
 
+	WearSize = WidgetTree->ConstructWidget<USizeBox>();
+	WearSize->SetHeightOverride(3.f);
+	WearBar = WidgetTree->ConstructWidget<UBorder>();
+	WearSize->SetContent(WearBar);
+	UOverlaySlot* WearSlot = Layers->AddChildToOverlay(WearSize);
+	WearSlot->SetHorizontalAlignment(HAlign_Left);
+	WearSlot->SetVerticalAlignment(VAlign_Bottom);
+	WearSlot->SetPadding(FMargin(1.f, 0.f, 1.f, 4.f));
+
 	WidgetTree->RootWidget = Box;
 	SetStack(FItemStack());
 }
@@ -93,6 +103,14 @@ void UInventorySlotWidget::SetStack(const FItemStack& InStack)
 	if (!bEmpty)
 	{
 		Accent->SetBrush(HearthvaleUI::RoundedBrush(HearthvaleUI::CategoryColor(Stack.Item->Category), 1.5f));
+	}
+	const bool bWorn = !bEmpty && Stack.Item->Durability > 0 && Stack.Wear > 0;
+	WearSize->SetVisibility(bWorn ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+	if (bWorn)
+	{
+		const float Condition = FDurability::Condition(Stack.Item, Stack.Wear);
+		WearSize->SetWidthOverride(FMath::Max(2.f, (Size - 8.f) * Condition));
+		WearBar->SetBrush(HearthvaleUI::RoundedBrush(FLinearColor::LerpUsingHSV(FLinearColor(1.f, 0.2f, 0.15f), FLinearColor(0.3f, 0.9f, 0.3f), Condition), 1.f));
 	}
 	const bool bShowQuantity = !bEmpty && (Stack.Quantity > 1 || Stack.Item->bStackable);
 	QuantityText->SetText(bShowQuantity ? HearthvaleUI::FormatQuantity(Stack.Quantity) : FText::GetEmpty());

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+#include "RPG/RecipeDefinition.h"
 #include "RPG/Skills.h"
 #include "ItemDefinition.generated.h"
 
@@ -126,6 +127,18 @@ public:
 	TObjectPtr<UItemDefinition> Ammo;
 
 	bool IsWeapon() const { return EquipSlot == EEquipSlot::Weapon; }
+
+	/** Uses before it wears out and breaks (a gather, a swing or shot, a blow taken); 0 if it never wears. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Durability", meta = (ClampMin = 0))
+	int32 Durability = 0;
+
+	/** What mending it takes (a bar, a plank, a hide), one a repair; null if it can't be mended. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Durability")
+	TObjectPtr<UItemDefinition> RepairItem;
+
+	/** Where it's mended: anvils for metal, workbenches for wood and leather. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Durability")
+	ECraftStation RepairStation = ECraftStation::Anvil;
 
 	/** Health restored when eaten; 0 for anything inedible. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Food", meta = (ClampMin = 0))

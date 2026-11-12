@@ -14,6 +14,7 @@
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/CombatComponent.h"
+#include "RPG/Durability.h"
 #include "RPG/EquipmentComponent.h"
 #include "RPG/HealthComponent.h"
 #include "RPG/HearthvaleSaveGame.h"
@@ -782,6 +783,61 @@ bool FArmourTest::RunTest(const FString& Parameters)
 	const UItemDefinition* SteelHelm = UItemDefinition::FindItem(TEXT("SteelHelm"));
 	TestTrue(TEXT("Steel takes Guard to wear"), SteelHelm && SteelHelm->Requirements.FindRef(ESkill::Guard) > 1);
 	TestTrue(TEXT("A wooden shield is a shield"), UItemDefinition::FindItem(TEXT("WoodenShield")) && UItemDefinition::FindItem(TEXT("WoodenShield"))->EquipSlot == EEquipSlot::OffHand);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDurabilityTest, "Hearthvale.Durability", TestFlags)
+
+bool FDurabilityTest::RunTest(const FString& Parameters)
+{
+	UItemDefinition* Axe = MakeItem(false);
+	Axe->Durability = 20;
+	TestEqual(TEXT("New, it has every use left"), FDurability::UsesLeft(Axe, 0), 20);
+	TestEqual(TEXT("Half worn"), FDurability::Condition(Axe, 10), 0.5f);
+	TestEqual(TEXT("It warns with a tenth left"), FDurability::WarnAt(Axe), 2);
+	TestEqual(TEXT("Things that don't wear are always fine"), FDurability::Condition(MakeItem(false), 99), 1.f);
+
+	// Wear goes with the item, and it breaks when it's used up.
+	UInventoryComponent* Inventory = NewObject<UInventoryComponent>();
+	Inventory->AddItem(Axe);
+	TestFalse(TEXT("A few uses don't break it"), Inventory->AddWear(0, 15));
+	TestEqual(TEXT("Wear adds up"), Inventory->GetSlot(0).Wear, 15);
+	const FItemStack Taken = Inventory->RemoveFromSlot(0);
+	TestEqual(TEXT("Wear goes with it out of the slot"), Taken.Wear, 15);
+	TestEqual(TEXT("...and back in"), Inventory->AddStack(Taken), 1);
+	TestEqual(TEXT("Still worn"), Inventory->GetSlot(0).Wear, 15);
+	TestFalse(TEXT("Not mendable without a material"), FDurability::NeedsRepair(Inventory->GetSlot(0)));
+	Axe->RepairItem = MakeItem(true);
+	TestTrue(TEXT("Mendable with one"), FDurability::NeedsRepair(Inventory->GetSlot(0)));
+	TestTrue(TEXT("Used up, it breaks"), Inventory->AddWear(0, 5));
+	TestTrue(TEXT("...and is gone"), Inventory->GetSlot(0).IsEmpty());
+	UItemDefinition* Logs = MakeItem(true);
+	Inventory->AddItem(Logs, 5);
+	TestFalse(TEXT("Logs don't wear"), Inventory->AddWear(0, 100));
+	TestEqual(TEXT("...at all"), Inventory->GetSlot(0).Quantity, 5);
+
+	// Worn armour wears too.
+	UEquipmentComponent* Equipment = NewObject<UEquipmentComponent>();
+	UItemDefinition* Helm = MakeItem(false);
+	Helm->EquipSlot = EEquipSlot::Head;
+	Helm->DefenceBonus = 2;
+	Helm->Durability = 3;
+	Equipment->SetWorn(EEquipSlot::Head, Helm, 1);
+	TestFalse(TEXT("A worn helm takes a blow"), Equipment->AddWear(EEquipSlot::Head));
+	TestTrue(TEXT("...and breaks on its last"), Equipment->AddWear(EEquipSlot::Head));
+	TestNull(TEXT("A broken helm is gone"), Equipment->GetWorn(EEquipSlot::Head));
+
+	// Every metal tool, weapon and piece of armour wears and is mended at an anvil; steel outlasts copper.
+	for (const TCHAR* Kind : {TEXT("Axe"), TEXT("Pickaxe"), TEXT("Sword"), TEXT("Helm"), TEXT("Chestplate"), TEXT("Shield")})
+	{
+		const UItemDefinition* Copper = UItemDefinition::FindItem(FName(FString(TEXT("Copper")) + Kind));
+		const UItemDefinition* Steel = UItemDefinition::FindItem(FName(FString(TEXT("Steel")) + Kind));
+		TestTrue(FString::Printf(TEXT("Copper and steel %s wear and mend at an anvil"), Kind), Copper && Steel && Copper->Durability > 0
+			&& Copper->RepairItem && Copper->RepairStation == ECraftStation::Anvil && Steel->RepairItem);
+		TestTrue(FString::Printf(TEXT("Steel %s outlasts copper"), Kind), Copper && Steel && Steel->Durability > Copper->Durability);
+	}
+	const UItemDefinition* Bow = UItemDefinition::FindItem(TEXT("Shortbow"));
+	TestTrue(TEXT("A bow is mended at a workbench"), Bow && Bow->Durability > 0 && Bow->RepairStation == ECraftStation::Workbench);
 	return true;
 }
 

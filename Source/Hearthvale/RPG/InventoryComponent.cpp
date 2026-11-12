@@ -62,6 +62,60 @@ int32 UInventoryComponent::AddItem(UItemDefinition* Item, int32 Quantity)
 	return Added;
 }
 
+int32 UInventoryComponent::AddStack(const FItemStack& Stack)
+{
+	if (Stack.IsEmpty())
+	{
+		return 0;
+	}
+	if (Stack.Item->bStackable || Stack.Wear <= 0)
+	{
+		return AddItem(Stack.Item, Stack.Quantity);
+	}
+	int32 Added = 0;
+	while (Added < Stack.Quantity)
+	{
+		const int32 Index = FirstEmptySlot();
+		if (Index == INDEX_NONE)
+		{
+			break;
+		}
+		Slots[Index] = FItemStack{Stack.Item, 1, Stack.Wear};
+		++Added;
+	}
+	if (Added > 0)
+	{
+		OnInventoryChanged.Broadcast();
+	}
+	return Added;
+}
+
+bool UInventoryComponent::AddWear(int32 Index, int32 Amount)
+{
+	if (!Slots.IsValidIndex(Index) || Slots[Index].IsEmpty() || Slots[Index].Item->Durability <= 0 || Amount <= 0)
+	{
+		return false;
+	}
+	FItemStack& Slot = Slots[Index];
+	Slot.Wear += Amount;
+	const bool bBroke = Slot.Wear >= Slot.Item->Durability;
+	if (bBroke)
+	{
+		Slot = FItemStack();
+	}
+	OnInventoryChanged.Broadcast();
+	return bBroke;
+}
+
+void UInventoryComponent::SetWear(int32 Index, int32 Wear)
+{
+	if (Slots.IsValidIndex(Index) && !Slots[Index].IsEmpty())
+	{
+		Slots[Index].Wear = FMath::Max(0, Wear);
+		OnInventoryChanged.Broadcast();
+	}
+}
+
 bool UInventoryComponent::CanFit(const UItemDefinition* Item, int32 Quantity) const
 {
 	if (!Item || Quantity <= 0)
@@ -107,7 +161,7 @@ FItemStack UInventoryComponent::RemoveFromSlot(int32 Index, int32 Quantity)
 	}
 	FItemStack& Slot = Slots[Index];
 	const int32 Take = Quantity < 0 ? Slot.Quantity : FMath::Min(Quantity, Slot.Quantity);
-	const FItemStack Taken{Slot.Item, Take};
+	const FItemStack Taken{Slot.Item, Take, Slot.Wear};
 	Slot.Quantity -= Take;
 	if (Slot.Quantity <= 0)
 	{

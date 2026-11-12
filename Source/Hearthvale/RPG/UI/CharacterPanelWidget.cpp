@@ -16,6 +16,7 @@
 #include "HearthvaleCharacter.h"
 #include "HearthvalePlayerController.h"
 #include "RPG/CropDefinition.h"
+#include "RPG/Durability.h"
 #include "RPG/EquipmentComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillUnlocks.h"
@@ -488,7 +489,7 @@ void UCharacterPanelWidget::RefreshInventory()
 	for (int32 Index = 0; Index < WornWidgets.Num() && Index < Order.Num(); ++Index)
 	{
 		UItemDefinition* Worn = Equipment->GetWorn(Order[Index]);
-		const FItemStack Stack{Worn, Worn ? 1 : 0};
+		const FItemStack Stack{Worn, Worn ? 1 : 0, Equipment->GetWornWear(Order[Index])};
 		WornWidgets[Index]->SetStack(Stack);
 		WornWidgets[Index]->SetToolTip(Worn ? MakeItemTooltip(Stack) : nullptr);
 	}
@@ -580,6 +581,17 @@ UWidget* UCharacterPanelWidget::MakeItemTooltip(const FItemStack& Stack)
 		AddTooltipLine(Lines, FText::Format(LOCTEXT("Bonuses", "Accuracy {0}   Strength {1}   Defence {2}"),
 			Item->AccuracyBonus, Item->StrengthBonus, Item->DefenceBonus), HearthvaleUI::TextColor);
 	}
+	if (Item->Durability > 0)
+	{
+		const int32 Left = FDurability::UsesLeft(Item, Stack.Wear);
+		AddTooltipLine(Lines, FText::Format(LOCTEXT("Durability", "Durability {0} / {1}"), Left, Item->Durability),
+			Left <= FDurability::WarnAt(Item) ? HearthvaleUI::BadColor : HearthvaleUI::TextColor);
+		if (Item->RepairItem)
+		{
+			AddTooltipLine(Lines, FText::Format(LOCTEXT("MendWith", "Mend with {0} at {1}"), Item->RepairItem->DisplayName.ToLower(),
+				FDurability::StationName(Item->RepairStation)), HearthvaleUI::MutedColor);
+		}
+	}
 	if (UEquipmentComponent::IsWearable(Item))
 	{
 		AddTooltipLine(Lines, FText::Format(LOCTEXT("WornOn", "Worn: {0}  (right-click held, or the menu)"), UEquipmentComponent::GetSlotName(Item->EquipSlot)),
@@ -662,6 +674,16 @@ void UCharacterPanelWidget::OpenItemMenu(int32 SlotIndex, FVector2D ScreenPositi
 			if (WeakCharacter.IsValid())
 			{
 				WeakCharacter->Eat(SlotIndex);
+			}
+		});
+	}
+	if (FDurability::NeedsRepair(Stack))
+	{
+		AddMenuOption(FText::Format(LOCTEXT("MendOption", "Mend ({0})"), Stack.Item->RepairItem->DisplayName.ToLower()), [WeakCharacter, SlotIndex]
+		{
+			if (WeakCharacter.IsValid())
+			{
+				FDurability::Repair(WeakCharacter.Get(), SlotIndex);
 			}
 		});
 	}
