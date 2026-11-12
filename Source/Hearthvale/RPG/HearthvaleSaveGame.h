@@ -9,6 +9,7 @@
 #include "RPG/World/Seasons.h"
 #include "RPG/Town/RequestBoardDefinition.h"
 #include "RPG/Town/Settler.h"
+#include "RPG/Town/VillagerDefinition.h"
 #include "HearthvaleSaveGame.generated.h"
 
 class AHearthvaleCharacter;
@@ -128,6 +129,10 @@ public:
 
 	UPROPERTY()
 	TArray<FSavedSettler> Settlers;
+
+	/** How well you know each villager, by their definition's name. */
+	UPROPERTY()
+	TMap<FString, FVillagerBond> Villagers;
 
 	/** Write a character's progress (and the farm patches in their world) to disk. */
 	static bool SaveProgress(const AHearthvaleCharacter* Character);

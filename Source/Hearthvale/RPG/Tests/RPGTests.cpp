@@ -23,6 +23,7 @@
 #include "RPG/SkillsComponent.h"
 #include "RPG/Town/RequestBoardDefinition.h"
 #include "RPG/Town/SettlerDefinition.h"
+#include "RPG/Town/VillagerDefinition.h"
 #include "RPG/Town/TraderDefinition.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldGenerator.h"
@@ -563,6 +564,52 @@ bool FSettlersTest::RunTest(const FString& Parameters)
 		TestTrue(FString::Printf(TEXT("%s eats less often than they work"), *Name), Settler->MealSeconds > Settler->WorkSeconds);
 	}
 	TestTrue(TEXT("Someone tends animals"), bHerder);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVillagersTest, "Hearthvale.Villagers", TestFlags)
+
+bool FVillagersTest::RunTest(const FString& Parameters)
+{
+	// Talking counts once a day; a liked gift counts double, once a day; friends give presents, once a day.
+	FVillagerBond Bond;
+	TestTrue(TEXT("The first chat counts"), Bond.Talk(0));
+	TestFalse(TEXT("A second chat the same day doesn't"), Bond.Talk(0));
+	TestEqual(TEXT("One closer"), Bond.Friendship, 1);
+	TestEqual(TEXT("A liked gift counts double"), Bond.Give(0, true), 2);
+	TestEqual(TEXT("One gift a day"), Bond.Give(0, true), 0);
+	TestFalse(TEXT("Strangers give no presents"), Bond.TakePresent(0));
+	TestTrue(TEXT("A new day, a new chat"), Bond.Talk(1));
+	TestEqual(TEXT("Friends now"), Bond.GetTier(), 1);
+	TestTrue(TEXT("Friends give a present"), Bond.TakePresent(1));
+	TestFalse(TEXT("One present a day"), Bond.TakePresent(1));
+	for (int32 Day = 2; Day < 40; ++Day)
+	{
+		Bond.Talk(Day);
+	}
+	TestEqual(TEXT("Friendship tops out"), Bond.Friendship, FVillagerBond::MaxFriendship);
+	TestEqual(TEXT("Close friends"), Bond.GetTier(), 2);
+
+	// The town's villagers each have a name, things to say for each stage, a look, likes and a present.
+	UVillagerDefinition* Quiet = NewObject<UVillagerDefinition>();
+	Quiet->StrangerLines.Add(FText::FromString(TEXT("Hm.")));
+	TestEqual(TEXT("Falls back to a reserved line"), Quiet->PickLine(2).ToString(), FString(TEXT("Hm.")));
+	int32 Found = 0;
+	for (const TCHAR* Name : {TEXT("Bryn"), TEXT("Ivo"), TEXT("Greta"), TEXT("Tam"), TEXT("Hal")})
+	{
+		const UVillagerDefinition* Villager = LoadObject<UVillagerDefinition>(nullptr, *FString::Printf(TEXT("/Game/Town/Villagers/%s.%s"), Name, Name));
+		if (!TestNotNull(FString::Printf(TEXT("%s lives in town"), Name), Villager))
+		{
+			continue;
+		}
+		++Found;
+		TestFalse(FString::Printf(TEXT("%s talks to strangers"), Name), Villager->StrangerLines.IsEmpty());
+		TestFalse(FString::Printf(TEXT("%s talks to friends"), Name), Villager->FriendLines.IsEmpty() || Villager->CloseLines.IsEmpty());
+		TestFalse(FString::Printf(TEXT("%s likes something"), Name), Villager->Likes.IsEmpty() || Villager->Likes.Contains(nullptr));
+		TestNotNull(FString::Printf(TEXT("%s has a present"), Name), Villager->Present.Get());
+		TestFalse(FString::Printf(TEXT("%s has a look"), Name), Villager->Parts.IsEmpty());
+	}
+	TestEqual(TEXT("Five villagers"), Found, 5);
 	return true;
 }
 

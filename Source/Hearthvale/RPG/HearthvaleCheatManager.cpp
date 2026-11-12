@@ -16,6 +16,7 @@
 #include "RPG/Town/RequestBoard.h"
 #include "RPG/Town/SettlementSubsystem.h"
 #include "RPG/Town/Settler.h"
+#include "RPG/Town/Villager.h"
 #include "RPG/Town/Trader.h"
 #include "RPG/UI/RequestBoardWidget.h"
 #include "RPG/Town/TraderDefinition.h"
@@ -1162,5 +1163,61 @@ void UHearthvaleCheatManager::ListSettlers()
 		Say(FString::Printf(TEXT("%s at (%.0f, %.0f): %s, made %d. Chest: %s"), *Settler->GetFullName().ToString(),
 			Settler->GetActorLocation().X, Settler->GetActorLocation().Y, Troubles[static_cast<int32>(Settler->GetTrouble())],
 			Settler->GetMade(), *Chest));
+	}
+}
+
+namespace
+{
+	AVillager* FindVillager(UWorld* World, const FString& Name, const FVector& Near)
+	{
+		AVillager* Best = nullptr;
+		for (AVillager* Villager : TActorRange<AVillager>(World))
+		{
+			const bool bNamed = Villager->GetDefinition() && Villager->GetDefinition()->DisplayName.ToString().Equals(Name, ESearchCase::IgnoreCase);
+			if ((Name.IsEmpty() || bNamed) && (!Best || FVector::Dist(Villager->GetActorLocation(), Near) < FVector::Dist(Best->GetActorLocation(), Near)))
+			{
+				Best = Villager;
+			}
+		}
+		return Best;
+	}
+}
+
+void UHearthvaleCheatManager::TalkVillager(const FString& Name)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	AVillager* Villager = Character ? FindVillager(GetWorld(), Name, Character->GetActorLocation()) : nullptr;
+	if (!Villager)
+	{
+		Say(FString::Printf(TEXT("No villager called '%s'."), *Name));
+		return;
+	}
+	const FVector Front = Villager->GetActorLocation() + Villager->GetActorForwardVector() * 160.f + FVector(0.f, 0.f, 100.f);
+	Character->TeleportTo(Front, (-Villager->GetActorForwardVector()).Rotation());
+	Villager->Talk(Character);
+}
+
+void UHearthvaleCheatManager::GiftVillager(const FString& Name, FName ItemId)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	AVillager* Villager = Character ? FindVillager(GetWorld(), Name, Character->GetActorLocation()) : nullptr;
+	UItemDefinition* Item = UItemDefinition::FindItem(ItemId);
+	if (!Villager || !Item)
+	{
+		Say(TEXT("No such villager or item."));
+		return;
+	}
+	Say(Villager->Gift(Character, Item) ? TEXT("Given.") : TEXT("Not given."));
+}
+
+void UHearthvaleCheatManager::ListVillagers()
+{
+	for (const AVillager* Villager : TActorRange<AVillager>(GetWorld()))
+	{
+		const FVillagerBond& Bond = Villager->GetBond();
+		Say(FString::Printf(TEXT("%s at (%.0f, %.0f): friendship %d, talked day %d, gift day %d, present day %d (today %d)"),
+			Villager->GetDefinition() ? *Villager->GetDefinition()->GetFullName().ToString() : TEXT("?"),
+			Villager->GetActorLocation().X, Villager->GetActorLocation().Y, Bond.Friendship, Bond.LastTalkDay, Bond.LastGiftDay,
+			Bond.LastPresentDay, Villager->GetToday()));
 	}
 }
