@@ -104,6 +104,13 @@ public:
 	 */
 	int32 HurtAnimal(int32 Index, int32 Damage, const AActor* Attacker);
 
+	/** Catches one in a snare: it's gone (until another turns up) and drops nothing, as the snare keeps it. False if it can't be snared. */
+	bool SnareAnimal(int32 Index);
+
+	/** Rabbits and foxes: small enough for a snare. */
+	static bool IsSnareable(EWildlifeKind InKind);
+
+
 	/**
 	 * The live animal best in sight: within Range (cm) of From and within Cone
 	 * degrees either side of Facing, the nearest and most squarely faced first.
@@ -178,7 +185,7 @@ private:
 	/** Reacts to the player, if they're near; returns how fast it should move this frame. */
 	float React(FAnimal& Animal, float DeltaSeconds);
 	void Strike(FAnimal& Animal);
-	void Kill(FAnimal& Animal);
+	void Kill(FAnimal& Animal, bool bDropLoot = true);
 	/** Another one turns up somewhere about home, at full health. */
 	void Revive(FAnimal& Animal);
 	void Pose(FAnimal& Animal) const;

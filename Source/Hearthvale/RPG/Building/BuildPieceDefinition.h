@@ -47,7 +47,19 @@ enum class EBuildCategory : uint8
 	Crafting,
 	Furniture,
 	Farm,
-	Boats
+	Boats,
+	Traps
+};
+
+/** What a trap does to wild animals that come near. */
+UENUM(BlueprintType)
+enum class ETrapKind : uint8
+{
+	None,
+	/** Every WorkSeconds, may catch a rabbit or fox within Range into its storage. */
+	Snare,
+	/** Hurts any boar, wolf or bear that blunders within Range, until it's used up (TrapUses blows). */
+	Spikes
 };
 
 /**
@@ -151,6 +163,22 @@ public:
 
 	/** Its reach, or the usual 15 m when it doesn't set one. */
 	float GetRange() const { return Range > 0.f ? Range : 1500.f; }
+
+	/** A trap for wild animals (snares, spikes); see UTrapComponent. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Trap")
+	ETrapKind Trap = ETrapKind::None;
+
+	/** A snare's chance each check of catching an animal in range. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Trap", meta = (ClampMin = 0, ClampMax = 1))
+	float CatchChance = 0.f;
+
+	/** Spikes: the most a blow does. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Trap", meta = (ClampMin = 0))
+	int32 TrapDamage = 0;
+
+	/** Spikes: blows before they're smashed and gone; 0 for never. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Trap", meta = (ClampMin = 0))
+	int32 TrapUses = 0;
 
 	/** A nest box: hens nearby lay their eggs in its storage. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Piece")

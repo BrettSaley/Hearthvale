@@ -7,6 +7,7 @@
 #include "RPG/HealthComponent.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/Building/FarmMachineComponent.h"
+#include "RPG/Building/TrapComponent.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
@@ -113,6 +114,10 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 				if (const UFarmMachineComponent* Machine = Built->GetMachine())
 				{
 					Saved.Fuel = Machine->GetFuel();
+				}
+				if (const UTrapComponent* Trap = Built->GetTrap())
+				{
+					Saved.TrapWear = Trap->GetWear();
 				}
 				if (const UInventoryComponent* Storage = Built->GetStorage())
 				{
@@ -242,6 +247,10 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 				if (UFarmMachineComponent* Machine = Built ? Built->GetMachine() : nullptr)
 				{
 					Machine->SetFuel(Saved.Fuel);
+				}
+				if (UTrapComponent* Trap = Built ? Built->GetTrap() : nullptr)
+				{
+					Trap->SetWear(Saved.TrapWear);
 				}
 				UInventoryComponent* Storage = Built ? Built->GetStorage() : nullptr;
 				for (int32 Index = 0; Storage && Index < Saved.Items.Num() && Index < Storage->GetCapacity(); ++Index)

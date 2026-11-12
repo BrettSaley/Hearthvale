@@ -11,6 +11,7 @@
 #include "RPG/CraftingStationDefinition.h"
 #include "RPG/FarmPatch.h"
 #include "RPG/Building/FarmMachineComponent.h"
+#include "RPG/Building/TrapComponent.h"
 #include "RPG/InventoryComponent.h"
 
 #define LOCTEXT_NAMESPACE "BuildPiece"
@@ -41,6 +42,11 @@ ABuildPiece* ABuildPiece::Spawn(UWorld* World, UBuildPieceDefinition* InPiece, c
 		{
 			Built->Machine = NewObject<UFarmMachineComponent>(Built, TEXT("Machine"));
 			Built->Machine->RegisterComponent();
+		}
+		if (InPiece->Trap != ETrapKind::None)
+		{
+			Built->Trap = NewObject<UTrapComponent>(Built, TEXT("Trap"));
+			Built->Trap->RegisterComponent();
 		}
 		if (InPiece->IsBoat())
 		{
@@ -204,6 +210,10 @@ bool ABuildPiece::GetInteractionPrompt(const AHearthvaleCharacter* Character, FI
 		if (Machine && !Machine->GetStatus().IsEmpty())
 		{
 			OutPrompt.Target = FText::Format(LOCTEXT("MachineStatus", "{0}  ({1})"), Piece->DisplayName, Machine->GetStatus());
+		}
+		else if (Trap && !Trap->GetStatus().IsEmpty())
+		{
+			OutPrompt.Target = FText::Format(LOCTEXT("TrapStatus", "{0}  ({1})"), Piece->DisplayName, Trap->GetStatus());
 		}
 		return true;
 	}
