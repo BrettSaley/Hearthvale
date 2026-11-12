@@ -389,7 +389,7 @@ void AFarmAnimal::LayProduce()
 	for (ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
 	{
 		const float Distance = FVector::Dist(Built->GetActorLocation(), GetActorLocation());
-		if (Built->GetPiece() && Built->GetPiece()->bNestBox && Built->GetStorage() && Distance < NestDistance
+		if (Animal->bUsesNest && Built->GetPiece() && Built->GetPiece()->bNestBox && Built->GetStorage() && Distance < NestDistance
 			&& Distance < Built->GetPiece()->GetRange()
 			&& Built->GetStorage()->CanFit(Animal->Produce, Animal->ProduceQuantity))
 		{
@@ -404,6 +404,15 @@ void AFarmAnimal::LayProduce()
 	else
 	{
 		AGroundItem::Spawn(GetWorld(), FItemStack{Animal->Produce, Animal->ProduceQuantity}, GetActorLocation() - GetActorForwardVector() * Animal->Radius);
+		// Something worth knowing about when it's not in a nest box: a pig's truffle.
+		if (!Animal->bUsesNest)
+		{
+			if (const AHearthvaleCharacter* Character = NearbyPlayer(this, 1500.f))
+			{
+				Character->ShowMessage(FText::Format(LOCTEXT("Rooted", "The {0} roots up some {1}."), GetName().ToLower(),
+					Animal->Produce->DisplayName.ToLower()));
+			}
+		}
 	}
 }
 
@@ -544,11 +553,22 @@ bool AFarmAnimal::CollectInto(UInventoryComponent* Into, int32& OutXP)
 	return true;
 }
 
+bool AFarmAnimal::HasCollectTool(const AHearthvaleCharacter* Character) const
+{
+	return !Animal || !Animal->CollectTool || (Character && Character->GetInventory()->FindSlot(Animal->CollectTool) != INDEX_NONE);
+}
+
 bool AFarmAnimal::Collect(AHearthvaleCharacter* Character)
 {
 	if (!Animal || !bProduceReady || !Animal->Produce)
 	{
 		return false;
+	}
+	if (!HasCollectTool(Character))
+	{
+		Character->ShowMessage(FText::Format(LOCTEXT("NeedTool", "You need a {0} to {1} the {2}."), Animal->CollectTool->DisplayName.ToLower(),
+			Animal->CollectVerb.ToLower(), GetName().ToLower()), AnimalWarning);
+		return true;
 	}
 	bProduceReady = false;
 	UpdateScale();
@@ -606,6 +626,11 @@ bool AFarmAnimal::GetInteractionPrompt(const AHearthvaleCharacter* Character, FI
 	if (bProduceReady)
 	{
 		OutPrompt.Action = Animal->CollectVerb;
+		if (!HasCollectTool(Character))
+		{
+			OutPrompt.bAvailable = false;
+			OutPrompt.Requirement = Animal->CollectTool->DisplayName;
+		}
 		return true;
 	}
 	if (Fed <= Animal->FedSeconds * 0.5f)
