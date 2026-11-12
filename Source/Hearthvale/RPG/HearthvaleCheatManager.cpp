@@ -11,6 +11,8 @@
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/Building/FarmMachineComponent.h"
 #include "RPG/CraftingStation.h"
+#include "RPG/CraftingComponent.h"
+#include "RPG/RecipeDefinition.h"
 #include "RPG/UI/ChestWidget.h"
 #include "RPG/CraftingStationDefinition.h"
 #include "RPG/AnimalDefinition.h"
@@ -805,4 +807,34 @@ void UHearthvaleCheatManager::TakeDownAt(float X, float Y, float From)
 	const FString Name = Built && Built->GetPiece() ? Built->GetPiece()->GetName() : FString();
 	Say(!Built ? TEXT("Nothing built there.") : Character->GetBuilding()->TryRemove(Built)
 		? FString::Printf(TEXT("Took down %s"), *Name) : FString::Printf(TEXT("Couldn't take down %s"), *Name));
+}
+
+void UHearthvaleCheatManager::CraftAt(FName RecipeId, int32 Count)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	URecipeDefinition* Recipe = LoadObject<URecipeDefinition>(nullptr,
+		*FString::Printf(TEXT("/Game/Crafting/Recipes/%s.%s"), *RecipeId.ToString(), *RecipeId.ToString()));
+	if (!Character || !Recipe)
+	{
+		Say(FString::Printf(TEXT("No recipe called %s."), *RecipeId.ToString()));
+		return;
+	}
+	ACraftingStation* Nearest = nullptr;
+	for (ACraftingStation* Station : TActorRange<ACraftingStation>(GetWorld()))
+	{
+		if (Station->GetDefinition() && Station->GetDefinition()->Station == Recipe->Station && (!Nearest
+			|| FVector::Dist(Station->GetActorLocation(), Character->GetActorLocation())
+			< FVector::Dist(Nearest->GetActorLocation(), Character->GetActorLocation())))
+		{
+			Nearest = Station;
+		}
+	}
+	if (!Nearest)
+	{
+		Say(FString::Printf(TEXT("No station makes %s."), *RecipeId.ToString()));
+		return;
+	}
+	const bool bStarted = Character->GetCrafting()->StartCrafting(Nearest, Recipe, Count);
+	Say(FString::Printf(TEXT("%s %s at %s."), bStarted ? TEXT("Making") : TEXT("Couldn't make"), *RecipeId.ToString(),
+		*Nearest->GetDefinition()->DisplayName.ToString()));
 }

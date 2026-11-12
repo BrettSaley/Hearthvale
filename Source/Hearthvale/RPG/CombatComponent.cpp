@@ -11,8 +11,8 @@
 
 namespace
 {
-	const FLinearColor Warning(1.f, 0.45f, 0.4f);
-	const FLinearColor Lucky(1.f, 0.8f, 0.3f);
+	const FLinearColor CombatWarning(1.f, 0.45f, 0.4f);
+	const FLinearColor CombatLucky(1.f, 0.8f, 0.3f);
 	/** Seconds out of reach before giving up the fight. */
 	constexpr float GiveUpAfter = 10.f;
 	constexpr float DefaultAttackSeconds = 2.4f;
@@ -98,7 +98,7 @@ bool UCombatComponent::StartAttack(AWildlifeHerd* Herd, int32 Index)
 	if (Weapon && Weapon->Ammo && !Character->GetInventory()->HasItem(Weapon->Ammo))
 	{
 		Character->ShowMessage(FText::Format(LOCTEXT("NoAmmo", "You have no {0} for your {1}."), Weapon->Ammo->DisplayName.ToLower(),
-			Weapon->DisplayName.ToLower()), Warning);
+			Weapon->DisplayName.ToLower()), CombatWarning);
 		return false;
 	}
 	Target = Herd;
@@ -172,7 +172,7 @@ void UCombatComponent::Attack()
 	{
 		if (!Character->GetInventory()->HasItem(Weapon->Ammo))
 		{
-			Character->ShowMessage(FText::Format(LOCTEXT("OutOfAmmo", "You're out of {0}."), Weapon->Ammo->DisplayName.ToLower()), Warning);
+			Character->ShowMessage(FText::Format(LOCTEXT("OutOfAmmo", "You're out of {0}."), Weapon->Ammo->DisplayName.ToLower()), CombatWarning);
 			StopAttack();
 			return;
 		}
@@ -197,7 +197,7 @@ void UCombatComponent::Attack()
 	Skills->AddXP(ESkill::Vitality, FMath::RoundToInt32(Done * 4.f / 3.f));
 	if (!Herd->IsAlive(TargetIndex))
 	{
-		Character->ShowMessage(FText::Format(LOCTEXT("Killed", "You kill the {0}."), Name), Lucky);
+		Character->ShowMessage(FText::Format(LOCTEXT("Killed", "You kill the {0}."), Name), CombatLucky);
 		StopAttack();
 	}
 }

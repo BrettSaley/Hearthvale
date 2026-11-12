@@ -57,6 +57,14 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Produce", meta = (ClampMin = 1))
 	int32 ProduceQuantity = 1;
 
+	/** Laid produce goes into a nest box nearby when there is one (eggs), rather than always on the ground (a pig's truffles). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Produce")
+	bool bUsesNest = true;
+
+	/** Something you need in your pack to collect it (a bucket to milk a cow); kept, not used up. None for nothing. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Produce")
+	TObjectPtr<UItemDefinition> CollectTool;
+
 	/** The prompt's verb for collecting it: "Shear". */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Produce")
 	FText CollectVerb;
