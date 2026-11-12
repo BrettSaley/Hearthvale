@@ -10,6 +10,7 @@
 #include "RPG/HealthComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "Materials/MaterialInterface.h"
+#include "RPG/World/WorldClock.h"
 #include "RPG/World/WorldGenerator.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Kismet/GameplayStatics.h"
@@ -223,7 +224,7 @@ TArray<TPair<FName, int32>> AWildlifeHerd::GetLoot(EWildlifeKind InKind)
 
 bool AWildlifeHerd::IsAlive(int32 Index) const
 {
-	return Animals.IsValidIndex(Index) && Animals[Index].DeadFor <= 0.f;
+	return !bHibernating && Animals.IsValidIndex(Index) && Animals[Index].DeadFor <= 0.f;
 }
 
 int32 AWildlifeHerd::GetAnimalHealth(int32 Index) const
@@ -611,7 +612,7 @@ float AWildlifeHerd::React(FAnimal& Animal, float DeltaSeconds)
 	switch (Animal.Mood)
 	{
 	case EMood::Calm:
-		if (Distance < Stats.Alert * (Animal.Anger > 0.f ? 3.f : 1.f) && Animal.Settle <= 0.f)
+		if (Distance < Stats.Alert * Wariness * (Animal.Anger > 0.f ? 3.f : 1.f) && Animal.Settle <= 0.f)
 		{
 			Animal.MoodTime = 0.f;
 			Animal.Grazing = 0.f;
@@ -710,6 +711,26 @@ void AWildlifeHerd::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	const FKindStats& Stats = StatsOf(Kind);
+	if (const UWorldClock* Clock = UWorldClock::Get(this))
+	{
+		const bool bAsleep = UWorldClock::IsHibernating(Kind, Clock->GetSeason());
+		if (bAsleep != bHibernating)
+		{
+			bHibernating = bAsleep;
+			SetActorHiddenInGame(bAsleep);
+			UE_LOG(LogTemp, Log, TEXT("Wildlife: a %s herd %s."), *UEnum::GetValueAsString(Kind), bAsleep ? TEXT("dens up for the winter") : TEXT("wakes from its winter sleep"));
+			for (FAnimal& Animal : Animals)
+			{
+				Animal.Mood = EMood::Calm;
+				Animal.Anger = 0.f;
+			}
+		}
+		Wariness = UWorldClock::AlertScale(Kind, Clock->GetSeason(), Clock->GetWeather(), Clock->IsNight());
+	}
+	if (bHibernating)
+	{
+		return;
+	}
 	// Far from the camera they still wander (it's cheap) but aren't moved on screen.
 	const APlayerCameraManager* Camera = UGameplayStatics::GetPlayerCameraManager(this, 0);
 	const bool bSeen = !Camera || FVector::Dist(Camera->GetCameraLocation(), GetActorLocation()) < Stats.VisibleRange + Roam * 1.5f;

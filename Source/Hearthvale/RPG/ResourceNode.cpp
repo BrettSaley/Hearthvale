@@ -1,4 +1,5 @@
 #include "RPG/ResourceNode.h"
+#include "RPG/World/WorldClock.h"
 #include "Components/StaticMeshComponent.h"
 #include "Materials/MaterialInterface.h"
 #include "TimerManager.h"
@@ -95,6 +96,20 @@ bool AResourceNode::GetGatherInfo(FGatherInfo& OutInfo) const
 	OutInfo.Difficulty = Definition->Difficulty;
 	OutInfo.Montage = Definition->GatherMontage;
 	OutInfo.BonusDrops = Definition->BonusDrops;
+	if (const UWorldClock* Clock = UWorldClock::Get(this))
+	{
+		for (const FSeasonalDrop& Seasonal : Definition->SeasonalDrops)
+		{
+			if (Seasonal.Season == Clock->GetSeason())
+			{
+				OutInfo.BonusDrops.Add(Seasonal.Drop);
+			}
+		}
+		if (Definition->Skill == ESkill::Fishing)
+		{
+			OutInfo.Difficulty += Clock->GetFishingShift();
+		}
+	}
 	return true;
 }
 
