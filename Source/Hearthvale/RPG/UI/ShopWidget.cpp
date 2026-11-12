@@ -70,18 +70,18 @@ void UShopWidget::NativeOnInitialized()
 	}, 13);
 	Header->AddChildToHorizontalBox(CloseButton);
 
-	UHorizontalBox* Columns = WidgetTree->ConstructWidget<UHorizontalBox>();
-	Layout->AddChildToVerticalBox(Columns);
+	UHorizontalBox* Sides = WidgetTree->ConstructWidget<UHorizontalBox>();
+	Layout->AddChildToVerticalBox(Sides);
 
 	UVerticalBox* BuySide = WidgetTree->ConstructWidget<UVerticalBox>();
-	Columns->AddChildToHorizontalBox(BuySide)->SetPadding(FMargin(0.f, 0.f, 14.f, 0.f));
+	Sides->AddChildToHorizontalBox(BuySide)->SetPadding(FMargin(0.f, 0.f, 14.f, 0.f));
 	BuySide->AddChildToVerticalBox(HearthvaleUI::MakeText(WidgetTree, LOCTEXT("ForSale", "For sale"), 12, HearthvaleUI::MutedColor))
 		->SetPadding(FMargin(0.f, 0.f, 0.f, 4.f));
 	StockList = WidgetTree->ConstructWidget<UVerticalBox>();
 	BuySide->AddChildToVerticalBox(StockList);
 
 	UVerticalBox* SellSide = WidgetTree->ConstructWidget<UVerticalBox>();
-	Columns->AddChildToHorizontalBox(SellSide);
+	Sides->AddChildToHorizontalBox(SellSide);
 	SellSide->AddChildToVerticalBox(HearthvaleUI::MakeText(WidgetTree, LOCTEXT("Backpack", "Your backpack"), 12, HearthvaleUI::MutedColor))
 		->SetPadding(FMargin(0.f, 0.f, 0.f, 4.f));
 	BackpackGrid = WidgetTree->ConstructWidget<UUniformGridPanel>();

@@ -6,13 +6,16 @@
 - Her look and her market stall (a counter with produce on it under a striped
   awning), in plain colours from /Game/Town/Materials
 - One placed in Lvl_World near where you start, facing it
+- The town notice board (/Game/Town/RequestBoard, a URequestBoardDefinition):
+  three requests up at a time from the pool below, each paying coins and XP;
+  bigger jobs go up once you've done a few. One placed beside Odile's stall
 
 Run after create_livestock.py (she sells cows, pigs and buckets), headless with the
 editor closed:
     UnrealEditor-Cmd.exe Hearthvale.uproject -run=pythonscript -script="<path>/Scripts/create_town.py"
 
-Traders are always rewritten from the tables below, so edit them here. One is
-placed only if the level has no trader yet.
+Traders and the board are always rewritten from the tables below, so edit them
+here. Each is placed only if the level has none yet.
 """
 
 import math
@@ -159,6 +162,56 @@ def create_traders():
     return made
 
 
+# --- The notice board: (asker, words, item, how many, coins, skill, XP, requests done first) ---
+
+S = unreal.Skill
+REQUESTS = [
+    ("Odile the trader", "My hens have gone off laying. Could you spare some eggs?", "Egg", 6, 45, S.FARMING, 30, 0),
+    ("Bryn the weaver", "My loom's run dry. Any wool going spare?", "Wool", 4, 70, S.FARMING, 40, 0),
+    ("Ivo the carpenter", "I've a barn to raise and not enough timber.", "Logs", 10, 45, S.WOODCUTTING, 60, 0),
+    ("Greta the smith", "The forge is hungry. Bring me copper ore.", "CopperOre", 8, 45, S.MINING, 60, 0),
+    ("Tam the cook", "Fish supper tonight, if someone'll catch the fish.", "Perch", 5, 30, S.FISHING, 50, 0),
+    ("Hal the baker", "Milk for the morning bread, please. Fresh, mind.", "Milk", 3, 40, S.FARMING, 30, 0),
+    ("Tam the cook", "A sack of potatoes. The stew pot's empty.", "Potato", 12, 40, S.FARMING, 40, 0),
+    ("Ivo the carpenter", "Planks, sawn true. I'll pay well for them.", "Plank", 10, 90, S.WOODCUTTING, 80, 1),
+    ("Rook the hunter", "The tannery's short of hides. Can you hunt?", "Hide", 3, 70, S.PRECISION, 50, 1),
+    ("Tam the cook", "Three trout for the inn's table.", "Trout", 3, 90, S.FISHING, 90, 1),
+    ("Greta the smith", "Iron bars for a new plough, if you've the furnace for it.", "IronBar", 4, 220, S.SMITHING, 150, 2),
+    ("Bryn the weaver", "Two wheels of cheese for the harvest feast.", "Cheese", 2, 160, S.FARMING, 100, 2),
+    ("Hal the baker", "Butter for the pastry. Churned, not bought.", "Butter", 2, 80, S.FARMING, 60, 2),
+    ("Odile the trader", "Pumpkins for the autumn fair. Big ones.", "Pumpkin", 3, 130, S.FARMING, 90, 2),
+    ("Odile the trader", "A rich customer wants a truffle. Find me one?", "Truffle", 1, 160, S.FARMING, 120, 3),
+    ("Ivo the carpenter", "Oak for the meeting hall's beams.", "OakLogs", 6, 180, S.WOODCUTTING, 150, 3),
+]
+
+
+def board():
+    notes = [part("Cube", "AwningCream", (6, y, z), (0.01, 0.3, 0.36), (r, 0, 0)) for y, z, r in ((-45, 150, -4), (0, 135, 3), (45, 152, 6))]
+    pins = [part("Sphere", "AwningRed", (8, y, z + 14), (0.03, 0.03, 0.03)) for y, z, _ in ((-45, 150, 0), (0, 135, 0), (45, 152, 0))]
+    return ([part("Cylinder", "Bark", (0, y, 105), (0.1, 0.1, 2.1), collides=True) for y in (-78, 78)]
+            + [part("Cube", "Wood", (0, 0, 140), (0.08, 1.6, 0.95), collides=True),
+               part("Cube", "Wood", (-4, 0, 210), (0.45, 1.85, 0.05), (0, -12, 0))]
+            + notes + pins)
+
+
+def create_board():
+    factory = unreal.DataAssetFactory()
+    factory.set_editor_property("data_asset_class", unreal.RequestBoardDefinition)
+    made, _ = create("RequestBoard", "/Game/Town", unreal.RequestBoardDefinition, factory)
+    requests = []
+    for asker, text, what, count, coins, skill, xp, done in REQUESTS:
+        r = unreal.TownRequest()
+        for prop, value in [("asker", unreal.Text(asker)), ("text", unreal.Text(text)), ("item", item(what)),
+                            ("quantity", count), ("coins", coins), ("skill", skill), ("xp", xp), ("min_done", done)]:
+            r.set_editor_property(prop, value)
+        requests.append(r)
+    for prop, value in [("display_name", unreal.Text("Notice board")), ("requests", requests), ("spots", 3),
+                        ("repost_seconds", 150.0), ("currency", item("Coins")), ("parts", board())]:
+        made.set_editor_property(prop, value)
+    save(made)
+    return made
+
+
 # --- Odile's stall, a little way from where you start, facing it ---
 
 def place(traders):
@@ -187,5 +240,28 @@ def place(traders):
     unreal.log(f"create_town: Odile's stall at ({x:.0f}, {y:.0f}), facing {yaw:.0f}.")
 
 
+def place_board(notice_board):
+    """Beside the first trader's stall, facing the same way."""
+    subsystem = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+    actors = subsystem.get_all_level_actors()
+    if any(isinstance(a, unreal.RequestBoard) for a in actors):
+        unreal.log_warning("create_town: the level already has a notice board; not placing another.")
+        return
+    traders = [a for a in actors if isinstance(a, unreal.Trader)]
+    if not traders:
+        unreal.log_warning("create_town: no trader to put the notice board beside.")
+        return
+    stall = traders[0]
+    spot = stall.get_actor_location() + stall.get_actor_right_vector() * 340.0 + stall.get_actor_forward_vector() * 60.0
+    spot.z = unreal.WorldGenerator.get_ground_height(spot.x, spot.y)
+    actor = subsystem.spawn_actor_from_class(unreal.RequestBoard, spot, stall.get_actor_rotation())
+    actor.set_editor_property("definition", notice_board)
+    actor.set_actor_label("NoticeBoard")
+    actor.set_folder_path("Town")
+    unreal.EditorLoadingAndSavingUtils.save_dirty_packages(True, True)
+    unreal.log(f"create_town: notice board at ({spot.x:.0f}, {spot.y:.0f}).")
+
+
 create_materials()
 place(create_traders())
+place_board(create_board())

@@ -16,6 +16,8 @@ class ACraftingStation;
 class UBuildingComponent;
 class UChestWidget;
 class UShopWidget;
+class URequestBoardWidget;
+class ARequestBoard;
 class ATrader;
 class ABuildPiece;
 
@@ -72,6 +74,17 @@ public:
 
 	UFUNCTION(BlueprintPure, Category="UI")
 	UShopWidget* GetShopWindow() const { return ShopWindow; }
+
+	/** Opens a notice board's requests, or closes them if they're already open on it. */
+	void ToggleBoard(ARequestBoard* Board);
+
+	void CloseBoard();
+
+	UFUNCTION(BlueprintPure, Category="UI")
+	bool IsBoardOpen() const;
+
+	UFUNCTION(BlueprintPure, Category="UI")
+	URequestBoardWidget* GetBoardWindow() const { return BoardWindow; }
 
 	UFUNCTION(BlueprintPure, Category="UI")
 	bool IsCraftingMenuOpen() const;
@@ -130,6 +143,10 @@ protected:
 	/** A trader's stock and the backpack */
 	UPROPERTY()
 	TObjectPtr<UShopWidget> ShopWindow;
+
+	/** A notice board's requests */
+	UPROPERTY()
+	TObjectPtr<URequestBoardWidget> BoardWindow;
 
 	/** The hotbar along the bottom of the screen */
 	UPROPERTY()

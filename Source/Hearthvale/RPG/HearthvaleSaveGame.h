@@ -5,6 +5,7 @@
 #include "RPG/FarmAnimal.h"
 #include "RPG/FarmPatch.h"
 #include "RPG/Skills.h"
+#include "RPG/Town/RequestBoardDefinition.h"
 #include "HearthvaleSaveGame.generated.h"
 
 class AHearthvaleCharacter;
@@ -101,6 +102,10 @@ public:
 
 	UPROPERTY()
 	TArray<FSavedFarmAnimal> Animals;
+
+	/** Town notice boards' requests, by the board actor's name. */
+	UPROPERTY()
+	TMap<FString, FRequestBoardState> RequestBoards;
 
 	/** Write a character's progress (and the farm patches in their world) to disk. */
 	static bool SaveProgress(const AHearthvaleCharacter* Character);
