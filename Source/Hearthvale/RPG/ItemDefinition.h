@@ -118,6 +118,14 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment", meta = (ClampMin = 0))
 	float AttackRange = 0.f;
 
+	/** A melee weapon's reach (cm) when longer than arm's length (spears); 0 for arm's length. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment", meta = (ClampMin = 0))
+	float MeleeReach = 0.f;
+
+	/** How much harder (a fraction of its most) it hits a beast that's charging or rearing at you: set against the charge (spears). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment", meta = (ClampMin = 0))
+	float ChargeBonus = 0.f;
+
 	/** Seconds between a weapon's blows or shots; 0 for the usual 2.4. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment", meta = (ClampMin = 0))
 	float AttackSeconds = 0.f;

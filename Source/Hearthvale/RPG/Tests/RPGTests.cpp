@@ -1020,6 +1020,38 @@ bool FRaidsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWeaponsTest, "Hearthvale.Weapons", TestFlags)
+
+bool FWeaponsTest::RunTest(const FString& Parameters)
+{
+	// Bracing against a charge raises the most a blow can do, never lowers it.
+	TestEqual(TEXT("No bonus, no change"), UCombatComponent::BracedHit(10, 0.f), 10);
+	TestEqual(TEXT("60% more"), UCombatComponent::BracedHit(10, 0.6f), 16);
+	TestTrue(TEXT("Even a weak blow gains"), UCombatComponent::BracedHit(3, 0.6f) > 3);
+
+	// Spears reach further than swords and brace; each metal better than the last.
+	const UItemDefinition* Sword = UItemDefinition::FindItem(TEXT("IronSword"));
+	int32 Last = 0;
+	for (const TCHAR* Id : {TEXT("CopperSpear"), TEXT("IronSpear"), TEXT("SteelSpear")})
+	{
+		const UItemDefinition* Spear = UItemDefinition::FindItem(Id);
+		TestTrue(FString::Printf(TEXT("%s is a long melee weapon that braces"), Id), Spear && Spear->IsWeapon() && Spear->AttackRange <= 0.f
+			&& Spear->MeleeReach > UCombatComponent::MeleeReach && Spear->ChargeBonus > 0.f && Spear->Durability > 0);
+		TestTrue(FString::Printf(TEXT("%s beats the one before"), Id), Spear && Spear->StrengthBonus > Last);
+		Last = Spear ? Spear->StrengthBonus : Last;
+	}
+	TestTrue(TEXT("A sword has no reach of its own"), Sword && Sword->MeleeReach <= 0.f);
+
+	// A crossbow shoots bolts, slower than a bow but harder.
+	const UItemDefinition* Crossbow = UItemDefinition::FindItem(TEXT("Crossbow"));
+	const UItemDefinition* Bow = UItemDefinition::FindItem(TEXT("OakLongbow"));
+	TestTrue(TEXT("A crossbow shoots bolts"), Crossbow && Crossbow->AttackRange > 0.f && Crossbow->Ammo && Crossbow->Ammo->GetItemId() == TEXT("Bolts"));
+	TestTrue(TEXT("Slower and harder than a longbow"), Crossbow && Bow && Crossbow->AttackSeconds > Bow->AttackSeconds && Crossbow->StrengthBonus > Bow->StrengthBonus);
+	const URecipeDefinition* Bolts = LoadObject<URecipeDefinition>(nullptr, TEXT("/Game/Crafting/Recipes/MakeBolts.MakeBolts"));
+	TestTrue(TEXT("Bolts are made by the dozen"), Bolts && Bolts->OutputQuantity == 12);
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWildlifeTest, "Hearthvale.Wildlife", TestFlags)
 
 bool FWildlifeTest::RunTest(const FString& Parameters)

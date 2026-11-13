@@ -303,6 +303,11 @@ void AWildlifeHerd::MarchTo(const FVector& Where)
 	}
 }
 
+bool AWildlifeHerd::IsCharging(int32 Index) const
+{
+	return IsAlive(Index) && (Animals[Index].Mood == EMood::Charging || Animals[Index].Mood == EMood::Rearing);
+}
+
 int32 AWildlifeHerd::CountAlive() const
 {
 	int32 Alive = 0;

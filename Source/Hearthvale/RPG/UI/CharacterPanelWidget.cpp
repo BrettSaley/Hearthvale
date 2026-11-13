@@ -581,6 +581,21 @@ UWidget* UCharacterPanelWidget::MakeItemTooltip(const FItemStack& Stack)
 		AddTooltipLine(Lines, FText::Format(LOCTEXT("Bonuses", "Accuracy {0}   Strength {1}   Defence {2}"),
 			Item->AccuracyBonus, Item->StrengthBonus, Item->DefenceBonus), HearthvaleUI::TextColor);
 	}
+	if (Item->IsWeapon())
+	{
+		const float Reach = Item->AttackRange > 0.f ? Item->AttackRange : Item->MeleeReach > 0.f ? Item->MeleeReach : 260.f;
+		AddTooltipLine(Lines, FText::Format(LOCTEXT("WeaponReach", "Reach {0} m  ·  a blow every {1}s"), FText::AsNumber(FMath::RoundToInt32(Reach / 100.f)),
+			FText::AsNumber(Item->AttackSeconds > 0.f ? Item->AttackSeconds : 2.4f)), HearthvaleUI::TextColor);
+		if (Item->Ammo)
+		{
+			AddTooltipLine(Lines, FText::Format(LOCTEXT("Shoots", "Shoots {0}, one a shot"), Item->Ammo->DisplayName.ToLower()), HearthvaleUI::MutedColor);
+		}
+		if (Item->ChargeBonus > 0.f)
+		{
+			AddTooltipLine(Lines, FText::Format(LOCTEXT("BraceLine", "Set against a charge: hits up to {0}% harder"),
+				FMath::RoundToInt32(Item->ChargeBonus * 100.f)), HearthvaleUI::GoodColor);
+		}
+	}
 	if (Item->Durability > 0)
 	{
 		const int32 Left = FDurability::UsesLeft(Item, Stack.Wear);
