@@ -138,6 +138,10 @@ public:
 	UPROPERTY()
 	TArray<FSavedCache> Caches;
 
+	/** The waypoints set on the map. */
+	UPROPERTY()
+	TArray<FVector> Waypoints;
+
 	/** Town notice boards' requests, by the board actor's name. */
 	UPROPERTY()
 	TMap<FString, FRequestBoardState> RequestBoards;
