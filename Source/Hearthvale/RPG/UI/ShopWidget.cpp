@@ -155,7 +155,11 @@ void UShopWidget::Open(AHearthvaleCharacter* InCharacter, ATrader* InTrader)
 			BackpackSlots.Add(SlotWidget);
 		}
 	}
-	SellInfo->SetText(FText::Format(LOCTEXT("Pays", "{0} pays half what things are worth."), Definition->DisplayName));
+	const UItemDefinition* Wanted = InTrader->GetWantedToday();
+	SellInfo->SetText(Wanted
+		? FText::Format(LOCTEXT("PaysWanted", "{0} pays half what things are worth, and {1} coins each for {2} today!"), Definition->DisplayName,
+			InTrader->GetSellPriceToday(Wanted), Wanted->DisplayName.ToLower())
+		: FText::Format(LOCTEXT("Pays", "{0} pays half what things are worth."), Definition->DisplayName));
 	Refresh();
 }
 

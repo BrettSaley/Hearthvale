@@ -95,9 +95,36 @@ int32 UTraderDefinition::BuyItems(UInventoryComponent* Inventory, int32 StockInd
 	return 0;
 }
 
-int32 UTraderDefinition::SellItems(UInventoryComponent* Inventory, UItemDefinition* Item, int32 Count) const
+bool UTraderDefinition::IsVisitDay(int32 Day) const
 {
-	const int32 Price = GetSellPrice(Item);
+	return VisitEvery <= 0 || (Day >= FirstVisitDay && (Day - FirstVisitDay) % VisitEvery == 0);
+}
+
+UItemDefinition* UTraderDefinition::GetWanted(int32 Day) const
+{
+	if (WantedItems.IsEmpty())
+	{
+		return nullptr;
+	}
+	// A different one each visit, in turn.
+	const int32 Visit = VisitEvery > 0 ? FMath::Max(0, Day - FirstVisitDay) / VisitEvery : Day;
+	return WantedItems[Visit % WantedItems.Num()];
+}
+
+int32 UTraderDefinition::GetSellPriceOn(const UItemDefinition* Item, int32 Wear, int32 Day) const
+{
+	const int32 Usual = GetSellPrice(Item, Wear);
+	if (Usual <= 0 || !Item || Item != GetWanted(Day))
+	{
+		return Usual;
+	}
+	const float Condition = Wear > 0 ? FDurability::Condition(Item, Wear) : 1.f;
+	return FMath::Max(Usual, FMath::FloorToInt(Item->Value * WantedMultiplier * Condition));
+}
+
+int32 UTraderDefinition::SellItems(UInventoryComponent* Inventory, UItemDefinition* Item, int32 Count, int32 PriceEach) const
+{
+	const int32 Price = PriceEach >= 0 ? PriceEach : GetSellPrice(Item);
 	if (!Inventory || !Currency || Price <= 0 || Count <= 0)
 	{
 		return 0;

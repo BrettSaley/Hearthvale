@@ -101,10 +101,31 @@ void ATrader::BuildLook()
 	AddParts(Definition->StallParts, RootComponent, true);
 }
 
+int32 ATrader::GetToday() const
+{
+	const UWorldClock* Clock = UWorldClock::Get(this);
+	return Clock ? Clock->GetDay() : 0;
+}
+
+bool ATrader::IsHere() const
+{
+	return !Definition || Definition->IsVisitDay(GetToday());
+}
+
 bool ATrader::IsOpen() const
 {
 	const UWorldClock* Clock = UWorldClock::Get(this);
-	return !Clock || !Clock->IsNight();
+	return IsHere() && (!Clock || !Clock->IsNight());
+}
+
+UItemDefinition* ATrader::GetWantedToday() const
+{
+	return Definition ? Definition->GetWanted(GetToday()) : nullptr;
+}
+
+int32 ATrader::GetSellPriceToday(const UItemDefinition* Item, int32 Wear) const
+{
+	return Definition ? Definition->GetSellPriceOn(Item, Wear, GetToday()) : 0;
 }
 
 void ATrader::RollDay()
@@ -122,6 +143,22 @@ int32 ATrader::GetLeft(int32 StockIndex) const
 void ATrader::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	// A travelling trader: there on visit days, gone (cart and all) in between. The town hears when they come.
+	const bool bHere = IsHere();
+	if (!bLookedYet || bHere != bWasHere)
+	{
+		SetActorHiddenInGame(!bHere);
+		SetActorEnableCollision(bHere);
+		if (bHere && bLookedYet && Definition && !Definition->ArrivalNews.IsEmpty())
+		{
+			if (const AHearthvaleCharacter* Player = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
+			{
+				Player->ShowMessage(Definition->ArrivalNews, TraderSpeech);
+			}
+		}
+		bWasHere = bHere;
+		bLookedYet = true;
+	}
 	// Gone home for the night: the stall stands empty.
 	const bool bOpen = IsOpen();
 	if (Person->IsVisible() != bOpen)
@@ -167,7 +204,7 @@ void ATrader::Say(const AHearthvaleCharacter* Character, const FText& Line) cons
 
 bool ATrader::GetInteractionPrompt(const AHearthvaleCharacter* Character, FInteractionPrompt& OutPrompt) const
 {
-	if (!Definition)
+	if (!Definition || !IsHere())
 	{
 		return false;
 	}
@@ -187,6 +224,10 @@ void ATrader::Interact(AHearthvaleCharacter* Character)
 {
 	AHearthvalePlayerController* Controller = Character ? Cast<AHearthvalePlayerController>(Character->GetController()) : nullptr;
 	if (!Definition || !Controller)
+	{
+		return;
+	}
+	if (!IsHere())
 	{
 		return;
 	}
@@ -277,7 +318,7 @@ int32 ATrader::SellSlot(AHearthvaleCharacter* Character, int32 SlotIndex, bool b
 		return Sell(Character, Stack.Item, bAll ? Stack.Quantity : 1);
 	}
 	// Something worn: this one, for what it's still worth.
-	const int32 Price = Definition->GetSellPrice(Stack.Item, Stack.Wear);
+	const int32 Price = GetSellPriceToday(Stack.Item, Stack.Wear);
 	if (Price <= 0)
 	{
 		Say(Character, FText::Format(LOCTEXT("WontBuyWorn", "I've no use for {0}."), Stack.Item->DisplayName.ToLower()));
@@ -307,13 +348,13 @@ int32 ATrader::Sell(AHearthvaleCharacter* Character, UItemDefinition* Item, int3
 	{
 		return 0;
 	}
-	const int32 Price = Definition->GetSellPrice(Item);
+	const int32 Price = GetSellPriceToday(Item);
 	if (Price <= 0)
 	{
 		Say(Character, FText::Format(LOCTEXT("WontBuy", "I've no use for {0}."), Item->DisplayName.ToLower()));
 		return 0;
 	}
-	const int32 Sold = Definition->SellItems(Character->GetInventory(), Item, Count);
+	const int32 Sold = Definition->SellItems(Character->GetInventory(), Item, Count, Price);
 	if (Sold > 0)
 	{
 		Character->ShowMessage(FText::Format(LOCTEXT("Sold", "You sell {0} x {1} for {2} coins."), Sold, Item->DisplayName.ToLower(), Sold * Price),

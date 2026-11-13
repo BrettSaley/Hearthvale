@@ -65,6 +65,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Produce")
 	TObjectPtr<UItemDefinition> CollectTool;
 
+	/** What you groom it with (a brush), once a day, to keep it happy. None if it can't be groomed. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Care")
+	TObjectPtr<UItemDefinition> GroomTool;
+
 	/** The prompt's verb for collecting it: "Shear". */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Produce")
 	FText CollectVerb;

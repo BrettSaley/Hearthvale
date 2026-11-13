@@ -269,9 +269,9 @@ public:
 	UFUNCTION(Exec)
 	void CraftAt(FName RecipeId, int32 Count = 1);
 
-	/** Walks up to the nearest trader's counter and opens their shop. */
+	/** Walks up to the nearest trader's counter (or the one named: Trade Pell) and opens their shop. */
 	UFUNCTION(Exec)
-	void Trade();
+	void Trade(const FString& Name = TEXT(""));
 
 	/** Buys from a line of the open shop's stock (Buy 0 5). */
 	UFUNCTION(Exec)
