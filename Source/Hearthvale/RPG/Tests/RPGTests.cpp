@@ -26,6 +26,7 @@
 #include "RPG/Town/SettlerDefinition.h"
 #include "RPG/Town/VillagerDefinition.h"
 #include "RPG/Town/QuestDefinition.h"
+#include "RPG/Town/CompanionDefinition.h"
 #include "RPG/Town/TraderDefinition.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldGenerator.h"
@@ -672,6 +673,25 @@ bool FQuestsTest::RunTest(const FString& Parameters)
 			TestTrue(FString::Printf(TEXT("%s: '%s' says what it wants"), *Title, *Step.Text.ToString()), bHasTarget && !Step.Text.IsEmpty());
 		}
 	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCompanionTest, "Hearthvale.Companion", TestFlags)
+
+bool FCompanionTest::RunTest(const FString& Parameters)
+{
+	// The stray dog: something to win it over with, a name for when it's yours, a look with a tail, and sensible reaches.
+	const UCompanionDefinition* Dog = LoadObject<UCompanionDefinition>(nullptr, TEXT("/Game/Town/Companions/Dog.Dog"));
+	if (!TestNotNull(TEXT("The dog exists"), Dog))
+	{
+		return true;
+	}
+	TestTrue(TEXT("It eats something"), !Dog->Food.IsEmpty() && !Dog->Food.Contains(nullptr));
+	TestFalse(TEXT("It has a name for when it's yours"), Dog->PetName.IsEmpty());
+	TestTrue(TEXT("It takes a few feedings"), Dog->TameFeedings >= 2 && Dog->TameFeedings <= 5);
+	TestTrue(TEXT("Its tail is among its parts"), Dog->Parts.IsValidIndex(Dog->FirstTailPart));
+	TestTrue(TEXT("It runs faster than it trots"), Dog->RunSpeed > Dog->Speed);
+	TestTrue(TEXT("It warns of danger further off than it fetches"), Dog->WarnRange > Dog->FetchRange);
 	return true;
 }
 

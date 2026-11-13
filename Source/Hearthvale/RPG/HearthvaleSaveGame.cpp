@@ -18,6 +18,7 @@
 #include "RPG/Town/Villager.h"
 #include "RPG/Town/QuestSubsystem.h"
 #include "RPG/Town/Trader.h"
+#include "RPG/Town/Companion.h"
 #include "Hearthvale.h"
 
 const FString UHearthvaleSaveGame::SlotName = TEXT("Hearthvale");
@@ -86,6 +87,10 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 		for (const ATrader* Trader : TActorRange<ATrader>(World))
 		{
 			Save->Traders.Add(Trader->GetName(), Trader->GetDayState());
+		}
+		for (const ACompanion* Companion : TActorRange<ACompanion>(World))
+		{
+			Save->Companions.Add(Companion->GetFName().ToString(), Companion->SaveState());
 		}
 		Save->bHasSettlers = true;
 		for (const ASettler* Settler : TActorRange<ASettler>(World))
@@ -220,6 +225,13 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 			if (const FTraderDayState* Saved = Save->Traders.Find(Trader->GetName()))
 			{
 				Trader->LoadDayState(*Saved);
+			}
+		}
+		for (ACompanion* Companion : TActorRange<ACompanion>(World))
+		{
+			if (const FSavedCompanion* Saved = Save->Companions.Find(Companion->GetFName().ToString()))
+			{
+				Companion->LoadState(*Saved);
 			}
 		}
 		for (AVillager* Villager : TActorRange<AVillager>(World))
