@@ -60,6 +60,17 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Equipment")
 	int32 GetAccuracyBonus() const;
 
+	/** How heavy everything worn is, together. */
+	UFUNCTION(BlueprintPure, Category = "Equipment")
+	float GetWeight() const;
+
+	/** The worn shield's chance of catching a blow outright: none while a bow's held. */
+	UFUNCTION(BlueprintPure, Category = "Equipment")
+	float GetBlockChance() const;
+
+	/** How fast the wearer walks for a weight worn: a little slower the heavier, never more than 15% slower. */
+	static float SpeedFactor(float Weight);
+
 	UFUNCTION(BlueprintPure, Category = "Equipment")
 	int32 GetStrengthBonus() const;
 

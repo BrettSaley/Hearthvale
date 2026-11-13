@@ -3,6 +3,7 @@
 #include "TimerManager.h"
 #include "UnrealClient.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "HearthvaleCharacter.h"
 #include "HearthvalePlayerController.h"
 #include "RPG/Building/BoatComponent.h"
@@ -574,8 +575,10 @@ void UHearthvaleCheatManager::ListWorn()
 				: FString::Printf(TEXT("%s: %s"), *UEquipmentComponent::GetSlotName(Each).ToString(), Item ? *Item->DisplayName.ToString() : TEXT("-")));
 		}
 		const int32 Defence = Character->GetEquipment()->GetDefence();
-		Say(FString::Printf(TEXT("%s; defence %d (blows %d%% through)"), *FString::Join(Lines, TEXT(", ")), Defence,
-			FMath::RoundToInt32(UEquipmentComponent::ArmourFactor(Defence) * 100.f)));
+		const UEquipmentComponent* Equipment = Character->GetEquipment();
+		Say(FString::Printf(TEXT("%s; defence %d (blows %d%% through); block %d%%; weight %.0f (walk speed %.0f)"), *FString::Join(Lines, TEXT(", ")), Defence,
+			FMath::RoundToInt32(UEquipmentComponent::ArmourFactor(Defence) * 100.f), FMath::RoundToInt32(Equipment->GetBlockChance() * 100.f), Equipment->GetWeight(),
+			Character->GetCharacterMovement()->MaxWalkSpeed));
 	}
 }
 

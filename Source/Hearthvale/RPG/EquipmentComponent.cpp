@@ -191,6 +191,28 @@ int32 UEquipmentComponent::GetDefence() const
 	return Total;
 }
 
+float UEquipmentComponent::GetWeight() const
+{
+	float Total = 0.f;
+	for (const TPair<EEquipSlot, TObjectPtr<UItemDefinition>>& Pair : Worn)
+	{
+		Total += Pair.Value ? Pair.Value->Weight : 0.f;
+	}
+	return Total;
+}
+
+float UEquipmentComponent::GetBlockChance() const
+{
+	const UItemDefinition* Shield = GetWorn(EEquipSlot::OffHand);
+	const UCombatComponent* Combat = GetOwner() ? GetOwner()->FindComponentByClass<UCombatComponent>() : nullptr;
+	return Shield && !(Combat && Combat->IsRanged()) ? Shield->BlockChance : 0.f;
+}
+
+float UEquipmentComponent::SpeedFactor(float Weight)
+{
+	return 1.f - FMath::Min(0.15f, FMath::Max(0.f, Weight) * 0.004f);
+}
+
 int32 UEquipmentComponent::GetAccuracyBonus() const
 {
 	int32 Total = 0;

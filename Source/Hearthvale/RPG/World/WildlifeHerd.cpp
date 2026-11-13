@@ -754,7 +754,7 @@ void AWildlifeHerd::Strike(FAnimal& Animal)
 	const FText Cause = Kind == EWildlifeKind::Bear ? LOCTEXT("ByBear", "a bear") : Kind == EWildlifeKind::Wolf ? LOCTEXT("ByWolf", "a wolf")
 		: LOCTEXT("ByBoar", "a boar");
 	const int32 Taken = Player->GetHealth()->ApplyDamage(Random.RandRange(Stats.Damage.X, Stats.Damage.Y), Cause);
-	if (Taken == 0 && !Player->GetHealth()->IsDead())
+	if (Taken == 0 && !Player->GetHealth()->IsDead() && !Player->GetHealth()->WasLastBlocked())
 	{
 		Player->ShowMessage(LOCTEXT("ArmourHeld", "Your armour takes the blow."), FLinearColor(0.75f, 0.8f, 0.9f));
 	}
