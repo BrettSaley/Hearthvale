@@ -12,6 +12,7 @@
  *   Sleep                      (as a bed does at night)
  *   Warmth                     SetWarmth 10             Campfire (lights one just ahead)
  *   ListCaches                 GoToCache 3              SearchCache
+ *   Waypoint                   ToggleMap
  */
 UCLASS()
 class HEARTHVALE_API UWorldCheats : public UCheatManagerExtension
@@ -68,6 +69,14 @@ public:
 	/** Searches the nearest lost cache, wherever it is. */
 	UFUNCTION(Exec)
 	void SearchCache();
+
+	/** Sets a waypoint where the player stands, or clears the one there (as N does). */
+	UFUNCTION(Exec)
+	void Waypoint();
+
+	/** Opens or closes the map (as M does). */
+	UFUNCTION(Exec)
+	void ToggleMap();
 
 private:
 	class UWorldClock* GetClock() const;

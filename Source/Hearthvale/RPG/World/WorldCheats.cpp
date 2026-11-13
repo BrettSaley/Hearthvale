@@ -8,6 +8,7 @@
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WeatherEffects.h"
 #include "RPG/World/WorldClock.h"
+#include "RPG/World/WorldMap.h"
 #include "EngineUtils.h"
 
 UWorldClock* UWorldCheats::GetClock() const
@@ -229,5 +230,25 @@ void UWorldCheats::SetSnowCover(float Cover)
 	{
 		Clock->SetSnowCover(Cover);
 		Say(FString::Printf(TEXT("Snow cover %.2f."), Clock->GetSnowCover()));
+	}
+}
+
+void UWorldCheats::Waypoint()
+{
+	APlayerController* Controller = GetPlayerController();
+	const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+	if (UWorldMap* Map = Pawn ? UWorldMap::Get(Pawn) : nullptr)
+	{
+		const bool bSet = Map->ToggleWaypoint(Pawn->GetActorLocation());
+		Say(FString::Printf(TEXT("Waypoint %s; %d set."), bSet ? TEXT("set") : TEXT("cleared"), Map->GetWaypoints().Num()));
+	}
+}
+
+void UWorldCheats::ToggleMap()
+{
+	if (UWorldMap* Map = UWorldMap::Get(GetPlayerController()))
+	{
+		Map->SetOpen(!Map->IsOpen());
+		Say(Map->IsOpen() ? TEXT("Map open.") : TEXT("Map closed."));
 	}
 }
