@@ -5,6 +5,7 @@
 #include "Misc/AutomationTest.h"
 #include "RPG/Building/BuildingComponent.h"
 #include "RPG/AnimalDefinition.h"
+#include "RPG/FarmAnimal.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/CraftingComponent.h"
 #include "RPG/CraftingStationDefinition.h"
@@ -373,6 +374,19 @@ bool FLivestockTest::RunTest(const FString& Parameters)
 		TestNull(TEXT("Pigs need nothing to collect from"), Pig->CollectTool.Get());
 		TestTrue(TEXT("A pig's head is among its parts"), Pig->Parts.IsValidIndex(Pig->FirstHeadPart));
 	}
+	// Care: a happy animal gives one more; a fed day cheers it a little, a hungry one more than undoes that.
+	TestEqual(TEXT("An ordinary lot"), AFarmAnimal::ProduceAmount(2, AFarmAnimal::HappyAt - 1), 2);
+	TestEqual(TEXT("A happy animal's lot"), AFarmAnimal::ProduceAmount(2, AFarmAnimal::HappyAt), 3);
+	TestEqual(TEXT("A fed day"), AFarmAnimal::DayChange(3, true), 4);
+	TestEqual(TEXT("A hungry day"), AFarmAnimal::DayChange(3, false), 1);
+	TestEqual(TEXT("Never below nothing"), AFarmAnimal::DayChange(1, false), 0);
+	TestEqual(TEXT("Never above the top"), AFarmAnimal::DayChange(AFarmAnimal::MaxHappiness, true), AFarmAnimal::MaxHappiness);
+	for (const TCHAR* Name : {TEXT("Chicken"), TEXT("Sheep"), TEXT("Cow"), TEXT("Pig")})
+	{
+		const UAnimalDefinition* Kind = LoadObject<UAnimalDefinition>(nullptr, *FString::Printf(TEXT("/Game/Farming/Animals/%s.%s"), Name, Name));
+		TestTrue(FString::Printf(TEXT("%s can be brushed"), Name), Kind && Kind->GroomTool && Kind->GroomTool->GetFName() == TEXT("Brush"));
+	}
+
 	// Hens still lay in nest boxes.
 	const UAnimalDefinition* Chicken = LoadObject<UAnimalDefinition>(nullptr, TEXT("/Game/Farming/Animals/Chicken.Chicken"));
 	TestTrue(TEXT("Hens use nest boxes"), Chicken && Chicken->bUsesNest);

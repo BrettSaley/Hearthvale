@@ -49,6 +49,16 @@ struct FSavedFarmAnimal
 
 	UPROPERTY()
 	float Age = 0.f;
+
+	/** 0 to AFarmAnimal::MaxHappiness. */
+	UPROPERTY()
+	int32 Happiness = 0;
+
+	UPROPERTY()
+	int32 LastGroomDay = -1;
+
+	UPROPERTY()
+	int32 CareDay = -1;
 };
 
 /**
@@ -90,6 +100,22 @@ public:
 	/** Grown produce waiting to be collected (wool). */
 	UFUNCTION(BlueprintPure, Category = "Animal")
 	bool IsProduceReady() const { return bProduceReady; }
+
+	static constexpr int32 MaxHappiness = 10;
+	/** From here a happy animal gives one more of its produce each time. */
+	static constexpr int32 HappyAt = 6;
+
+	/** How many of its produce a lot is: one more when it's happy. */
+	static int32 ProduceAmount(int32 Base, int32 Happiness) { return Base + (Happiness >= HappyAt ? 1 : 0); }
+
+	/** How a day's care changes its happiness: up one if it was fed, down two if it went hungry. */
+	static int32 DayChange(int32 Happiness, bool bWasFed) { return FMath::Clamp(Happiness + (bWasFed ? 1 : -2), 0, MaxHappiness); }
+
+	UFUNCTION(BlueprintPure, Category = "Animal")
+	int32 GetHappiness() const { return Happiness; }
+
+	/** Grooms it with the character's brush (once a day): a little happier. False if it can't be, or already has been today. */
+	bool Groom(AHearthvaleCharacter* Character);
 
 	/** Takes a bite of food from the character's pack: towards taming, or to keep it fed. False if they have none or it's full. */
 	bool Feed(AHearthvaleCharacter* Character);
@@ -175,4 +201,11 @@ private:
 	float Breed = 0.f;
 	/** Seconds old; at the definition's GrowSeconds it's grown. Wild ones start grown. */
 	float Age = -1.f;
+
+	int32 Happiness = 0;
+	int32 LastGroomDay = -1;
+	/** The last day its care was counted (-1 before the first). */
+	int32 CareDay = -1;
+	int32 GetToday() const;
+	bool IsHoldingGroomTool(const AHearthvaleCharacter* Character) const;
 };

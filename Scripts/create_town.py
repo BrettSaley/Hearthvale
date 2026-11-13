@@ -146,7 +146,7 @@ TRADERS = {
               ["Seeds and stock! Hens, sheep, pigs, cows!",
                "Got anything to sell? Come and see me.",
                "Fine day for the market!"],
-              [("PotatoSeed", 0, 0), ("OnionSeed", 0, 0), ("CabbageSeed", 0, 0), ("PumpkinSeed", 0, 0), ("Bucket", 0, 2), ("Bait", 0, 0),
+              [("PotatoSeed", 0, 0), ("OnionSeed", 0, 0), ("CabbageSeed", 0, 0), ("PumpkinSeed", 0, 0), ("Bucket", 0, 2), ("Brush", 0, 3), ("Bait", 0, 0),
                ("CopperAxe", 0, 2), ("CopperPickaxe", 0, 2), ("CopperSickle", 0, 2),
                ("@Chicken", 40, 2), ("@Sheep", 120, 1), ("@Pig", 160, 1), ("@Cow", 260, 1)],
               1.5),

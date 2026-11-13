@@ -13,6 +13,7 @@
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
 #include "RPG/World/WorldGenerator.h"
+#include "RPG/World/WorldClock.h"
 
 #define LOCTEXT_NAMESPACE "FarmAnimal"
 
@@ -334,6 +335,19 @@ void AFarmAnimal::UpdateFarming(float DeltaSeconds)
 		TroughCheck = 3.f;
 		EatFromTrough();
 	}
+	if (bTame)
+	{
+		const int32 Today = GetToday();
+		if (CareDay < 0)
+		{
+			CareDay = Today;
+		}
+		else if (Today != CareDay)
+		{
+			CareDay = Today;
+			Happiness = DayChange(Happiness, Fed > 0.f);
+		}
+	}
 	if (!bTame || Fed <= 0.f)
 	{
 		return;
@@ -391,7 +405,7 @@ void AFarmAnimal::LayProduce()
 		const float Distance = FVector::Dist(Built->GetActorLocation(), GetActorLocation());
 		if (Animal->bUsesNest && Built->GetPiece() && Built->GetPiece()->bNestBox && Built->GetStorage() && Distance < NestDistance
 			&& Distance < Built->GetPiece()->GetRange()
-			&& Built->GetStorage()->CanFit(Animal->Produce, Animal->ProduceQuantity))
+			&& Built->GetStorage()->CanFit(Animal->Produce, ProduceAmount(Animal->ProduceQuantity, Happiness)))
 		{
 			Nest = Built;
 			NestDistance = Distance;
@@ -399,11 +413,12 @@ void AFarmAnimal::LayProduce()
 	}
 	if (Nest)
 	{
-		Nest->GetStorage()->AddItem(Animal->Produce, Animal->ProduceQuantity);
+		Nest->GetStorage()->AddItem(Animal->Produce, ProduceAmount(Animal->ProduceQuantity, Happiness));
 	}
 	else
 	{
-		AGroundItem::Spawn(GetWorld(), FItemStack{Animal->Produce, Animal->ProduceQuantity}, GetActorLocation() - GetActorForwardVector() * Animal->Radius);
+		AGroundItem::Spawn(GetWorld(), FItemStack{Animal->Produce, ProduceAmount(Animal->ProduceQuantity, Happiness)},
+			GetActorLocation() - GetActorForwardVector() * Animal->Radius);
 		// Something worth knowing about when it's not in a nest box: a pig's truffle.
 		if (!Animal->bUsesNest)
 		{
@@ -542,13 +557,13 @@ bool AFarmAnimal::Feed(AHearthvaleCharacter* Character)
 
 bool AFarmAnimal::CollectInto(UInventoryComponent* Into, int32& OutXP)
 {
-	if (!Animal || !bTame || !bProduceReady || !Animal->Produce || !Into->CanFit(Animal->Produce, Animal->ProduceQuantity))
+	if (!Animal || !bTame || !bProduceReady || !Animal->Produce || !Into->CanFit(Animal->Produce, ProduceAmount(Animal->ProduceQuantity, Happiness)))
 	{
 		return false;
 	}
 	bProduceReady = false;
 	UpdateScale();
-	Into->AddItem(Animal->Produce, Animal->ProduceQuantity);
+	Into->AddItem(Animal->Produce, ProduceAmount(Animal->ProduceQuantity, Happiness));
 	OutXP = Animal->CollectXP;
 	return true;
 }
@@ -572,14 +587,15 @@ bool AFarmAnimal::Collect(AHearthvaleCharacter* Character)
 	}
 	bProduceReady = false;
 	UpdateScale();
-	const int32 Added = Character->GetInventory()->AddItem(Animal->Produce, Animal->ProduceQuantity);
-	if (Added < Animal->ProduceQuantity)
+	const int32 Amount = ProduceAmount(Animal->ProduceQuantity, Happiness);
+	const int32 Added = Character->GetInventory()->AddItem(Animal->Produce, Amount);
+	if (Added < Amount)
 	{
-		AGroundItem::Spawn(GetWorld(), FItemStack{Animal->Produce, Animal->ProduceQuantity - Added}, Character->GetActorLocation());
+		AGroundItem::Spawn(GetWorld(), FItemStack{Animal->Produce, Amount - Added}, Character->GetActorLocation());
 	}
 	Character->GetSkills()->AddXP(ESkill::Farming, Animal->CollectXP);
-	Character->ShowMessage(FText::Format(LOCTEXT("Collected", "You {0} the {1} and get some {2}."), Animal->CollectVerb.ToLower(),
-		GetName().ToLower(), Animal->Produce->DisplayName.ToLower()));
+	Character->ShowMessage(FText::Format(LOCTEXT("Collected", "You {0} the {1} and get {2} x {3}."), Animal->CollectVerb.ToLower(),
+		GetName().ToLower(), Amount, Animal->Produce->DisplayName.ToLower()));
 	return true;
 }
 
@@ -615,6 +631,12 @@ bool AFarmAnimal::GetInteractionPrompt(const AHearthvaleCharacter* Character, FI
 	}
 	OutPrompt.Target = GetName();
 	const FText Food = Animal->Food.IsEmpty() || !Animal->Food[0] ? FText::GetEmpty() : Animal->Food[0]->DisplayName;
+	if (IsHoldingGroomTool(Character))
+	{
+		OutPrompt.Action = LOCTEXT("Brush", "Brush");
+		OutPrompt.Target = FText::Format(LOCTEXT("HappinessTarget", "{0}  (happiness {1}/{2})"), GetName(), Happiness, MaxHappiness);
+		return true;
+	}
 	if (!bTame)
 	{
 		OutPrompt.Action = LOCTEXT("Tame", "Tame");
@@ -642,7 +664,7 @@ bool AFarmAnimal::GetInteractionPrompt(const AHearthvaleCharacter* Character, FI
 	}
 	// Fed: lead it about, with how it's doing alongside its name ("Sheep (fed 3:20, wool in 1:05)").
 	OutPrompt.Action = Leader.Get() == Character ? LOCTEXT("LetGo", "Let go") : LOCTEXT("Lead", "Lead");
-	FText Detail = FText::Format(LOCTEXT("FedFor", "fed {0}"), FormatTime(Fed));
+	FText Detail = FText::Format(LOCTEXT("FedFor", "fed {0}, happiness {1}/{2}"), FormatTime(Fed), Happiness, MaxHappiness);
 	if (IsYoung())
 	{
 		Detail = FText::Format(LOCTEXT("GrowingUp", "{0}, growing up"), Detail);
@@ -656,8 +678,50 @@ bool AFarmAnimal::GetInteractionPrompt(const AHearthvaleCharacter* Character, FI
 	return true;
 }
 
+int32 AFarmAnimal::GetToday() const
+{
+	const UWorldClock* Clock = UWorldClock::Get(this);
+	return Clock ? Clock->GetDay() : 0;
+}
+
+bool AFarmAnimal::IsHoldingGroomTool(const AHearthvaleCharacter* Character) const
+{
+	return Animal && Animal->GroomTool && bTame && Character && Character->GetHeldItem() == Animal->GroomTool;
+}
+
+bool AFarmAnimal::Groom(AHearthvaleCharacter* Character)
+{
+	if (!Animal || !bTame || !Animal->GroomTool || !Character || !Character->GetInventory()->HasItem(Animal->GroomTool))
+	{
+		return false;
+	}
+	const int32 Today = GetToday();
+	if (LastGroomDay == Today)
+	{
+		Character->ShowMessage(FText::Format(LOCTEXT("Groomed", "The {0}'s had a good brushing today."), GetName().ToLower()));
+		return false;
+	}
+	LastGroomDay = Today;
+	const bool bWasHappy = Happiness >= HappyAt;
+	Happiness = FMath::Min(MaxHappiness, Happiness + 2);
+	Character->ShowMessage(FText::Format(LOCTEXT("Groom", "You brush the {0}. It leans into the brush. (happiness {1}/{2})"),
+		GetName().ToLower(), Happiness, MaxHappiness));
+	if (!bWasHappy && Happiness >= HappyAt && Animal->Produce)
+	{
+		Character->ShowMessage(FText::Format(LOCTEXT("Content", "The {0} looks content: it'll give you a little more {1}."),
+			GetName().ToLower(), Animal->Produce->DisplayName.ToLower()));
+	}
+	return true;
+}
+
 void AFarmAnimal::Interact(AHearthvaleCharacter* Character)
 {
+	// A brush in hand: grooming comes first.
+	if (IsHoldingGroomTool(Character))
+	{
+		Groom(Character);
+		return;
+	}
 	if (Collect(Character))
 	{
 		return;
@@ -714,6 +778,9 @@ FSavedFarmAnimal AFarmAnimal::SaveState() const
 	Saved.bProduceReady = bProduceReady;
 	Saved.Breed = Breed;
 	Saved.Age = Age;
+	Saved.Happiness = Happiness;
+	Saved.LastGroomDay = LastGroomDay;
+	Saved.CareDay = CareDay;
 	return Saved;
 }
 
@@ -739,6 +806,9 @@ AFarmAnimal* AFarmAnimal::SpawnSaved(UWorld* World, const FSavedFarmAnimal& Save
 		Spawned->bProduceReady = Saved.bProduceReady;
 		Spawned->Breed = Saved.Breed;
 		Spawned->Age = Saved.Age;
+		Spawned->Happiness = Saved.Happiness;
+		Spawned->LastGroomDay = Saved.LastGroomDay;
+		Spawned->CareDay = Saved.CareDay;
 		Spawned->FinishSpawning(Transform);
 	}
 	return Spawned;
