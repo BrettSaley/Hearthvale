@@ -284,6 +284,35 @@ int32 AWildlifeHerd::HurtAnimal(int32 Index, int32 Damage, const AActor* Attacke
 	return Taken;
 }
 
+void AWildlifeHerd::MakeRaiders()
+{
+	bRaiders = true;
+	Roam = 500.f;
+}
+
+void AWildlifeHerd::MarchTo(const FVector& Where)
+{
+	SetActorLocation(Where);
+	for (FAnimal& Animal : Animals)
+	{
+		if (Animal.DeadFor <= 0.f && Animal.Mood == EMood::Calm)
+		{
+			PickTarget(Animal);
+			Animal.Grazing = 0.f;
+		}
+	}
+}
+
+int32 AWildlifeHerd::CountAlive() const
+{
+	int32 Alive = 0;
+	for (int32 Index = 0; Index < Animals.Num(); ++Index)
+	{
+		Alive += IsAlive(Index) ? 1 : 0;
+	}
+	return Alive;
+}
+
 bool AWildlifeHerd::IsSnareable(EWildlifeKind InKind)
 {
 	return InKind == EWildlifeKind::Rabbit || InKind == EWildlifeKind::Fox;
@@ -303,7 +332,8 @@ void AWildlifeHerd::Kill(FAnimal& Animal, bool bDropLoot)
 {
 	// It drops where it fell, and another turns up at home a while later.
 	Animal.Health = 0;
-	Animal.DeadFor = FightOf(Kind).Respawn;
+	// Raiders don't come back.
+	Animal.DeadFor = bRaiders ? 1.0e9f : FightOf(Kind).Respawn;
 	Animal.Mood = EMood::Calm;
 	Animal.Body->SetVisibility(false, true);
 	if (!bDropLoot)

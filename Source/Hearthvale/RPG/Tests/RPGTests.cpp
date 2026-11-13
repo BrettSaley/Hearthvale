@@ -30,6 +30,8 @@
 #include "RPG/Town/QuestDefinition.h"
 #include "RPG/Town/CompanionDefinition.h"
 #include "RPG/Town/TraderDefinition.h"
+#include "RPG/World/RaidSubsystem.h"
+#include "RPG/Building/BuildPiece.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldGenerator.h"
 
@@ -1015,6 +1017,32 @@ bool FTrapsTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Spikes are spikes"), Wooden && Iron && Wooden->Trap == ETrapKind::Spikes && Iron->Trap == ETrapKind::Spikes
 		&& Wooden->TrapDamage > 0 && Wooden->TrapUses > 0);
 	TestTrue(TEXT("Iron spikes hit harder and last longer"), Wooden && Iron && Iron->TrapDamage > Wooden->TrapDamage && Iron->TrapUses > Wooden->TrapUses);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRaidsTest, "Hearthvale.Raids", TestFlags)
+
+bool FRaidsTest::RunTest(const FString& Parameters)
+{
+	// No raid the first night; later nights grow riskier, but never certain.
+	TestEqual(TEXT("The first night is safe"), URaidSubsystem::RaidChance(0), 0.f);
+	TestTrue(TEXT("Later nights are riskier"), URaidSubsystem::RaidChance(5) > URaidSubsystem::RaidChance(1));
+	TestTrue(TEXT("Never certain"), URaidSubsystem::RaidChance(100) <= 0.5f);
+	for (int32 Day = 0; Day < 30; ++Day)
+	{
+		TestTrue(TEXT("A pack is 3 to 6 wolves"), URaidSubsystem::PackSize(Day) >= 3 && URaidSubsystem::PackSize(Day) <= 6);
+	}
+	TestTrue(TEXT("Packs grow"), URaidSubsystem::PackSize(12) > URaidSubsystem::PackSize(1));
+
+	// Pieces stand battering by what went into them.
+	TestEqual(TEXT("Something of nothing stands 10"), ABuildPiece::HealthFor(nullptr), 10);
+	const UBuildPieceDefinition* Wall = UBuildPieceDefinition::FindPiece(TEXT("WoodWall"));
+	const UBuildPieceDefinition* Chest = UBuildPieceDefinition::FindPiece(TEXT("WoodChest"));
+	for (const UBuildPieceDefinition* Piece : {Wall, Chest})
+	{
+		TestTrue(TEXT("A wall or chest stands a few blows but not forever"), Piece && (ABuildPiece::HealthFor(Piece) > URaidSubsystem::BatterDamage * 3
+			&& ABuildPiece::HealthFor(Piece) <= 200));
+	}
 	return true;
 }
 

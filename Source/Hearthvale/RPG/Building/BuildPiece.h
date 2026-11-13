@@ -66,6 +66,21 @@ public:
 	/** A farm machine's workings; null for anything else. */
 	UFarmMachineComponent* GetMachine() const { return Machine; }
 
+	/** How much battering it can stand: more for pieces that took more to build. */
+	int32 GetMaxHealth() const { return HealthFor(Piece); }
+
+	/** How much battering a kind of piece can stand: ten, and five more for each thing it takes to build (at most 200). */
+	static int32 HealthFor(const UBuildPieceDefinition* InPiece);
+
+	/** Battering taken so far (raiders). */
+	int32 GetDamage() const { return Damage; }
+
+	/** Loading: battering taken before. */
+	void SetDamage(int32 InDamage) { Damage = FMath::Max(0, InDamage); }
+
+	/** Takes a battering; at its most it falls (and a chest's contents spill out). True if it fell. */
+	bool Batter(int32 Amount);
+
 	/** Snares and spikes: the trap at work, or null. */
 	UTrapComponent* GetTrap() const { return Trap; }
 
@@ -100,6 +115,8 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<UTrapComponent> Trap;
+
+	int32 Damage = 0;
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Building")
 	TObjectPtr<UBoatComponent> Boat;

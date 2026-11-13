@@ -110,6 +110,16 @@ public:
 	/** Rabbits and foxes: small enough for a snare. */
 	static bool IsSnareable(EWildlifeKind InKind);
 
+	/** Makes this a raiding pack (see URaidSubsystem): they keep close together and the fallen don't come back. */
+	void MakeRaiders();
+
+	bool IsRaiders() const { return bRaiders; }
+
+	/** Moves where they roam about to Where, and sends the calm ones there. */
+	void MarchTo(const FVector& Where);
+
+	/** How many are alive. */
+	int32 CountAlive() const;
 
 	/**
 	 * The live animal best in sight: within Range (cm) of From and within Cone
@@ -211,6 +221,9 @@ private:
 	float Warned = -100.f;
 	/** Asleep for the season (bears in winter): hidden, and nothing to fight. */
 	bool bHibernating = false;
+
+	/** A raiding pack: the fallen stay down. */
+	bool bRaiders = false;
 	/** How far off they notice the player, as a multiple: the season, weather and time of day change it. */
 	float Wariness = 1.f;
 };
