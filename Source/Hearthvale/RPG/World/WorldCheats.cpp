@@ -124,7 +124,8 @@ void UWorldCheats::Warmth()
 		return;
 	}
 	Say(FString::Printf(TEXT("Warmth %.0f (%s). Air %.0f degrees%s%s."), Component->GetWarmth(), *UWarmthComponent::StateName(Component->GetState()).ToString(),
-		Component->GetTemperature(), Component->IsSheltered() ? TEXT(", sheltered") : TEXT(""), Component->IsNearFire() ? TEXT(", by a fire") : TEXT("")));
+		Component->GetTemperature(), Component->IsIndoors() ? TEXT(", indoors") : Component->IsSheltered() ? TEXT(", sheltered") : TEXT(""),
+		Component->IsNearFire() ? TEXT(", by a fire") : TEXT("")));
 }
 
 void UWorldCheats::SetWarmth(float Value)

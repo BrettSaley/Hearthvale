@@ -20,6 +20,8 @@ namespace
 	const FLinearColor ThawColor(1.f, 0.75f, 0.45f);
 	/** How far up (cm) a roof can be and still shelter you. */
 	constexpr float ShelterReach = 1500.f;
+	/** How far (cm) a wall can be and still be part of the room you're in. */
+	constexpr float RoomReach = 600.f;
 }
 
 UWarmthComponent::UWarmthComponent()
@@ -123,6 +125,18 @@ void UWarmthComponent::Measure()
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(WarmthShelter), false, Character);
 	FHitResult Hit;
 	Conditions.bSheltered = World->LineTraceSingleByChannel(Hit, At, At + FVector(0.f, 0.f, ShelterReach), ECC_Visibility, Params);
+	if (Conditions.bSheltered)
+	{
+		// Indoors: walls close by in most directions round you.
+		constexpr int32 Directions = 8;
+		int32 Walls = 0;
+		for (int32 Each = 0; Each < Directions; ++Each)
+		{
+			const FVector Out = FRotator(0.f, Each * 360.f / Directions, 0.f).Vector() * RoomReach;
+			Walls += World->LineTraceSingleByChannel(Hit, At, At + Out, ECC_Visibility, Params) ? 1 : 0;
+		}
+		Conditions.bIndoors = IsEnclosed(Walls, Directions);
+	}
 
 	// The best fire nearby counts: campfires, ranges and furnaces.
 	for (const ACraftingStation* Station : TActorRange<ACraftingStation>(World))
@@ -130,7 +144,18 @@ void UWarmthComponent::Measure()
 		const UCraftingStationDefinition* Definition = Station->GetDefinition();
 		if (Definition && (Definition->Station == ECraftStation::Fire || Definition->Station == ECraftStation::Furnace))
 		{
-			Conditions.FireHeat = FMath::Max(Conditions.FireHeat, FireHeatAt(FVector::Dist(Station->GetActorLocation(), At)));
+			float Distance = FVector::Dist(Station->GetActorLocation(), At);
+			// A fire in the room with you (close, nothing in between) heats all of it.
+			if (Conditions.bIndoors && Distance < RoomReach * 1.5f)
+			{
+				FCollisionQueryParams Clear(SCENE_QUERY_STAT(WarmthHearth), false, Character);
+				Clear.AddIgnoredActor(Station);
+				if (!World->LineTraceSingleByChannel(Hit, At, Station->GetActorLocation() + FVector(0.f, 0.f, 40.f), ECC_Visibility, Clear))
+				{
+					Distance = 0.f;
+				}
+			}
+			Conditions.FireHeat = FMath::Max(Conditions.FireHeat, FireHeatAt(Distance));
 		}
 	}
 	Temperature = AirTemperature(Conditions);
@@ -144,10 +169,10 @@ float UWarmthComponent::AirTemperature(const FWarmthConditions& In)
 	{
 		Air -= 6.f;
 	}
-	// A roof keeps off the wind and the wet, and holds a little heat.
+	// A roof keeps off the wind and the wet, and holds a little heat; a whole room holds a lot more.
 	if (In.bSheltered)
 	{
-		Air += 3.f;
+		Air += In.bIndoors ? 10.f : 3.f;
 	}
 	else
 	{

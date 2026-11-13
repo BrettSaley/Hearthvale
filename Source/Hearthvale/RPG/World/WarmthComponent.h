@@ -27,6 +27,8 @@ struct FWarmthConditions
 	bool bHighlands = false;
 	/** A roof overhead: out of the wind, rain and snow. */
 	bool bSheltered = false;
+	/** A roof and walls all round (a doorway's fine): a room that holds its heat, and a fire in it warms the whole room. */
+	bool bIndoors = false;
 	bool bInWater = false;
 	/** Degrees from fires nearby. */
 	float FireHeat = 0.f;
@@ -69,6 +71,7 @@ public:
 	float GetTemperature() const { return Temperature; }
 	EWarmthState GetState() const { return State; }
 	bool IsSheltered() const { return Conditions.bSheltered; }
+	bool IsIndoors() const { return Conditions.bIndoors; }
 	bool IsNearFire() const { return Conditions.FireHeat > 0.f; }
 	/** "Warm", "Cold"... */
 	static FText StateName(EWarmthState InState);
@@ -80,6 +83,8 @@ public:
 	static EWarmthState StateFor(float Warmth);
 	/** Degrees a fire gives at a distance (cm). */
 	static float FireHeatAt(float Distance);
+	/** Whether walls hit in enough of the directions round someone to count as a room (with a roof): 6 of 8. */
+	static bool IsEnclosed(int32 WallsHit, int32 Directions) { return Directions > 0 && WallsHit * 4 >= Directions * 3; }
 
 private:
 	void Measure();

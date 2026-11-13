@@ -171,6 +171,11 @@ bool FWarmthTest::RunTest(const FString& Parameters)
 	FWarmthConditions Roofed = Winter;
 	Roofed.bSheltered = true;
 	TestTrue(TEXT("A roof keeps the snow off"), UWarmthComponent::AirTemperature(Roofed) > WinterNight);
+	FWarmthConditions Indoors = Roofed;
+	Indoors.bIndoors = true;
+	TestTrue(TEXT("A whole room is warmer than a roof alone"), UWarmthComponent::AirTemperature(Indoors) > UWarmthComponent::AirTemperature(Roofed) + 5.f);
+	TestTrue(TEXT("Six walls of eight make a room (a doorway's fine)"), UWarmthComponent::IsEnclosed(6, 8));
+	TestFalse(TEXT("Half the walls don't"), UWarmthComponent::IsEnclosed(4, 8));
 	FWarmthConditions ByFire = Winter;
 	ByFire.FireHeat = UWarmthComponent::FireHeatAt(200.f);
 	TestTrue(TEXT("Beside a fire it's warm even on a winter night"), UWarmthComponent::AirTemperature(ByFire) >= UWarmthComponent::Comfort);
