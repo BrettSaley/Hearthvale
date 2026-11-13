@@ -1313,9 +1313,9 @@ void UHearthvaleCheatManager::ListSettlers()
 				}
 			}
 		}
-		Say(FString::Printf(TEXT("%s at (%.0f, %.0f): %s, made %d. Chest: %s"), *Settler->GetFullName().ToString(),
+		Say(FString::Printf(TEXT("%s at (%.0f, %.0f): %s, comfort %d, made %d. Chest: %s"), *Settler->GetFullName().ToString(),
 			Settler->GetActorLocation().X, Settler->GetActorLocation().Y, Troubles[static_cast<int32>(Settler->GetTrouble())],
-			Settler->GetMade(), *Chest));
+			Settler->GetComfort(), Settler->GetMade(), *Chest));
 	}
 }
 
@@ -1481,4 +1481,31 @@ void UHearthvaleCheatManager::ListCompanions()
 			Character ? FVector::Dist2D(At, Character->GetActorLocation()) : 0.f,
 			!Companion->IsOwned() ? TEXT("a stray") : Companion->IsStaying() ? TEXT("staying") : TEXT("following"), Companion->GetLoyalty()));
 	}
+}
+
+void UHearthvaleCheatManager::Furnish()
+{
+	int32 Furnished = 0;
+	for (ASettler* Settler : TActorRange<ASettler>(GetWorld()))
+	{
+		const ABuildPiece* Bed = Settler->GetBed();
+		if (!Bed)
+		{
+			continue;
+		}
+		// Along the foot of the bed, on its floor.
+		const FVector Foot = Bed->GetActorLocation() - Bed->GetActorForwardVector() * 150.f;
+		const FVector Side = Bed->GetActorRightVector();
+		const TPair<const TCHAR*, float> Pieces[] = {{TEXT("WoodTable"), -110.f}, {TEXT("WoodStool"), -20.f}, {TEXT("WoolRug"), 60.f}, {TEXT("Torch"), 150.f}};
+		for (const TPair<const TCHAR*, float>& Piece : Pieces)
+		{
+			if (UBuildPieceDefinition* Definition = UBuildPieceDefinition::FindPiece(Piece.Key))
+			{
+				ABuildPiece::Spawn(GetWorld(), Definition, FTransform(Bed->GetActorRotation(), Foot + Side * Piece.Value));
+			}
+		}
+		++Furnished;
+	}
+	Say(FString::Printf(TEXT("Furnished %d house(s)."), Furnished));
+	ListSettlers();
 }

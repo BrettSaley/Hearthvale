@@ -78,6 +78,14 @@ public:
 	/** The chest they eat from and work into: the nearest plain one to their bed. */
 	UInventoryComponent* FindChest() const;
 
+	/** How homely their house is: the different bits of furniture (not beds or chests) near their bed, up to MaxComfort. */
+	int32 GetComfort() const;
+
+	static constexpr int32 MaxComfort = 5;
+
+	/** How much faster they work at a comfort: a fifth faster for each. */
+	static float ComfortSpeed(int32 Comfort) { return 1.f + 0.2f * FMath::Clamp(Comfort, 0, MaxComfort); }
+
 	/** Does Jobs rounds of work now, eating first if they need to (for testing). */
 	void WorkNow(int32 Jobs = 1);
 

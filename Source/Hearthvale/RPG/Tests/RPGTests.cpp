@@ -24,6 +24,7 @@
 #include "RPG/SkillsComponent.h"
 #include "RPG/Town/RequestBoardDefinition.h"
 #include "RPG/Town/SettlerDefinition.h"
+#include "RPG/Town/Settler.h"
 #include "RPG/Town/VillagerDefinition.h"
 #include "RPG/Town/QuestDefinition.h"
 #include "RPG/Town/CompanionDefinition.h"
@@ -597,6 +598,17 @@ bool FSettlersTest::RunTest(const FString& Parameters)
 		TestTrue(FString::Printf(TEXT("%s eats less often than they work"), *Name), Settler->MealSeconds > Settler->WorkSeconds);
 	}
 	TestTrue(TEXT("Someone tends animals"), bHerder);
+
+	// Comfort: a bare house works at the normal pace, a homely one up to twice as fast.
+	TestEqual(TEXT("Bare is normal speed"), ASettler::ComfortSpeed(0), 1.f);
+	TestEqual(TEXT("Homely is twice the speed"), ASettler::ComfortSpeed(ASettler::MaxComfort), 2.f);
+	TestEqual(TEXT("No more than homely"), ASettler::ComfortSpeed(99), 2.f);
+	int32 Homely = 0;
+	for (const UBuildPieceDefinition* Piece : UBuildPieceDefinition::GetAllPieces())
+	{
+		Homely += Piece->Category == EBuildCategory::Furniture && !Piece->bIsBed && Piece->StorageSlots == 0 ? 1 : 0;
+	}
+	TestTrue(TEXT("Enough kinds of furniture to make a house homely"), Homely >= ASettler::MaxComfort);
 	return true;
 }
 
