@@ -17,7 +17,7 @@ namespace
 	constexpr int32 MostDrops = 1800;
 	constexpr int32 MostFlakes = 1400;
 	/** How far up (cm) a roof can be and still keep it off you. */
-	constexpr float RoofReach = 3000.f;
+	constexpr float RainRoofReach = 3000.f;
 
 	template <typename T>
 	T* LoadQuietly(const TCHAR* Path)
@@ -154,7 +154,7 @@ void AWeatherEffects::Tick(float DeltaSeconds)
 		Params.AddIgnoredActor(this);
 		FHitResult Hit;
 		const FVector From = Pawn->GetActorLocation();
-		bSheltered = GetWorld()->LineTraceSingleByChannel(Hit, From, From + FVector(0.f, 0.f, RoofReach), ECC_Visibility, Params);
+		bSheltered = GetWorld()->LineTraceSingleByChannel(Hit, From, From + FVector(0.f, 0.f, RainRoofReach), ECC_Visibility, Params);
 	}
 
 	// Two identical layers slide down together; once they've gone one layer's height, it looks just as it started.

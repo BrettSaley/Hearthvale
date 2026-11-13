@@ -197,6 +197,22 @@ public:
 	UFUNCTION(Exec)
 	void SetTrap(FName PieceId, float Ahead = 150.f);
 
+	/** Puts any build piece down Ahead cm in front of and Side cm to the right of the player, free and with no checks (PlacePiece WoodWall 400 -200). */
+	UFUNCTION(Exec)
+	void PlacePiece(FName PieceId, float Ahead = 300.f, float Side = 0.f);
+
+	/** Sends a wolf pack against the camp now (needs night, or they leave at once; SetHour 22 first). */
+	UFUNCTION(Exec)
+	void Raid();
+
+	/** Calls a raid off. */
+	UFUNCTION(Exec)
+	void EndRaid();
+
+	/** Says how a raid's going: wolves left, how far off, the camp's battered pieces. */
+	UFUNCTION(Exec)
+	void RaidStatus();
+
 	/** Lists the traps: where, and how worn or full. */
 	UFUNCTION(Exec)
 	void ListTraps();
