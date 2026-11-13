@@ -8,6 +8,7 @@
 #include "RPG/CraftingStationDefinition.h"
 #include "RPG/HealthComponent.h"
 #include "RPG/RecipeDefinition.h"
+#include "RPG/World/HungerComponent.h"
 #include "RPG/World/WorldClock.h"
 #include "RPG/World/WorldGenerator.h"
 
@@ -115,6 +116,8 @@ void UWarmthComponent::Measure()
 		Conditions.bNight = Clock->IsNight();
 	}
 	Conditions.bHighlands = UWorldGenerator::GetBiome(At.X, At.Y) == EBiome::Highlands;
+	const UHungerComponent* Hunger = Character->FindComponentByClass<UHungerComponent>();
+	Conditions.bHungry = Hunger && Hunger->GetState() >= EHungerState::Hungry;
 	Conditions.bInWater = Character->GetCharacterMovement() && Character->GetCharacterMovement()->IsSwimming();
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(WarmthShelter), false, Character);
@@ -164,6 +167,10 @@ float UWarmthComponent::AirTemperature(const FWarmthConditions& In)
 	if (In.bInWater)
 	{
 		Air -= 10.f;
+	}
+	if (In.bHungry)
+	{
+		Air -= 4.f;
 	}
 	return Air + In.FireHeat;
 }

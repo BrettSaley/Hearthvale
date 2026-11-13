@@ -30,6 +30,8 @@ struct FWarmthConditions
 	bool bInWater = false;
 	/** Degrees from fires nearby. */
 	float FireHeat = 0.f;
+	/** An empty stomach feels the cold more. */
+	bool bHungry = false;
 };
 
 /**

@@ -1,4 +1,5 @@
 #include "RPG/HearthvaleHUD.h"
+#include "RPG/World/HungerComponent.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WorldClock.h"
 #include "RPG/World/WorldMap.h"
@@ -194,6 +195,24 @@ void AHearthvaleHUD::DrawClock()
 	DrawRect(FLinearColor(0.08f, 0.1f, 0.15f, 0.9f), Right - BarWidth, BarY, BarWidth, 8.f);
 	const FLinearColor IcyColor(0.35f, 0.6f, 1.f), FireColor(1.f, 0.55f, 0.2f);
 	DrawRect(FLinearColor::LerpUsingHSV(IcyColor, FireColor, Fraction) * Throb, Right - BarWidth, BarY, BarWidth * Fraction, 8.f);
+
+	// Hunger, the same way underneath.
+	const UHungerComponent* Hunger = GetOwningPawn()->FindComponentByClass<UHungerComponent>();
+	if (!Hunger)
+	{
+		return;
+	}
+	const float Full = Hunger->GetFullness() / UHungerComponent::MaxFullness;
+	const FString HungerLabel = UHungerComponent::StateName(Hunger->GetState()).ToString();
+	float HungerWidth, HungerHeight;
+	GetTextSize(HungerLabel, HungerWidth, HungerHeight, Font);
+	const float HungerY = Y + LabelHeight + 12.f;
+	const float Pulse = Hunger->GetState() == EHungerState::Starving ? 0.6f + 0.4f * FMath::Sin(GetWorld()->GetTimeSeconds() * 8.f) : 1.f;
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.45f), Right - BarWidth - HungerWidth - 24.f, HungerY - 4.f, BarWidth + HungerWidth + 32.f, HungerHeight + 8.f);
+	DrawText(HungerLabel, FLinearColor(1.f, 0.92f, 0.8f), Right - BarWidth - HungerWidth - 16.f, HungerY, Font);
+	const float HungerBarY = HungerY + HungerHeight * 0.5f - 4.f;
+	DrawRect(FLinearColor(0.08f, 0.1f, 0.15f, 0.9f), Right - BarWidth, HungerBarY, BarWidth, 8.f);
+	DrawRect(FLinearColor::LerpUsingHSV(FLinearColor(0.7f, 0.2f, 0.15f), FLinearColor(0.55f, 0.85f, 0.3f), Full) * Pulse, Right - BarWidth, HungerBarY, BarWidth * Full, 8.f);
 }
 
 void AHearthvaleHUD::DrawTarget(AHearthvaleCharacter* Character)

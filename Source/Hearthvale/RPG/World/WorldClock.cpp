@@ -15,6 +15,7 @@
 #include "HearthvaleCharacter.h"
 #include "Hearthvale.h"
 #include "RPG/FarmPatch.h"
+#include "RPG/World/HungerComponent.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WeatherEffects.h"
 #include "RPG/World/WildlifeHerd.h"
@@ -103,6 +104,7 @@ void UWorldClock::Tick(float DeltaTime)
 	if (AHearthvaleCharacter* Player = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
 	{
 		UWarmthComponent::FindOrAdd(Player);
+		UHungerComponent::FindOrAdd(Player);
 	}
 	CropTimer += DeltaTime;
 	if (CropTimer >= 1.f)
