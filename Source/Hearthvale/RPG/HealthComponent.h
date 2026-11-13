@@ -50,6 +50,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	int32 Heal(int32 Amount);
 
+	/** Whether the last blow was caught on a shield. */
+	bool WasLastBlocked() const { return bLastBlocked; }
+
 	/** Straight to a number (loading, cheats): clamped to 1..the most. */
 	void SetHealth(int32 NewHealth);
 
@@ -86,5 +89,6 @@ private:
 
 	int32 Health = 10;
 	float SinceHurt = 100.f;
+	bool bLastBlocked = false;
 	float Resting = 0.f;
 };

@@ -7,6 +7,7 @@ class AHearthvaleCharacter;
 class ACraftingStation;
 class UItemDefinition;
 struct FItemStack;
+enum class EEquipSlot : uint8;
 
 /**
  * Tools, weapons and armour wear out. Each has some number of uses
@@ -30,6 +31,9 @@ struct HEARTHVALE_API FDurability
 
 	/** Wears a carried item by Amount (the held one if it's that, else the first carried), with a word when it's badly worn or breaks. */
 	static void WearCarried(AHearthvaleCharacter* Character, const UItemDefinition* Item, int32 Amount = 1);
+
+	/** Wears what's worn in one slot by Amount, with a word when it's badly worn or breaks. */
+	static void WearWorn(AHearthvaleCharacter* Character, EEquipSlot Slot, int32 Amount = 1);
 
 	/** A blow taken wears every worn piece of armour by one. */
 	static void WearArmour(AHearthvaleCharacter* Character);

@@ -273,7 +273,8 @@ void AHearthvaleCharacter::Tick(float DeltaSeconds)
 	{
 		// Wading is slow going: down to under half speed at the deepest.
 		const float Wading = FMath::Clamp((UBoatComponent::WaterLevel - Feet) / WadeDepth, 0.f, 1.f);
-		GetCharacterMovement()->MaxWalkSpeed = DryWalkSpeed * (1.f - 0.55f * Wading);
+		// Heavy armour slows the stride a little.
+		GetCharacterMovement()->MaxWalkSpeed = DryWalkSpeed * UEquipmentComponent::SpeedFactor(Equipment->GetWeight()) * (1.f - 0.55f * Wading);
 		LastWadeable = GetActorLocation();
 		return;
 	}
