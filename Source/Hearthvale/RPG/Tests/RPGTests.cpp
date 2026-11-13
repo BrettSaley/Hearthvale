@@ -1032,6 +1032,79 @@ bool FRaidsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWeaponsTest, "Hearthvale.Weapons", TestFlags)
+
+bool FWeaponsTest::RunTest(const FString& Parameters)
+{
+	// Bracing against a charge raises the most a blow can do, never lowers it.
+	TestEqual(TEXT("No bonus, no change"), UCombatComponent::BracedHit(10, 0.f), 10);
+	TestEqual(TEXT("60% more"), UCombatComponent::BracedHit(10, 0.6f), 16);
+	TestTrue(TEXT("Even a weak blow gains"), UCombatComponent::BracedHit(3, 0.6f) > 3);
+
+	// Spears reach further than swords and brace; each metal better than the last.
+	const UItemDefinition* Sword = UItemDefinition::FindItem(TEXT("IronSword"));
+	int32 Last = 0;
+	for (const TCHAR* Id : {TEXT("CopperSpear"), TEXT("IronSpear"), TEXT("SteelSpear")})
+	{
+		const UItemDefinition* Spear = UItemDefinition::FindItem(Id);
+		TestTrue(FString::Printf(TEXT("%s is a long melee weapon that braces"), Id), Spear && Spear->IsWeapon() && Spear->AttackRange <= 0.f
+			&& Spear->MeleeReach > UCombatComponent::MeleeReach && Spear->ChargeBonus > 0.f && Spear->Durability > 0);
+		TestTrue(FString::Printf(TEXT("%s beats the one before"), Id), Spear && Spear->StrengthBonus > Last);
+		Last = Spear ? Spear->StrengthBonus : Last;
+	}
+	TestTrue(TEXT("A sword has no reach of its own"), Sword && Sword->MeleeReach <= 0.f);
+
+	// A crossbow shoots bolts, slower than a bow but harder.
+	const UItemDefinition* Crossbow = UItemDefinition::FindItem(TEXT("Crossbow"));
+	const UItemDefinition* Bow = UItemDefinition::FindItem(TEXT("OakLongbow"));
+	TestTrue(TEXT("A crossbow shoots bolts"), Crossbow && Crossbow->AttackRange > 0.f && Crossbow->Ammo && Crossbow->Ammo->GetItemId() == TEXT("Bolts"));
+	TestTrue(TEXT("Slower and harder than a longbow"), Crossbow && Bow && Crossbow->AttackSeconds > Bow->AttackSeconds && Crossbow->StrengthBonus > Bow->StrengthBonus);
+	const URecipeDefinition* Bolts = LoadObject<URecipeDefinition>(nullptr, TEXT("/Game/Crafting/Recipes/MakeBolts.MakeBolts"));
+	TestTrue(TEXT("Bolts are made by the dozen"), Bolts && Bolts->OutputQuantity == 12);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FArmourTiersTest, "Hearthvale.ArmourTiers", TestFlags)
+
+bool FArmourTiersTest::RunTest(const FString& Parameters)
+{
+	// Weight slows a little, never much.
+	TestEqual(TEXT("Nothing worn, full speed"), UEquipmentComponent::SpeedFactor(0.f), 1.f);
+	TestTrue(TEXT("Heavier is slower"), UEquipmentComponent::SpeedFactor(25.f) < UEquipmentComponent::SpeedFactor(10.f));
+	TestEqual(TEXT("Never more than 15% slower"), UEquipmentComponent::SpeedFactor(1000.f), 0.85f);
+
+	// Worn weight adds up, and a shield's block counts.
+	UEquipmentComponent* Equipment = NewObject<UEquipmentComponent>();
+	UItemDefinition* Shield = MakeItem(false);
+	Shield->EquipSlot = EEquipSlot::OffHand;
+	Shield->Weight = 4.f;
+	Shield->BlockChance = 0.2f;
+	UItemDefinition* Helm = MakeItem(false);
+	Helm->EquipSlot = EEquipSlot::Head;
+	Helm->Weight = 3.f;
+	Equipment->SetWorn(EEquipSlot::OffHand, Shield);
+	Equipment->SetWorn(EEquipSlot::Head, Helm);
+	TestEqual(TEXT("Weights add up"), Equipment->GetWeight(), 7.f);
+	TestEqual(TEXT("The shield's block counts"), Equipment->GetBlockChance(), 0.2f);
+
+	// Better shields block more; silversteel tops steel and is lighter than iron.
+	float LastBlock = 0.f;
+	for (const TCHAR* Id : {TEXT("WoodenShield"), TEXT("CopperShield"), TEXT("IronShield"), TEXT("SteelShield"), TEXT("SilversteelShield")})
+	{
+		const UItemDefinition* Each = UItemDefinition::FindItem(Id);
+		TestTrue(FString::Printf(TEXT("%s blocks more than the one before"), Id), Each && Each->BlockChance > LastBlock);
+		LastBlock = Each ? Each->BlockChance : LastBlock;
+	}
+	const UItemDefinition* Silver = UItemDefinition::FindItem(TEXT("SilversteelChestplate"));
+	const UItemDefinition* Steel = UItemDefinition::FindItem(TEXT("SteelChestplate"));
+	const UItemDefinition* Iron = UItemDefinition::FindItem(TEXT("IronChestplate"));
+	TestTrue(TEXT("Silversteel beats steel"), Silver && Steel && Silver->DefenceBonus > Steel->DefenceBonus && Silver->Durability > Steel->Durability);
+	TestTrue(TEXT("Steel is lighter than iron"), Steel && Iron && Steel->Weight < Iron->Weight && Steel->Weight > 0.f);
+	TestTrue(TEXT("Silversteel takes Guard 30"), Silver && Silver->Requirements.FindRef(ESkill::Guard) == 30);
+	TestNotNull(TEXT("Silversteel is smithed"), LoadObject<URecipeDefinition>(nullptr, TEXT("/Game/Crafting/Recipes/MakeSilversteelChestplate.MakeSilversteelChestplate")));
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWildlifeTest, "Hearthvale.Wildlife", TestFlags)
 
 bool FWildlifeTest::RunTest(const FString& Parameters)

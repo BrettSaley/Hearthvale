@@ -36,6 +36,11 @@ float UCombatComponent::HitChance(int32 Accuracy, int32 Defence)
 	return FMath::Clamp(0.55f + (Accuracy - Defence * 1.5f) / 100.f, 0.15f, 0.95f);
 }
 
+int32 UCombatComponent::BracedHit(int32 Most, float ChargeBonus)
+{
+	return FMath::Max(Most, FMath::RoundToInt32(Most * (1.f + ChargeBonus)));
+}
+
 int32 UCombatComponent::MaxHit(int32 Level, int32 Strength)
 {
 	return 2 + FMath::FloorToInt32((Level * 0.5f + Strength) / 3.f);
@@ -75,7 +80,7 @@ bool UCombatComponent::IsRanged() const
 float UCombatComponent::GetReach() const
 {
 	const UItemDefinition* Weapon = GetWeapon();
-	return Weapon && Weapon->AttackRange > 0.f ? Weapon->AttackRange : MeleeReach;
+	return Weapon && Weapon->AttackRange > 0.f ? Weapon->AttackRange : Weapon && Weapon->MeleeReach > 0.f ? Weapon->MeleeReach : MeleeReach;
 }
 
 float UCombatComponent::GetAttackSeconds() const
@@ -195,9 +200,18 @@ void UCombatComponent::Attack()
 		Herd->HurtAnimal(TargetIndex, 0, Character);
 		return;
 	}
-	const int32 Rolled = FMath::RandRange(1, MaxHit(Skills->GetLevel(Style), (Weapon ? Weapon->StrengthBonus : 0) + Equipment->GetStrengthBonus()));
+	int32 Most = MaxHit(Skills->GetLevel(Style), (Weapon ? Weapon->StrengthBonus : 0) + Equipment->GetStrengthBonus());
+	// A spear set against a charging beast takes it on its own weight.
+	const bool bBraced = Weapon && Weapon->ChargeBonus > 0.f && Herd->IsCharging(TargetIndex);
+	if (bBraced)
+	{
+		Most = BracedHit(Most, Weapon->ChargeBonus);
+		Character->ShowMessage(FText::Format(LOCTEXT("Braced", "You brace your {0} against the charge!"), Weapon->DisplayName.ToLower()), CombatLucky);
+	}
+	const int32 Rolled = FMath::RandRange(bBraced ? Most / 2 : 1, Most);
 	const int32 Done = Herd->HurtAnimal(TargetIndex, Rolled, Character);
-	UE_LOG(LogTemp, Log, TEXT("Combat: hit the %s for %d (%d left)."), *Name.ToString(), Done, Herd->GetAnimalHealth(TargetIndex));
+	UE_LOG(LogTemp, Log, TEXT("Combat: hit the %s for %d (%d left)%s."), *Name.ToString(), Done, Herd->GetAnimalHealth(TargetIndex),
+		bBraced ? TEXT(", braced") : TEXT(""));
 	// Each point of damage trains the style, and a little Vitality.
 	Skills->AddXP(Style, Done * 4);
 	Skills->AddXP(ESkill::Vitality, FMath::RoundToInt32(Done * 4.f / 3.f));

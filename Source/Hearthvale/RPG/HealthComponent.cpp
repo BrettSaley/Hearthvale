@@ -59,6 +59,23 @@ int32 UHealthComponent::ApplyDamage(int32 Amount, const FText& Cause, bool bArmo
 	USkillsComponent* Skills = GetSkills();
 	const UEquipmentComponent* Equipment = bArmourHelps && GetOwner() ? GetOwner()->FindComponentByClass<UEquipmentComponent>() : nullptr;
 	Health = GetHealth();
+	// A shield may catch it outright: it takes the knock instead, and that's good Guard practice.
+	bLastBlocked = Equipment && FMath::FRand() < Equipment->GetBlockChance();
+	if (bLastBlocked)
+	{
+		SinceHurt = 0.f;
+		Resting = 0.f;
+		if (Skills)
+		{
+			Skills->AddXP(ESkill::Guard, 6);
+		}
+		if (AHearthvaleCharacter* Character = Cast<AHearthvaleCharacter>(GetOwner()))
+		{
+			Character->ShowMessage(NSLOCTEXT("Health", "Blocked", "You catch the blow on your shield!"), FLinearColor(0.75f, 0.8f, 0.9f));
+			FDurability::WearWorn(Character, EEquipSlot::OffHand, 2);
+		}
+		return 0;
+	}
 	const int32 Softened = Soften(Amount, Skills ? Skills->GetLevel(ESkill::Guard) : 1);
 	const int32 Taken = FMath::Min(Health, ThroughArmour(Softened, Equipment ? Equipment->GetDefence() : 0, FMath::FRand()));
 	SinceHurt = 0.f;

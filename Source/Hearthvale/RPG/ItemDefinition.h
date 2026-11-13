@@ -118,6 +118,22 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment", meta = (ClampMin = 0))
 	float AttackRange = 0.f;
 
+	/** How heavy it is to wear: all that's worn together slows the wearer a little (see UEquipmentComponent::SpeedFactor). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment", meta = (ClampMin = 0))
+	float Weight = 0.f;
+
+	/** A shield's chance of catching a blow outright (0 to 1). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment", meta = (ClampMin = 0, ClampMax = 1))
+	float BlockChance = 0.f;
+
+	/** A melee weapon's reach (cm) when longer than arm's length (spears); 0 for arm's length. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment", meta = (ClampMin = 0))
+	float MeleeReach = 0.f;
+
+	/** How much harder (a fraction of its most) it hits a beast that's charging or rearing at you: set against the charge (spears). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment", meta = (ClampMin = 0))
+	float ChargeBonus = 0.f;
+
 	/** Seconds between a weapon's blows or shots; 0 for the usual 2.4. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment", meta = (ClampMin = 0))
 	float AttackSeconds = 0.f;

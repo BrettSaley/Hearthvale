@@ -494,8 +494,9 @@ void UCharacterPanelWidget::RefreshInventory()
 		WornWidgets[Index]->SetToolTip(Worn ? MakeItemTooltip(Stack) : nullptr);
 	}
 	const int32 Defence = Equipment->GetDefence();
-	DefenceText->SetText(Defence > 0 ? FText::Format(LOCTEXT("DefenceLine", "Defence {0}  ·  blows {1}% softer"), Defence,
-		FMath::RoundToInt32((1.f - UEquipmentComponent::ArmourFactor(Defence)) * 100.f)) : LOCTEXT("NoArmour", "No armour"));
+	const int32 Slower = FMath::RoundToInt32((1.f - UEquipmentComponent::SpeedFactor(Equipment->GetWeight())) * 100.f);
+	DefenceText->SetText(Defence > 0 ? FText::Format(LOCTEXT("DefenceLine", "Defence {0}  ·  blows {1}% softer  ·  {2}% slower"), Defence,
+		FMath::RoundToInt32((1.f - UEquipmentComponent::ArmourFactor(Defence)) * 100.f), Slower) : LOCTEXT("NoArmour", "No armour"));
 	InventoryFooter->SetText(FText::Format(LOCTEXT("SlotsUsed", "{0} / {1} slots used"),
 		Inventory->GetCapacity() - Inventory->FreeSlotCount(), Inventory->GetCapacity()));
 }
@@ -581,6 +582,21 @@ UWidget* UCharacterPanelWidget::MakeItemTooltip(const FItemStack& Stack)
 		AddTooltipLine(Lines, FText::Format(LOCTEXT("Bonuses", "Accuracy {0}   Strength {1}   Defence {2}"),
 			Item->AccuracyBonus, Item->StrengthBonus, Item->DefenceBonus), HearthvaleUI::TextColor);
 	}
+	if (Item->IsWeapon())
+	{
+		const float Reach = Item->AttackRange > 0.f ? Item->AttackRange : Item->MeleeReach > 0.f ? Item->MeleeReach : 260.f;
+		AddTooltipLine(Lines, FText::Format(LOCTEXT("WeaponReach", "Reach {0} m  ·  a blow every {1}s"), FText::AsNumber(FMath::RoundToInt32(Reach / 100.f)),
+			FText::AsNumber(Item->AttackSeconds > 0.f ? Item->AttackSeconds : 2.4f)), HearthvaleUI::TextColor);
+		if (Item->Ammo)
+		{
+			AddTooltipLine(Lines, FText::Format(LOCTEXT("Shoots", "Shoots {0}, one a shot"), Item->Ammo->DisplayName.ToLower()), HearthvaleUI::MutedColor);
+		}
+		if (Item->ChargeBonus > 0.f)
+		{
+			AddTooltipLine(Lines, FText::Format(LOCTEXT("BraceLine", "Set against a charge: hits up to {0}% harder"),
+				FMath::RoundToInt32(Item->ChargeBonus * 100.f)), HearthvaleUI::GoodColor);
+		}
+	}
 	if (Item->Durability > 0)
 	{
 		const int32 Left = FDurability::UsesLeft(Item, Stack.Wear);
@@ -591,6 +607,14 @@ UWidget* UCharacterPanelWidget::MakeItemTooltip(const FItemStack& Stack)
 			AddTooltipLine(Lines, FText::Format(LOCTEXT("MendWith", "Mend with {0} at {1}"), Item->RepairItem->DisplayName.ToLower(),
 				FDurability::StationName(Item->RepairStation)), HearthvaleUI::MutedColor);
 		}
+	}
+	if (Item->BlockChance > 0.f)
+	{
+		AddTooltipLine(Lines, FText::Format(LOCTEXT("BlockLine", "Catches {0}% of blows outright"), FMath::RoundToInt32(Item->BlockChance * 100.f)), HearthvaleUI::GoodColor);
+	}
+	if (Item->Weight > 0.f)
+	{
+		AddTooltipLine(Lines, FText::Format(LOCTEXT("WeightLine", "Weight {0}"), FText::AsNumber(Item->Weight)), HearthvaleUI::MutedColor);
 	}
 	if (UEquipmentComponent::IsWearable(Item))
 	{

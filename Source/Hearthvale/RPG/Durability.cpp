@@ -66,6 +66,17 @@ void FDurability::WearCarried(AHearthvaleCharacter* Character, const UItemDefini
 	Report(Character, Item, Wear, Inventory->AddWear(Slot, Amount));
 }
 
+void FDurability::WearWorn(AHearthvaleCharacter* Character, EEquipSlot Slot, int32 Amount)
+{
+	UEquipmentComponent* Equipment = Character ? Character->GetEquipment() : nullptr;
+	const UItemDefinition* Item = Equipment ? Equipment->GetWorn(Slot) : nullptr;
+	if (Item && Item->Durability > 0)
+	{
+		const int32 Wear = Equipment->GetWornWear(Slot) + Amount;
+		Report(Character, Item, Wear, Equipment->AddWear(Slot, Amount));
+	}
+}
+
 void FDurability::WearArmour(AHearthvaleCharacter* Character)
 {
 	UEquipmentComponent* Equipment = Character ? Character->GetEquipment() : nullptr;

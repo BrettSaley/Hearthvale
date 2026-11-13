@@ -118,6 +118,9 @@ public:
 	/** Moves where they roam about to Where, and sends the calm ones there. */
 	void MarchTo(const FVector& Where);
 
+	/** Whether one's charging or rearing at the player. */
+	bool IsCharging(int32 Index) const;
+
 	/** How many are alive. */
 	int32 CountAlive() const;
 

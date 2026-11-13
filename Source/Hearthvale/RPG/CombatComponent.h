@@ -58,6 +58,9 @@ public:
 	/** The most a blow can do, for a level (Might, or Precision for a bow) and the weapon's strength. */
 	static int32 MaxHit(int32 Level, int32 Strength);
 
+	/** The most a blow can do set against a charge, for a weapon's charge bonus. */
+	static int32 BracedHit(int32 Most, float ChargeBonus);
+
 	UPROPERTY(BlueprintAssignable, Category = "Combat")
 	FOnCombatChanged OnCombatChanged;
 
