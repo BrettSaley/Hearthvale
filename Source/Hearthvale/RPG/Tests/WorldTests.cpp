@@ -2,8 +2,10 @@
 
 #include "Misc/AutomationTest.h"
 #include "Engine/World.h"
+#include "RPG/GatheringNodeDefinition.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/HearthvaleSaveGame.h"
+#include "RPG/World/ForageNode.h"
 #include "RPG/World/LostCache.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WorldMap.h"
@@ -273,6 +275,44 @@ bool FWorldMapTest::RunTest(const FString& Parameters)
 	const FColor Middle = Pixels[32 * 64 + 32];
 	TestTrue(TEXT("The corner is sea (blue)"), Corner.B > Corner.R && Corner.B > Corner.G);
 	TestTrue(TEXT("The middle is land (not blue)"), Middle.G >= Middle.B);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FForagingTest, "Hearthvale.World.Foraging", WorldTestFlags)
+bool FForagingTest::RunTest(const FString& Parameters)
+{
+	TMap<FName, int32> ByKind;
+	const FVector Start = UWorldGenerator::GetStartLocation();
+	for (const FForageSpot& Spot : AForageNode::PlanForage())
+	{
+		++ByKind.FindOrAdd(Spot.Kind);
+		TestTrue(TEXT("On dry land"), UWorldGenerator::GetGroundHeight(Spot.Location.X, Spot.Location.Y) > 100.f);
+		if (Spot.Kind == TEXT("Glowcap"))
+		{
+			TestTrue(TEXT("Glowcaps are a trek"), FVector::Dist2D(Spot.Location, Start) >= 55000.f);
+			TestEqual(TEXT("Glowcaps grow in the Deepwood"), UWorldGenerator::GetBiome(Spot.Location.X, Spot.Location.Y), EBiome::Deepwood);
+		}
+		if (Spot.Kind == TEXT("FrostLichen"))
+		{
+			TestEqual(TEXT("Lichen grows on the Highlands"), UWorldGenerator::GetBiome(Spot.Location.X, Spot.Location.Y), EBiome::Highlands);
+		}
+	}
+	for (const TCHAR* Kind : {TEXT("WildBerryBush"), TEXT("MorelPatch"), TEXT("ChanterellePatch"), TEXT("FrostLichen"), TEXT("Glowcap")})
+	{
+		TestTrue(*FString::Printf(TEXT("Some %s"), Kind), ByKind.FindRef(Kind) > 0);
+	}
+	TestTrue(TEXT("Berries are common, glowcaps rare"), ByKind.FindRef(TEXT("WildBerryBush")) > ByKind.FindRef(TEXT("Glowcap")) * 3);
+
+	// The definitions (from create_foraging.py) say when each grows.
+	UGatheringNodeDefinition* Morel = Cast<UGatheringNodeDefinition>(StaticLoadObject(UGatheringNodeDefinition::StaticClass(), nullptr, TEXT("/Game/Gathering/Nodes/MorelPatch.MorelPatch")));
+	UGatheringNodeDefinition* Lichen = Cast<UGatheringNodeDefinition>(StaticLoadObject(UGatheringNodeDefinition::StaticClass(), nullptr, TEXT("/Game/Gathering/Nodes/FrostLichen.FrostLichen")));
+	if (TestNotNull(TEXT("Morels"), Morel) && TestNotNull(TEXT("Frost lichen"), Lichen))
+	{
+		TestTrue(TEXT("Morels in spring"), Morel->Seasons.Contains(ESeason::Spring) && !Morel->Seasons.Contains(ESeason::Winter));
+		TestTrue(TEXT("Lichen only in winter"), Lichen->Seasons.Num() == 1 && Lichen->Seasons[0] == ESeason::Winter);
+		TestNotNull(TEXT("Morels give an item"), Morel->Item.Get());
+		TestEqual(TEXT("Picked by hand"), Morel->Tool, EToolType::None);
+	}
 	return true;
 }
 

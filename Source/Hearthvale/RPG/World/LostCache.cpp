@@ -11,6 +11,7 @@
 #include "RPG/GroundItem.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
+#include "RPG/World/ForageNode.h"
 #include "RPG/World/WorldClock.h"
 
 #define LOCTEXT_NAMESPACE "LostCache"
@@ -85,6 +86,7 @@ void ULostCacheRegistry::OnWorldBeginPlay(UWorld& InWorld)
 	if (TActorIterator<ALandscapeProxy>(&InWorld))
 	{
 		UE_LOG(LogHearthvale, Log, TEXT("Placed %d lost caches."), ALostCache::SpawnAll(&InWorld));
+		UE_LOG(LogHearthvale, Log, TEXT("Placed %d wild plants to forage."), AForageNode::SpawnAll(&InWorld));
 	}
 }
 
