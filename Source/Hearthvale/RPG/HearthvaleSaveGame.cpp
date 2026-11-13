@@ -13,6 +13,7 @@
 #include "RPG/SkillsComponent.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WorldClock.h"
+#include "RPG/World/WorldMap.h"
 #include "RPG/Town/RequestBoard.h"
 #include "RPG/Town/Settler.h"
 #include "RPG/Town/Villager.h"
@@ -68,6 +69,10 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 		if (const ULostCacheRegistry* Caches = ULostCacheRegistry::Get(World))
 		{
 			Save->Caches = Caches->SaveStates();
+		}
+		if (const UWorldMap* Map = UWorldMap::Get(World))
+		{
+			Save->Waypoints = Map->GetWaypoints();
 		}
 		for (const ARequestBoard* Board : TActorRange<ARequestBoard>(World))
 		{
@@ -298,6 +303,10 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 		if (ULostCacheRegistry* Caches = ULostCacheRegistry::Get(World))
 		{
 			Caches->LoadStates(Save->Caches);
+		}
+		if (UWorldMap* Map = UWorldMap::Get(World))
+		{
+			Map->SetWaypoints(Save->Waypoints);
 		}
 		if (Save->bHasAnimals)
 		{

@@ -166,6 +166,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "World")
 	static bool SaveMapPreview(const FString& Filename, int32 Size = 1024, float CenterX = 0.f, float CenterY = 0.f, float ViewMeters = 0.f);
 
+	/**
+	 * The ground as a map shows it, Size x Size pixels (columns along +X, rows down +Y): paint colours
+	 * shaded by the slopes, water by its depth. ViewMeters 0 is the whole island.
+	 */
+	static void RenderGround(int32 Size, float CenterX, float CenterY, float ViewMeters, TArray<FColor>& OutPixels);
+
+	/** Half the island's width in metres: the whole-island map spans this each side of the middle. */
+	static float GetMapHalfMeters();
+
 	/** Where the player starts (cm), on the ground in the middle of the Meadows. */
 	UFUNCTION(BlueprintPure, Category = "World")
 	static FVector GetStartLocation();
