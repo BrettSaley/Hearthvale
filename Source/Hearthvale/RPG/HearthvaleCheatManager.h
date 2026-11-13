@@ -313,6 +313,10 @@ public:
 	UFUNCTION(Exec)
 	void ListSettlers();
 
+	/** Puts a table, a stool, a rug and a torch by every settler's bed, free. */
+	UFUNCTION(Exec)
+	void Furnish();
+
 	/** Walks up to a villager (TalkVillager Bryn; the nearest if none) and talks to them. */
 	UFUNCTION(Exec)
 	void TalkVillager(const FString& Name = TEXT(""));

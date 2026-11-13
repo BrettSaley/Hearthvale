@@ -22,6 +22,8 @@ namespace
 	/** How far (cm) from beside their bed they potter, and how fast. */
 	constexpr float SettlerPotterRange = 140.f;
 	constexpr float SettlerPotterSpeed = 70.f;
+	/** How far (cm) from their bed furniture counts towards their comfort. */
+	constexpr float SettlerComfortRange = 500.f;
 	const FLinearColor SettlerSpeech(0.75f, 0.9f, 0.7f);
 }
 
@@ -158,7 +160,8 @@ void ASettler::Tick(float DeltaSeconds)
 	{
 		return;
 	}
-	Work += Elapsed;
+	// A homely house: they work faster.
+	Work += Elapsed * ComfortSpeed(GetComfort());
 	if (Work >= Settler->WorkSeconds)
 	{
 		Work = 0.f;
@@ -196,6 +199,25 @@ void ASettler::Potter(float DeltaSeconds)
 	Location += Move;
 	Location.Z = Home.Z;
 	SetActorLocationAndRotation(Location, FMath::RInterpTo(GetActorRotation(), Move.Rotation(), DeltaSeconds, 6.f));
+}
+
+int32 ASettler::GetComfort() const
+{
+	if (!Bed.IsValid())
+	{
+		return 0;
+	}
+	TSet<const UBuildPieceDefinition*> Kinds;
+	for (const ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		const UBuildPieceDefinition* Piece = Built->GetPiece();
+		if (Piece && Piece->Category == EBuildCategory::Furniture && !Piece->bIsBed && Piece->StorageSlots == 0
+			&& FVector::Dist(Built->GetActorLocation(), Bed->GetActorLocation()) < SettlerComfortRange)
+		{
+			Kinds.Add(Piece);
+		}
+	}
+	return FMath::Min(Kinds.Num(), MaxComfort);
 }
 
 UInventoryComponent* ASettler::FindChest() const
@@ -311,7 +333,7 @@ bool ASettler::GetInteractionPrompt(const AHearthvaleCharacter* Character, FInte
 		return false;
 	}
 	OutPrompt.Action = LOCTEXT("Talk", "Talk to");
-	OutPrompt.Target = GetFullName();
+	OutPrompt.Target = FText::Format(LOCTEXT("WithComfort", "{0}  (comfort {1}/{2})"), GetFullName(), GetComfort(), MaxComfort);
 	return true;
 }
 
@@ -341,7 +363,19 @@ void ASettler::Interact(AHearthvaleCharacter* Character)
 		Line = LOCTEXT("ChestFull", "The chest's full! Empty it and I'll get back to work.");
 		break;
 	default:
-		Line = Settler->Lines.IsEmpty() ? FText::GetEmpty() : Settler->Lines[FMath::RandHelper(Settler->Lines.Num())];
+		// What they think of the house, or one of their own lines.
+		if (GetComfort() <= 1 && FMath::RandBool())
+		{
+			Line = LOCTEXT("Bare", "It's bare in here. A table or a rug would cheer it up.");
+		}
+		else if (GetComfort() >= MaxComfort - 1 && FMath::RandBool())
+		{
+			Line = LOCTEXT("Homely", "This place feels like home now. Thank you.");
+		}
+		else
+		{
+			Line = Settler->Lines.IsEmpty() ? FText::GetEmpty() : Settler->Lines[FMath::RandHelper(Settler->Lines.Num())];
+		}
 		if (Made > 0)
 		{
 			Line = FText::Format(LOCTEXT("Made", "{0} ({1} brought in so far.)"), Line, Made);
