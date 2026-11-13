@@ -409,7 +409,7 @@ void AFarmAnimal::LayProduce()
 		{
 			if (const AHearthvaleCharacter* Character = NearbyPlayer(this, 1500.f))
 			{
-				Character->ShowMessage(FText::Format(LOCTEXT("Rooted", "The {0} roots up some {1}."), GetName().ToLower(),
+				Character->ShowMessage(FText::Format(LOCTEXT("Rooted", "The {0} roots up a {1}."), GetName().ToLower(),
 					Animal->Produce->DisplayName.ToLower()));
 			}
 		}

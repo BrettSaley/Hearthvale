@@ -24,6 +24,9 @@
 #include "RPG/SkillsComponent.h"
 #include "RPG/Town/RequestBoardDefinition.h"
 #include "RPG/Town/SettlerDefinition.h"
+#include "RPG/Town/VillagerDefinition.h"
+#include "RPG/Town/QuestDefinition.h"
+#include "RPG/Town/CompanionDefinition.h"
 #include "RPG/Town/TraderDefinition.h"
 #include "RPG/World/RaidSubsystem.h"
 #include "RPG/Building/BuildPiece.h"
@@ -438,6 +441,28 @@ bool FTradingTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("The last coins' slot takes the bucket"), Trader->BuyItems(Full, 0, 1), 1);
 	TestEqual(TEXT("And the coins are gone"), Full->CountItem(Coins), 0);
 
+	// Daily stock: two a day, counted per day.
+	FTraderStock Limited{Bucket};
+	Limited.PerDay = 2;
+	FTraderDayState Day;
+	Day.Roll(3, 2);
+	TestEqual(TEXT("Two left on a new day"), Day.Left(Limited, 0), 2);
+	Day.Sold[0] = 2;
+	TestEqual(TEXT("None left once they're sold"), Day.Left(Limited, 0), 0);
+	TestEqual(TEXT("No limit on the rest"), Day.Left(Trader->Stock[0], 1), MAX_int32);
+	Day.Roll(3, 2);
+	TestEqual(TEXT("The same day keeps its count"), Day.Left(Limited, 0), 0);
+	Day.Roll(4, 2);
+	TestEqual(TEXT("More came in overnight"), Day.Left(Limited, 0), 2);
+
+	// A worn tool fetches less, but something.
+	UItemDefinition* Axe = MakeItem(false);
+	Axe->Value = 40;
+	Axe->Durability = 100;
+	TestEqual(TEXT("A new axe fetches half value"), Trader->GetSellPrice(Axe, 0), 20);
+	TestEqual(TEXT("A half-worn axe fetches half that"), Trader->GetSellPrice(Axe, 50), 10);
+	TestEqual(TEXT("A nearly broken axe still fetches a coin"), Trader->GetSellPrice(Axe, 99), 1);
+
 	// The game's trader: everything for sale costs more than they'd pay for it, and there's livestock.
 	const UTraderDefinition* Odile = LoadObject<UTraderDefinition>(nullptr, TEXT("/Game/Town/Traders/Odile.Odile"));
 	if (TestNotNull(TEXT("The town trader exists"), Odile))
@@ -457,6 +482,12 @@ bool FTradingTest::RunTest(const FString& Parameters)
 			bAnimals |= Line.Animal != nullptr;
 		}
 		TestTrue(TEXT("They sell livestock"), bAnimals);
+		bool bLimited = false;
+		for (const FTraderStock& Line : Odile->Stock)
+		{
+			bLimited |= Line.PerDay > 0;
+		}
+		TestTrue(TEXT("Some stock runs out each day"), bLimited);
 	}
 	return true;
 }
@@ -566,6 +597,103 @@ bool FSettlersTest::RunTest(const FString& Parameters)
 		TestTrue(FString::Printf(TEXT("%s eats less often than they work"), *Name), Settler->MealSeconds > Settler->WorkSeconds);
 	}
 	TestTrue(TEXT("Someone tends animals"), bHerder);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVillagersTest, "Hearthvale.Villagers", TestFlags)
+
+bool FVillagersTest::RunTest(const FString& Parameters)
+{
+	// Talking counts once a day; a liked gift counts double, once a day; friends give presents, once a day.
+	FVillagerBond Bond;
+	TestTrue(TEXT("The first chat counts"), Bond.Talk(0));
+	TestFalse(TEXT("A second chat the same day doesn't"), Bond.Talk(0));
+	TestEqual(TEXT("One closer"), Bond.Friendship, 1);
+	TestEqual(TEXT("A liked gift counts double"), Bond.Give(0, true), 2);
+	TestEqual(TEXT("One gift a day"), Bond.Give(0, true), 0);
+	TestFalse(TEXT("Strangers give no presents"), Bond.TakePresent(0));
+	TestTrue(TEXT("A new day, a new chat"), Bond.Talk(1));
+	TestEqual(TEXT("Friends now"), Bond.GetTier(), 1);
+	TestTrue(TEXT("Friends give a present"), Bond.TakePresent(1));
+	TestFalse(TEXT("One present a day"), Bond.TakePresent(1));
+	for (int32 Day = 2; Day < 40; ++Day)
+	{
+		Bond.Talk(Day);
+	}
+	TestEqual(TEXT("Friendship tops out"), Bond.Friendship, FVillagerBond::MaxFriendship);
+	TestEqual(TEXT("Close friends"), Bond.GetTier(), 2);
+
+	// The town's villagers each have a name, things to say for each stage, a look, likes and a present.
+	UVillagerDefinition* Quiet = NewObject<UVillagerDefinition>();
+	Quiet->StrangerLines.Add(FText::FromString(TEXT("Hm.")));
+	TestEqual(TEXT("Falls back to a reserved line"), Quiet->PickLine(2).ToString(), FString(TEXT("Hm.")));
+	int32 Found = 0;
+	for (const TCHAR* Name : {TEXT("Bryn"), TEXT("Ivo"), TEXT("Greta"), TEXT("Tam"), TEXT("Hal")})
+	{
+		const UVillagerDefinition* Villager = LoadObject<UVillagerDefinition>(nullptr, *FString::Printf(TEXT("/Game/Town/Villagers/%s.%s"), Name, Name));
+		if (!TestNotNull(FString::Printf(TEXT("%s lives in town"), Name), Villager))
+		{
+			continue;
+		}
+		++Found;
+		TestFalse(FString::Printf(TEXT("%s talks to strangers"), Name), Villager->StrangerLines.IsEmpty());
+		TestFalse(FString::Printf(TEXT("%s talks to friends"), Name), Villager->FriendLines.IsEmpty() || Villager->CloseLines.IsEmpty());
+		TestFalse(FString::Printf(TEXT("%s likes something"), Name), Villager->Likes.IsEmpty() || Villager->Likes.Contains(nullptr));
+		TestNotNull(FString::Printf(TEXT("%s has a present"), Name), Villager->Present.Get());
+		TestFalse(FString::Printf(TEXT("%s has a look"), Name), Villager->Parts.IsEmpty());
+	}
+	TestEqual(TEXT("Five villagers"), Found, 5);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FQuestsTest, "Hearthvale.Quests", TestFlags)
+
+bool FQuestsTest::RunTest(const FString& Parameters)
+{
+	// The town's quests: each from a villager, asking for something real, and paying.
+	const UQuestBookDefinition* Book = UQuestBookDefinition::Get();
+	if (!TestNotNull(TEXT("The quest book exists"), Book))
+	{
+		return true;
+	}
+	TestNotNull(TEXT("Quests pay in coins"), Book->Currency.Get());
+	TestTrue(TEXT("A few quests"), Book->Quests.Num() >= 4);
+	for (const FQuest& Quest : Book->Quests)
+	{
+		const FString Title = Quest.Title.ToString();
+		TestNotNull(FString::Printf(TEXT("%s has a giver"), *Title), Quest.Giver.Get());
+		TestFalse(FString::Printf(TEXT("%s has words"), *Title), Quest.Offer.IsEmpty() || Quest.Thanks.IsEmpty());
+		TestFalse(FString::Printf(TEXT("%s has steps"), *Title), Quest.Steps.IsEmpty());
+		TestTrue(FString::Printf(TEXT("%s pays"), *Title), Quest.Coins > 0 || Quest.RewardItem || Quest.XP > 0);
+		for (const FQuestStep& Step : Quest.Steps)
+		{
+			const bool bHasTarget = Step.Goal == EQuestGoal::HaveItem ? Step.Item != nullptr
+				: Step.Goal == EQuestGoal::Build ? Step.Piece != nullptr
+				: Step.Goal == EQuestGoal::Tame ? Step.Animal != nullptr
+				: Step.Goal == EQuestGoal::Friendship ? Step.Villager != nullptr && Step.Quantity <= FVillagerBond::MaxFriendship
+				: true;
+			TestTrue(FString::Printf(TEXT("%s: '%s' says what it wants"), *Title, *Step.Text.ToString()), bHasTarget && !Step.Text.IsEmpty());
+		}
+	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCompanionTest, "Hearthvale.Companion", TestFlags)
+
+bool FCompanionTest::RunTest(const FString& Parameters)
+{
+	// The stray dog: something to win it over with, a name for when it's yours, a look with a tail, and sensible reaches.
+	const UCompanionDefinition* Dog = LoadObject<UCompanionDefinition>(nullptr, TEXT("/Game/Town/Companions/Dog.Dog"));
+	if (!TestNotNull(TEXT("The dog exists"), Dog))
+	{
+		return true;
+	}
+	TestTrue(TEXT("It eats something"), !Dog->Food.IsEmpty() && !Dog->Food.Contains(nullptr));
+	TestFalse(TEXT("It has a name for when it's yours"), Dog->PetName.IsEmpty());
+	TestTrue(TEXT("It takes a few feedings"), Dog->TameFeedings >= 2 && Dog->TameFeedings <= 5);
+	TestTrue(TEXT("Its tail is among its parts"), Dog->Parts.IsValidIndex(Dog->FirstTailPart));
+	TestTrue(TEXT("It runs faster than it trots"), Dog->RunSpeed > Dog->Speed);
+	TestTrue(TEXT("It warns of danger further off than it fetches"), Dog->WarnRange > Dog->FetchRange);
 	return true;
 }
 

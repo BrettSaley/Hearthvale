@@ -6,6 +6,7 @@
 #include "RPG/HearthvaleSaveGame.h"
 #include "RPG/World/LostCache.h"
 #include "RPG/World/WarmthComponent.h"
+#include "RPG/World/WorldMap.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldClock.h"
 
@@ -77,6 +78,12 @@ bool FWeatherTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Rain turns to snow in winter"), UWorldClock::AdjustForSeason(EWeather::Rain, ESeason::Winter), EWeather::Snow);
 	TestEqual(TEXT("Snow turns to rain in spring"), UWorldClock::AdjustForSeason(EWeather::Snow, ESeason::Spring), EWeather::Rain);
 	TestEqual(TEXT("Nothing falls when it's clear"), UWorldClock::TargetPrecipitation(EWeather::Clear), 0.f);
+	float Snow = 0.f;
+	Snow = UWorldClock::StepSnowCover(Snow, ESeason::Winter, EWeather::Snow, 4.f);
+	TestEqual(TEXT("Four hours of winter snow covers the ground"), Snow, 1.f);
+	TestTrue(TEXT("It melts in spring"), UWorldClock::StepSnowCover(Snow, ESeason::Spring, EWeather::Clear, 4.f) < 1.f);
+	TestEqual(TEXT("And is gone in a day"), UWorldClock::StepSnowCover(Snow, ESeason::Spring, EWeather::Clear, 24.f), 0.f);
+	TestEqual(TEXT("No snow settles in summer"), UWorldClock::StepSnowCover(0.f, ESeason::Summer, EWeather::Storm, 10.f), 0.f);
 	TestTrue(TEXT("Storms are heavier than rain"), UWorldClock::TargetPrecipitation(EWeather::Storm) > UWorldClock::TargetPrecipitation(EWeather::Rain));
 	return true;
 }
@@ -229,6 +236,43 @@ bool FLostCachesTest::RunTest(const FString& Parameters)
 	}
 	TestTrue(TEXT("The Highlands pay better"), HighlandCoins > MeadowCoins * 2);
 	TestEqual(TEXT("The same search finds the same"), ALostCache::RollLoot(EBiome::Deepwood, 7).Num(), ALostCache::RollLoot(EBiome::Deepwood, 7).Num());
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWorldMapTest, "Hearthvale.World.Map", WorldTestFlags)
+bool FWorldMapTest::RunTest(const FString& Parameters)
+{
+	UWorld* World = UWorld::CreateWorld(EWorldType::None, false);
+	UWorldMap* Map = NewObject<UWorldMap>(World);
+	TestTrue(TEXT("N sets a waypoint"), Map->ToggleWaypoint(FVector(1000.f, 0.f, 0.f)));
+	TestFalse(TEXT("N again nearby clears it"), Map->ToggleWaypoint(FVector(1500.f, 200.f, 0.f)));
+	TestEqual(TEXT("None left"), Map->GetWaypoints().Num(), 0);
+	for (int32 Each = 0; Each < UWorldMap::MaxWaypoints + 2; ++Each)
+	{
+		Map->ToggleWaypoint(FVector(Each * 10000.f, 0.f, 0.f));
+	}
+	TestEqual(TEXT("At most five"), Map->GetWaypoints().Num(), UWorldMap::MaxWaypoints);
+	TestTrue(TEXT("The oldest went first"), FMath::IsNearlyEqual(Map->GetWaypoints()[0].X, 20000.0));
+	TestEqual(TEXT("Waypoints are markers"), Map->GatherMarkers().Num(), UWorldMap::MaxWaypoints);
+	World->DestroyWorld(false);
+
+	// The map's corners and middle.
+	const float Half = UWorldGenerator::GetMapHalfMeters() * 100.f;
+	TestTrue(TEXT("The middle is the middle"), UWorldMap::WorldToMap(FVector::ZeroVector).Equals(FVector2D(0.5f, 0.5f), 0.001f));
+	TestTrue(TEXT("The far corner"), UWorldMap::WorldToMap(FVector(Half, Half, 0.f)).Equals(FVector2D(1.f, 1.f), 0.001f));
+	TestEqual(TEXT("North is -Y"), UWorldMap::CompassPoint(-90.f), FString(TEXT("N")));
+	TestEqual(TEXT("East is +X"), UWorldMap::CompassPoint(0.f), FString(TEXT("E")));
+	TestEqual(TEXT("South-west"), UWorldMap::CompassPoint(135.f), FString(TEXT("SW")));
+	TestEqual(TEXT("West either way round"), UWorldMap::CompassPoint(-180.f), FString(TEXT("W")));
+
+	// The picture: land and sea both on it.
+	TArray<FColor> Pixels;
+	UWorldGenerator::RenderGround(64, 0.f, 0.f, 0.f, Pixels);
+	TestEqual(TEXT("Every pixel drawn"), Pixels.Num(), 64 * 64);
+	const FColor Corner = Pixels[0];
+	const FColor Middle = Pixels[32 * 64 + 32];
+	TestTrue(TEXT("The corner is sea (blue)"), Corner.B > Corner.R && Corner.B > Corner.G);
+	TestTrue(TEXT("The middle is land (not blue)"), Middle.G >= Middle.B);
 	return true;
 }
 

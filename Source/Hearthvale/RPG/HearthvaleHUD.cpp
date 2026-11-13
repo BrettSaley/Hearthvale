@@ -1,6 +1,7 @@
 #include "RPG/HearthvaleHUD.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WorldClock.h"
+#include "RPG/World/WorldMap.h"
 #include "RPG/SkillUnlocks.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
@@ -50,6 +51,7 @@ void AHearthvaleHUD::DrawHUD()
 	DrawKeyHints();
 	DrawHealth(Character);
 	DrawClock();
+	UWorldMap::Draw(this, Canvas, Character);
 	DrawTarget(Character);
 	if (Character->GetBuilding()->IsBuilding())
 	{

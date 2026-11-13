@@ -10,6 +10,10 @@
 #include "RPG/World/Seasons.h"
 #include "RPG/Town/RequestBoardDefinition.h"
 #include "RPG/Town/Settler.h"
+#include "RPG/Town/VillagerDefinition.h"
+#include "RPG/Town/QuestDefinition.h"
+#include "RPG/Town/TraderDefinition.h"
+#include "RPG/Town/Companion.h"
 #include "HearthvaleSaveGame.generated.h"
 
 class AHearthvaleCharacter;
@@ -139,6 +143,10 @@ public:
 	UPROPERTY()
 	TArray<FSavedCache> Caches;
 
+	/** The waypoints set on the map. */
+	UPROPERTY()
+	TArray<FVector> Waypoints;
+
 	/** Town notice boards' requests, by the board actor's name. */
 	UPROPERTY()
 	TMap<FString, FRequestBoardState> RequestBoards;
@@ -149,6 +157,22 @@ public:
 
 	UPROPERTY()
 	TArray<FSavedSettler> Settlers;
+
+	/** How well you know each villager, by their definition's name. */
+	UPROPERTY()
+	TMap<FString, FVillagerBond> Villagers;
+
+	/** Where you are in the town's quests. */
+	UPROPERTY()
+	FQuestLogState Quests;
+
+	/** What each trader's sold today, by the trader actor's name. */
+	UPROPERTY()
+	TMap<FString, FTraderDayState> Traders;
+
+	/** Strays and the companions they became, by the actor's name. */
+	UPROPERTY()
+	TMap<FString, FSavedCompanion> Companions;
 
 	/** Write a character's progress (and the farm patches in their world) to disk. */
 	static bool SaveProgress(const AHearthvaleCharacter* Character);

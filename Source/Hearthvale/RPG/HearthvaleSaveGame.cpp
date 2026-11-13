@@ -13,8 +13,13 @@
 #include "RPG/SkillsComponent.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WorldClock.h"
+#include "RPG/World/WorldMap.h"
 #include "RPG/Town/RequestBoard.h"
 #include "RPG/Town/Settler.h"
+#include "RPG/Town/Villager.h"
+#include "RPG/Town/QuestSubsystem.h"
+#include "RPG/Town/Trader.h"
+#include "RPG/Town/Companion.h"
 #include "Hearthvale.h"
 
 const FString UHearthvaleSaveGame::SlotName = TEXT("Hearthvale");
@@ -65,9 +70,32 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 		{
 			Save->Caches = Caches->SaveStates();
 		}
+		if (const UWorldMap* Map = UWorldMap::Get(World))
+		{
+			Save->Waypoints = Map->GetWaypoints();
+		}
 		for (const ARequestBoard* Board : TActorRange<ARequestBoard>(World))
 		{
 			Save->RequestBoards.Add(Board->GetName(), Board->GetState());
+		}
+		for (const AVillager* Villager : TActorRange<AVillager>(World))
+		{
+			if (Villager->GetDefinition())
+			{
+				Save->Villagers.Add(Villager->GetDefinition()->GetName(), Villager->GetBond());
+			}
+		}
+		if (const UQuestSubsystem* Quests = World->GetSubsystem<UQuestSubsystem>())
+		{
+			Save->Quests = Quests->GetState();
+		}
+		for (const ATrader* Trader : TActorRange<ATrader>(World))
+		{
+			Save->Traders.Add(Trader->GetName(), Trader->GetDayState());
+		}
+		for (const ACompanion* Companion : TActorRange<ACompanion>(World))
+		{
+			Save->Companions.Add(Companion->GetFName().ToString(), Companion->SaveState());
 		}
 		Save->bHasSettlers = true;
 		for (const ASettler* Settler : TActorRange<ASettler>(World))
@@ -194,6 +222,32 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 				Patch->LoadState(*Saved);
 			}
 		}
+		if (UQuestSubsystem* Quests = World->GetSubsystem<UQuestSubsystem>())
+		{
+			Quests->LoadState(Save->Quests);
+		}
+		for (ATrader* Trader : TActorRange<ATrader>(World))
+		{
+			if (const FTraderDayState* Saved = Save->Traders.Find(Trader->GetName()))
+			{
+				Trader->LoadDayState(*Saved);
+			}
+		}
+		for (ACompanion* Companion : TActorRange<ACompanion>(World))
+		{
+			if (const FSavedCompanion* Saved = Save->Companions.Find(Companion->GetFName().ToString()))
+			{
+				Companion->LoadState(*Saved);
+			}
+		}
+		for (AVillager* Villager : TActorRange<AVillager>(World))
+		{
+			const FVillagerBond* Saved = Villager->GetDefinition() ? Save->Villagers.Find(Villager->GetDefinition()->GetName()) : nullptr;
+			if (Saved)
+			{
+				Villager->SetBond(*Saved);
+			}
+		}
 		for (ARequestBoard* Board : TActorRange<ARequestBoard>(World))
 		{
 			if (const FRequestBoardState* Saved = Save->RequestBoards.Find(Board->GetName()))
@@ -254,6 +308,10 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 		if (ULostCacheRegistry* Caches = ULostCacheRegistry::Get(World))
 		{
 			Caches->LoadStates(Save->Caches);
+		}
+		if (UWorldMap* Map = UWorldMap::Get(World))
+		{
+			Map->SetWaypoints(Save->Waypoints);
 		}
 		if (Save->bHasAnimals)
 		{

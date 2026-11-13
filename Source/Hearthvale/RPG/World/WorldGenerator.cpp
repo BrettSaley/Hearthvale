@@ -1088,13 +1088,13 @@ float UWorldGenerator::GetHighestGround(float X, float Y, float Radius)
 	return Highest * 100.f;
 }
 
-bool UWorldGenerator::SaveMapPreview(const FString& Filename, int32 Size, float CenterX, float CenterY, float ViewMeters)
+void UWorldGenerator::RenderGround(int32 Size, float CenterX, float CenterY, float ViewMeters, TArray<FColor>& OutPixels)
 {
-	Size = FMath::Clamp(Size, 64, 4096);
-	const float Half = ViewMeters > 0.f ? ViewMeters * 0.5f : (Resolution - 1) * VertexSpacing / 200.f;
+	Size = FMath::Clamp(Size, 16, 4096);
+	const float Half = ViewMeters > 0.f ? ViewMeters * 0.5f : GetMapHalfMeters();
 	const FVector2D Origin(CenterX - Half, CenterY - Half);
 	const float MetersPerPixel = 2.f * Half / Size;
-	TArray<FColor> Pixels;
+	TArray<FColor>& Pixels = OutPixels;
 	Pixels.SetNumUninitialized(Size * Size);
 
 	// The ground: paint colours, shaded by a light from the north-west.
@@ -1130,6 +1130,22 @@ bool UWorldGenerator::SaveMapPreview(const FString& Filename, int32 Size, float 
 			Pixels[Row * Size + Column] = Color.ToFColor(false);
 		}
 	}
+
+}
+
+float UWorldGenerator::GetMapHalfMeters()
+{
+	return (Resolution - 1) * VertexSpacing / 200.f;
+}
+
+bool UWorldGenerator::SaveMapPreview(const FString& Filename, int32 Size, float CenterX, float CenterY, float ViewMeters)
+{
+	Size = FMath::Clamp(Size, 64, 4096);
+	const float Half = ViewMeters > 0.f ? ViewMeters * 0.5f : (Resolution - 1) * VertexSpacing / 200.f;
+	const FVector2D Origin(CenterX - Half, CenterY - Half);
+	const float MetersPerPixel = 2.f * Half / Size;
+	TArray<FColor> Pixels;
+	RenderGround(Size, CenterX, CenterY, ViewMeters, Pixels);
 
 	// The nodes, as dots coloured by kind.
 	static const TMap<FName, FColor> NodeColors = {{TEXT("Tree"), FColor(20, 90, 20)}, {TEXT("OakTree"), FColor(10, 50, 10)},

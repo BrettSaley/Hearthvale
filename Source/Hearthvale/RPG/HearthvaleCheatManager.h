@@ -313,6 +313,46 @@ public:
 	UFUNCTION(Exec)
 	void ListSettlers();
 
+	/** Walks up to a villager (TalkVillager Bryn; the nearest if none) and talks to them. */
+	UFUNCTION(Exec)
+	void TalkVillager(const FString& Name = TEXT(""));
+
+	/** Gives a villager one of an item from the backpack (GiftVillager Bryn Wool). */
+	UFUNCTION(Exec)
+	void GiftVillager(const FString& Name, FName ItemId);
+
+	/** Logs every villager: where they are and how well you know them. */
+	UFUNCTION(Exec)
+	void ListVillagers();
+
+	/** Logs the quest you're on and how far along each step is. */
+	UFUNCTION(Exec)
+	void Quests();
+
+	/** Walks up to the current quest's giver and talks to them (to take it on or hand it in). */
+	UFUNCTION(Exec)
+	void QuestTalk();
+
+	/** Takes on the current quest and gives you the items it asks for (other steps you still do). */
+	UFUNCTION(Exec)
+	void HurryQuest();
+
+	/** Walks up to the nearest companion animal (or stray). */
+	UFUNCTION(Exec)
+	void Dog();
+
+	/** Feeds the nearest stray from the backpack. */
+	UFUNCTION(Exec)
+	void FeedDog();
+
+	/** Uses the nearest companion: stay, or come along (and a pat, once a day). */
+	UFUNCTION(Exec)
+	void DogCommand();
+
+	/** Logs every companion animal: whose it is, what it's doing and where. */
+	UFUNCTION(Exec)
+	void ListCompanions();
+
 private:
 	AHearthvaleCharacter* GetHearthvaleCharacter() const;
 

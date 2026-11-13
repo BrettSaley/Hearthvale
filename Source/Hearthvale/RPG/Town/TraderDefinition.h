@@ -25,6 +25,31 @@ struct HEARTHVALE_API FTraderStock
 	/** Coins for one; 0 for the item's value times the trader's markup. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Trader", meta = (ClampMin = 0))
 	int32 Price = 0;
+
+	/** How many they have each day (more comes in overnight); 0 for no limit. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Trader", meta = (ClampMin = 0))
+	int32 PerDay = 0;
+};
+
+/** What a trader's sold today. Saved as is. */
+USTRUCT()
+struct HEARTHVALE_API FTraderDayState
+{
+	GENERATED_BODY()
+
+	/** The day (by the world clock) these counts are for; -1 before any trading. */
+	UPROPERTY()
+	int32 Day = -1;
+
+	/** Per line of stock: how many have gone today. */
+	UPROPERTY()
+	TArray<int32> Sold;
+
+	/** Starts a new day's counts if Today isn't the day they're for. */
+	void Roll(int32 Today, int32 Lines);
+
+	/** How many of a line are left today; MAX_int32 for no limit. */
+	int32 Left(const FTraderStock& Line, int32 Index) const;
 };
 
 /**
@@ -81,6 +106,9 @@ public:
 
 	/** What they'll pay for one of an item; 0 if they won't buy it. */
 	int32 GetSellPrice(const UItemDefinition* Item) const;
+
+	/** What they'll pay for a worn one: less the more worn it is (never under 1 if they'd buy it at all). */
+	int32 GetSellPrice(const UItemDefinition* Item, int32 Wear) const;
 
 	/** The stock line's name: the item's or the animal's. */
 	static FText GetStockName(const FTraderStock& Line);

@@ -175,7 +175,7 @@ FText UTrapComponent::GetStatus() const
 		return LOCTEXT("Full", "full");
 	}
 	const int32 Used = Storage ? Storage->GetCapacity() - Storage->FreeSlotCount() : 0;
-	return Used > 0 ? LOCTEXT("Caught", "something caught") : LOCTEXT("Set", "set");
+	return Used > 0 ? LOCTEXT("SomethingCaught", "something caught") : LOCTEXT("Set", "set");
 }
 
 #undef LOCTEXT_NAMESPACE
