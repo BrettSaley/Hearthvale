@@ -336,6 +336,28 @@ bool AHearthvaleCharacter::Eat(int32 SlotIndex)
 	return true;
 }
 
+bool AHearthvaleCharacter::UseBandage(int32 SlotIndex)
+{
+	const FItemStack Stack = Inventory->GetSlot(SlotIndex);
+	if (Stack.IsEmpty() || !Stack.Item->IsBandage())
+	{
+		return false;
+	}
+	if (!Health->IsBleeding() && Health->GetHealth() >= Health->GetMaxHealth())
+	{
+		ShowMessage(NSLOCTEXT("Hearthvale", "NoWound", "You've no wound to bind."));
+		return false;
+	}
+	Inventory->RemoveFromSlot(SlotIndex, 1);
+	const bool bWasBleeding = Health->IsBleeding();
+	Health->StopBleeding();
+	const int32 Healed = Health->Heal(Stack.Item->BandageHeal);
+	ShowMessage(bWasBleeding ? FText::Format(NSLOCTEXT("Hearthvale", "Bound", "You bind the wound. The bleeding stops (+{0})."), Healed)
+		: FText::Format(NSLOCTEXT("Hearthvale", "Dressed", "You dress your cuts (+{0})."), Healed), FLinearColor(0.55f, 1.f, 0.55f));
+	UE_LOG(LogTemp, Log, TEXT("Health: bandaged (was bleeding: %d), healed %d."), bWasBleeding ? 1 : 0, Healed);
+	return true;
+}
+
 void AHearthvaleCharacter::Die(const FText& Cause)
 {
 	StopActions();
@@ -519,6 +541,10 @@ void AHearthvaleCharacter::DoUseItem()
 	else if (Held && Held->IsFood())
 	{
 		Eat(HeldSlot);
+	}
+	else if (Held && Held->IsBandage())
+	{
+		UseBandage(HeldSlot);
 	}
 	else if (UEquipmentComponent::IsWearable(Held))
 	{
