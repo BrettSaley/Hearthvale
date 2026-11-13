@@ -121,6 +121,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gathering")
 	TArray<FSeasonalDrop> SeasonalDrops;
 
+	/** Wild plants (AForageNode): the seasons it grows in; empty is all year. Out of season it isn't there. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gathering")
+	TArray<ESeason> Seasons;
+
 	/** Played on each attempt, if set (needs the character's anim blueprint to have a montage slot). */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visuals")
 	TObjectPtr<UAnimMontage> GatherMontage;
