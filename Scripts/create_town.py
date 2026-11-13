@@ -20,6 +20,9 @@
 - The quests (/Game/Town/Quests, a UQuestBookDefinition): five, one after
   another, from the villagers: build a home, keep hens, take in a settler, bring
   the smith iron and make friends in town. A tracker in the corner says what's next
+- Pell the pedlar (/Game/Town/Traders/Pell): comes to town with a cart every
+  third day (from day 1), with things Odile doesn't sell, and pays double for one
+  thing he's after each visit
 - A stray dog (/Game/Town/Companions/Dog) by the stall: feed it meat a few times
   and it's yours. It follows you, fetches things lying about and growls at danger
 
@@ -135,7 +138,20 @@ def stall():
             + [part("Cube", "Wood", (-30, y, 22), (0.45, 0.45, 0.44), (0, 0, 12), collides=True) for y in (-80, 85)])
 
 
-# --- Traders: ID: (name, title, greetings, call-outs, stock [(item or "@animal", price or 0, how many a day or 0)], markup) ---
+def cart():
+    """A pedlar's handcart in front of him (at +X), under a canvas, with goods on it."""
+    return ([part("Cube", "Wood", (85, 0, 70), (0.7, 1.7, 0.45), collides=True)]
+            + [part("Cylinder", "Bark", (85, y, 42), (0.85, 0.85, 0.08), (90, 0, 0)) for y in (-92, 92)]
+            + [part("Cube", "Bark", (190, y, 55), (1.3, 0.05, 0.05), (0, 8, 0)) for y in (-40, 40)]
+            + [part("Cylinder", "Bark", (85 + x, y, 150), (0.05, 0.05, 1.2)) for x in (-30, 30) for y in (-80, 80)]
+            + [part("Cube", "AwningCream", (85, 0, 212), (0.85, 1.8, 0.04))]
+            + [part("Sphere", "Pumpkin", (85, -45, 104), (0.28, 0.28, 0.22)),
+               part("Cube", "Wood", (85, 30, 105), (0.35, 0.35, 0.25), (0, 0, 15)),
+               part("Sphere", "Onion", (75, 60, 100), (0.09, 0.09, 0.1))])
+
+
+# --- Traders: ID: (name, title, greetings, call-outs, stock [(item or "@animal", price or 0, how many a day or 0)], markup, extras) ---
+# Extras: a travelling trader's visit days and what he's after, and their look ("look": shirt, hair, apron; "stall": "cart").
 # She's open by day; at night she goes home and the stall is shut.
 
 TRADERS = {
@@ -149,7 +165,18 @@ TRADERS = {
               [("PotatoSeed", 0, 0), ("OnionSeed", 0, 0), ("CabbageSeed", 0, 0), ("PumpkinSeed", 0, 0), ("Bucket", 0, 2), ("Brush", 0, 3), ("Bait", 0, 0),
                ("CopperAxe", 0, 2), ("CopperPickaxe", 0, 2), ("CopperSickle", 0, 2),
                ("@Chicken", 40, 2), ("@Sheep", 120, 1), ("@Pig", 160, 1), ("@Cow", 260, 1)],
-              1.5),
+              1.5, {}),
+    "Pell": ("Pell", "Pedlar",
+             ["Only here today, friend! What catches your eye?",
+              "Goods from over the hills. Have a look.",
+              "I'll pay well for what I'm after today. Ask me."],
+             ["Pedlar's here! Rare goods, today only!",
+              "Come and see before I'm off again!"],
+             [("OakPlank", 0, 6), ("AshLogs", 0, 4), ("IronBar", 0, 3), ("Fertiliser", 0, 10), ("Jade", 0, 1),
+              ("@Sheep", 95, 1), ("@Cow", 210, 1)],
+             1.6, {"visit_every": 3, "first_visit_day": 1, "wanted": ["Wool", "Cheese", "Butter", "FoxPelt", "Pumpkin"],
+                   "wanted_multiplier": 2.0, "arrival": "A pedlar's cart has rolled into town.",
+                   "look": ("ShirtGreen", "HairGrey", None), "stall": "cart"}),
 }
 
 
@@ -157,7 +184,7 @@ def create_traders():
     factory = unreal.DataAssetFactory()
     factory.set_editor_property("data_asset_class", unreal.TraderDefinition)
     made = {}
-    for trader_id, (name, title, greetings, callouts, stock, markup) in TRADERS.items():
+    for trader_id, (name, title, greetings, callouts, stock, markup, extras) in TRADERS.items():
         trader, _ = create(trader_id, "/Game/Town/Traders", unreal.TraderDefinition, factory)
         lines = []
         for what, price, per_day in stock:
@@ -172,7 +199,12 @@ def create_traders():
         for prop, value in [("display_name", unreal.Text(name)), ("title", unreal.Text(title)),
                             ("greetings", [unreal.Text(t) for t in greetings]),
                             ("call_outs", [unreal.Text(t) for t in callouts]), ("stock", lines), ("markup", markup),
-                            ("currency", item("Coins")), ("parts", person()), ("stall_parts", stall())]:
+                            ("currency", item("Coins")), ("parts", person(*extras.get("look", ("Shirt", "Hair", "Apron")))),
+                            ("stall_parts", cart() if extras.get("stall") == "cart" else stall()),
+                            ("visit_every", extras.get("visit_every", 0)), ("first_visit_day", extras.get("first_visit_day", 0)),
+                            ("wanted_items", [item(i) for i in extras.get("wanted", [])]),
+                            ("wanted_multiplier", extras.get("wanted_multiplier", 1.0)),
+                            ("arrival_news", unreal.Text(extras.get("arrival", "")))]:
             trader.set_editor_property(prop, value)
         save(trader)
         made[trader_id] = trader
@@ -326,7 +358,7 @@ def place_villagers(villagers):
     level get their stops redone too."""
     subsystem = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
     actors = subsystem.get_all_level_actors()
-    traders = [a for a in actors if isinstance(a, unreal.Trader)]
+    traders = home_traders(actors)
     if not traders:
         unreal.log_warning("create_town: no trader to put the villagers round.")
         return
@@ -335,7 +367,7 @@ def place_villagers(villagers):
     stall = traders[0]
     square = stall.get_actor_location() + stall.get_actor_forward_vector() * 600.0
     # Where the player stands to trade or read: keep clear.
-    keep_clear = [stall.get_actor_location() + stall.get_actor_forward_vector() * 190.0]
+    keep_clear = [t.get_actor_location() + t.get_actor_forward_vector() * 190.0 for t in actors if isinstance(t, unreal.Trader)]
     keep_clear += [b.get_actor_location() + b.get_actor_forward_vector() * 170.0 for b in actors if isinstance(b, unreal.RequestBoard)]
     height = unreal.WorldGenerator.get_ground_height
 
@@ -472,7 +504,7 @@ def place_dog(dog_definition):
     actors = subsystem.get_all_level_actors()
     if any(isinstance(a, unreal.Companion) for a in actors):
         return
-    traders = [a for a in actors if isinstance(a, unreal.Trader)]
+    traders = home_traders(actors)
     if not traders:
         unreal.log_warning("create_town: no trader to put the stray dog by.")
         return
@@ -514,6 +546,39 @@ def place(traders):
     unreal.log(f"create_town: Odile's stall at ({x:.0f}, {y:.0f}), facing {yaw:.0f}.")
 
 
+def home_traders(actors):
+    """The traders who are always in town (not travelling ones): the town grows round the first."""
+    return [a for a in actors if isinstance(a, unreal.Trader) and a.get_editor_property("definition")
+            and a.get_editor_property("definition").get_editor_property("visit_every") == 0]
+
+
+def place_pedlar(traders):
+    """Pell's cart across the square from Odile's stall, facing it."""
+    subsystem = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+    actors = subsystem.get_all_level_actors()
+    if any(isinstance(a, unreal.Trader) and a.get_editor_property("definition") == traders["Pell"] for a in actors):
+        return
+    stalls = [a for a in actors if isinstance(a, unreal.Trader) and a.get_editor_property("definition") == traders["Odile"]]
+    if not stalls:
+        unreal.log_warning("create_town: no stall to put the pedlar's cart across from.")
+        return
+    stall = stalls[0]
+    height = unreal.WorldGenerator.get_ground_height
+    for side in (-500.0, -800.0, 500.0, 0.0):
+        spot = stall.get_actor_location() + stall.get_actor_forward_vector() * 1300.0 + stall.get_actor_right_vector() * side
+        if height(spot.x, spot.y) > 120:
+            break
+    spot.z = height(spot.x, spot.y)
+    rotation = stall.get_actor_rotation()
+    rotation.yaw += 180.0
+    actor = subsystem.spawn_actor_from_class(unreal.Trader, spot, rotation)
+    actor.set_editor_property("definition", traders["Pell"])
+    actor.set_actor_label("Trader_Pell")
+    actor.set_folder_path("Town")
+    unreal.EditorLoadingAndSavingUtils.save_dirty_packages(True, True)
+    unreal.log(f"create_town: Pell's cart at ({spot.x:.0f}, {spot.y:.0f}).")
+
+
 def place_board(notice_board):
     """Beside the first trader's stall, facing the same way."""
     subsystem = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
@@ -521,7 +586,7 @@ def place_board(notice_board):
     if any(isinstance(a, unreal.RequestBoard) for a in actors):
         unreal.log_warning("create_town: the level already has a notice board; not placing another.")
         return
-    traders = [a for a in actors if isinstance(a, unreal.Trader)]
+    traders = home_traders(actors)
     if not traders:
         unreal.log_warning("create_town: no trader to put the notice board beside.")
         return
@@ -538,7 +603,9 @@ def place_board(notice_board):
 
 create_materials()
 create_settlers()
-place(create_traders())
+traders = create_traders()
+place(traders)
+place_pedlar(traders)
 place_board(create_board())
 place_villagers(create_villagers())
 create_quests()

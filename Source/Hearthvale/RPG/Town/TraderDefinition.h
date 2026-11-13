@@ -89,6 +89,34 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Trader", meta = (ClampMin = 1))
 	float Markup = 1.5f;
 
+	/** A travelling trader comes every this many days (and isn't there in between); 0 for one who's always there. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visits", meta = (ClampMin = 0))
+	int32 VisitEvery = 0;
+
+	/** The first day (by the world clock) they come. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visits", meta = (ClampMin = 0))
+	int32 FirstVisitDay = 0;
+
+	/** Each visit they're after one of these (in turn), and pay WantedMultiplier times its value for it. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visits")
+	TArray<TObjectPtr<UItemDefinition>> WantedItems;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visits", meta = (ClampMin = 0.5))
+	float WantedMultiplier = 1.f;
+
+	/** Said to the town when they arrive: "A pedlar's cart has rolled into town." */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visits")
+	FText ArrivalNews;
+
+	/** Whether they're in town on a day. */
+	bool IsVisitDay(int32 Day) const;
+
+	/** What they're after on a day; null for nothing in particular. */
+	UItemDefinition* GetWanted(int32 Day) const;
+
+	/** What they'll pay for one of an item on a day (more for what they're after), less for wear. */
+	int32 GetSellPriceOn(const UItemDefinition* Item, int32 Wear, int32 Day) const;
+
 	/** What you pay with. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Trader")
 	TObjectPtr<UItemDefinition> Currency;
@@ -116,8 +144,8 @@ public:
 	/** Buys up to Count of an item line with coins from the inventory; how many were bought (fewer if coins or room ran out). */
 	int32 BuyItems(UInventoryComponent* Inventory, int32 StockIndex, int32 Count) const;
 
-	/** Sells up to Count of an item from the inventory for coins; how many were sold. */
-	int32 SellItems(UInventoryComponent* Inventory, UItemDefinition* Item, int32 Count) const;
+	/** Sells up to Count of an item from the inventory for coins (PriceEach, or their usual price if negative); how many were sold. */
+	int32 SellItems(UInventoryComponent* Inventory, UItemDefinition* Item, int32 Count, int32 PriceEach = -1) const;
 
 	/** Takes a price in coins from the inventory; false (taking nothing) if there aren't enough. */
 	bool Pay(UInventoryComponent* Inventory, int32 Price) const;

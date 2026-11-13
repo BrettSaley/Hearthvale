@@ -478,6 +478,22 @@ bool FTradingTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("A half-worn axe fetches half that"), Trader->GetSellPrice(Axe, 50), 10);
 	TestEqual(TEXT("A nearly broken axe still fetches a coin"), Trader->GetSellPrice(Axe, 99), 1);
 
+	// A travelling trader: every third day from day 1, after something different each visit, paying double for it.
+	UTraderDefinition* Pedlar = NewObject<UTraderDefinition>();
+	Pedlar->VisitEvery = 3;
+	Pedlar->FirstVisitDay = 1;
+	Pedlar->WantedItems = {Wool, Bucket};
+	Pedlar->WantedMultiplier = 2.f;
+	TestFalse(TEXT("Not there before the first visit"), Pedlar->IsVisitDay(0));
+	TestTrue(TEXT("There on day 1"), Pedlar->IsVisitDay(1));
+	TestFalse(TEXT("Gone on day 2"), Pedlar->IsVisitDay(2));
+	TestTrue(TEXT("Back on day 4"), Pedlar->IsVisitDay(4));
+	TestEqual(TEXT("After wool on the first visit"), Pedlar->GetWanted(1), Wool);
+	TestEqual(TEXT("After a bucket on the next"), Pedlar->GetWanted(4), Bucket);
+	TestEqual(TEXT("Wool fetches double its value when wanted"), Pedlar->GetSellPriceOn(Wool, 0, 1), 24);
+	TestEqual(TEXT("And the usual half when not"), Pedlar->GetSellPriceOn(Wool, 0, 4), 6);
+	TestTrue(TEXT("Odile's always there"), Trader->IsVisitDay(2) && Trader->GetWanted(2) == nullptr);
+
 	// The game's trader: everything for sale costs more than they'd pay for it, and there's livestock.
 	const UTraderDefinition* Odile = LoadObject<UTraderDefinition>(nullptr, TEXT("/Game/Town/Traders/Odile.Odile"));
 	if (TestNotNull(TEXT("The town trader exists"), Odile))
@@ -497,6 +513,17 @@ bool FTradingTest::RunTest(const FString& Parameters)
 			bAnimals |= Line.Animal != nullptr;
 		}
 		TestTrue(TEXT("They sell livestock"), bAnimals);
+		// And the pedlar who comes now and then.
+		const UTraderDefinition* Pell = LoadObject<UTraderDefinition>(nullptr, TEXT("/Game/Town/Traders/Pell.Pell"));
+		if (TestNotNull(TEXT("The pedlar exists"), Pell))
+		{
+			TestTrue(TEXT("The pedlar travels"), Pell->VisitEvery > 1);
+			TestFalse(TEXT("The pedlar is after something"), Pell->WantedItems.IsEmpty() || Pell->WantedItems.Contains(nullptr));
+			for (const FTraderStock& Line : Pell->Stock)
+			{
+				TestTrue(TEXT("The pedlar's goods can't be sold back to him for profit"), !Line.Item || Pell->GetSellPrice(Line.Item) < Pell->GetBuyPrice(Line));
+			}
+		}
 		bool bLimited = false;
 		for (const FTraderStock& Line : Odile->Stock)
 		{

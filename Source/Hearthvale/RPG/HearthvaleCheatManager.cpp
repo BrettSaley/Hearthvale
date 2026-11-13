@@ -1071,13 +1071,17 @@ void UHearthvaleCheatManager::CraftAt(FName RecipeId, int32 Count)
 		*Nearest->GetDefinition()->DisplayName.ToString()));
 }
 
-void UHearthvaleCheatManager::Trade()
+void UHearthvaleCheatManager::Trade(const FString& Name)
 {
 	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
 	AHearthvalePlayerController* Controller = Cast<AHearthvalePlayerController>(GetOuterAPlayerController());
 	ATrader* Nearest = nullptr;
 	for (ATrader* Trader : TActorRange<ATrader>(GetWorld()))
 	{
+		if (!Name.IsEmpty() && (!Trader->GetDefinition() || !Trader->GetDefinition()->DisplayName.ToString().Equals(Name, ESearchCase::IgnoreCase)))
+		{
+			continue;
+		}
 		if (Character && (!Nearest || FVector::Dist(Trader->GetActorLocation(), Character->GetActorLocation())
 			< FVector::Dist(Nearest->GetActorLocation(), Character->GetActorLocation())))
 		{
