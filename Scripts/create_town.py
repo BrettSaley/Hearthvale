@@ -20,6 +20,8 @@
 - The quests (/Game/Town/Quests, a UQuestBookDefinition): five, one after
   another, from the villagers: build a home, keep hens, take in a settler, bring
   the smith iron and make friends in town. A tracker in the corner says what's next
+- A stray dog (/Game/Town/Companions/Dog) by the stall: feed it meat a few times
+  and it's yours. It follows you, fetches things lying about and growls at danger
 
 Run after create_livestock.py (she sells cows, pigs and buckets), headless with the
 editor closed:
@@ -70,7 +72,8 @@ SHAPES = {name: unreal.load_asset(f"/Engine/BasicShapes/{name}") for name in ["C
 COLORS = {"Skin": (0.55, 0.36, 0.26), "Hair": (0.12, 0.06, 0.03), "Shirt": (0.12, 0.2, 0.32), "Apron": (0.62, 0.58, 0.48),
           "Trousers": (0.1, 0.08, 0.07), "Boots": (0.05, 0.035, 0.025), "AwningRed": (0.45, 0.06, 0.04),
           "AwningCream": (0.7, 0.64, 0.5), "ShirtGreen": (0.12, 0.24, 0.1), "ShirtRed": (0.35, 0.08, 0.06),
-          "ShirtBrown": (0.25, 0.15, 0.08), "HairBlond": (0.5, 0.36, 0.12), "HairGrey": (0.32, 0.31, 0.3)}
+          "ShirtBrown": (0.25, 0.15, 0.08), "HairBlond": (0.5, 0.36, 0.12), "HairGrey": (0.32, 0.31, 0.3),
+          "DogCoat": (0.32, 0.18, 0.07), "DogPatch": (0.7, 0.62, 0.5), "DogDark": (0.06, 0.04, 0.03)}
 MATERIALS = {"Face": unreal.load_asset("/Game/Farming/Materials/MI_AnimalFace"),
              "Wood": unreal.load_asset("/Game/Crafting/Materials/MI_Wood"),
              "Bark": unreal.load_asset("/Game/Gathering/Materials/MI_Bark")}
@@ -434,6 +437,55 @@ def create_quests():
     save(book)
 
 
+# --- The stray dog: facing +X, feet at the origin; its tail goes last (from first_tail_part on) so it can wag ---
+
+def dog():
+    return ([part("Sphere", "DogCoat", (0, 0, 46), (0.8, 0.36, 0.36)),
+             part("Sphere", "DogPatch", (24, 0, 42), (0.32, 0.27, 0.28))]
+            + [part("Cylinder", "DogCoat", (x, y, 18), (0.07, 0.07, 0.36)) for x in (-22, 24) for y in (-10, 10)]
+            + [part("Sphere", "DogCoat", (46, 0, 64), (0.3, 0.24, 0.26)),
+               part("Sphere", "DogPatch", (64, 0, 59), (0.2, 0.13, 0.12)),
+               part("Sphere", "DogDark", (74, 0, 61), (0.05, 0.05, 0.05))]
+            + [part("Cone", "DogDark", (40, y, 80), (0.08, 0.05, 0.12), (y * 1.5, 0, 0)) for y in (-9, 9)]
+            + [part("Cylinder", "Face", (58, y, 68), (0.03, 0.03, 0.01), (90, 0, 0)) for y in (-7, 7)]
+            + [part("Cylinder", "DogCoat", (-47, 0, 62), (0.045, 0.045, 0.3), (0, 50, 0))])
+
+
+def create_dog():
+    factory = unreal.DataAssetFactory()
+    factory.set_editor_property("data_asset_class", unreal.CompanionDefinition)
+    made, _ = create("Dog", "/Game/Town/Companions", unreal.CompanionDefinition, factory)
+    parts = dog()
+    for prop, value in [("display_name", unreal.Text("Dog")), ("pet_name", unreal.Text("Scout")),
+                        ("food", [item(f) for f in ["CookedMeat", "RawRabbit", "RawVenison", "RawPork", "RoastRabbit", "VenisonSteak"]]),
+                        ("tame_feedings", 3), ("speed", 260.0), ("run_speed", 650.0), ("fetch_range", 1200.0),
+                        ("warn_range", 3000.0), ("parts", parts), ("first_tail_part", len(parts) - 1),
+                        ("tail_pivot", V(-36, 0, 52))]:
+        made.set_editor_property(prop, value)
+    save(made)
+    return made
+
+
+def place_dog(dog_definition):
+    """A stray by the stall, on the side away from the notice board."""
+    subsystem = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+    actors = subsystem.get_all_level_actors()
+    if any(isinstance(a, unreal.Companion) for a in actors):
+        return
+    traders = [a for a in actors if isinstance(a, unreal.Trader)]
+    if not traders:
+        unreal.log_warning("create_town: no trader to put the stray dog by.")
+        return
+    stall = traders[0]
+    spot = stall.get_actor_location() - stall.get_actor_right_vector() * 450.0 + stall.get_actor_forward_vector() * 250.0
+    spot.z = unreal.WorldGenerator.get_ground_height(spot.x, spot.y)
+    actor = subsystem.spawn_actor_from_class(unreal.Companion, spot, stall.get_actor_rotation())
+    actor.set_editor_property("definition", dog_definition)
+    actor.set_actor_label("StrayDog")
+    actor.set_folder_path("Town")
+    unreal.EditorLoadingAndSavingUtils.save_dirty_packages(True, True)
+
+
 # --- Odile's stall, a little way from where you start, facing it ---
 
 def place(traders):
@@ -490,3 +542,4 @@ place(create_traders())
 place_board(create_board())
 place_villagers(create_villagers())
 create_quests()
+place_dog(create_dog())

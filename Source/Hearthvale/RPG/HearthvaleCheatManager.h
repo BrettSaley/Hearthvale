@@ -321,6 +321,22 @@ public:
 	UFUNCTION(Exec)
 	void HurryQuest();
 
+	/** Walks up to the nearest companion animal (or stray). */
+	UFUNCTION(Exec)
+	void Dog();
+
+	/** Feeds the nearest stray from the backpack. */
+	UFUNCTION(Exec)
+	void FeedDog();
+
+	/** Uses the nearest companion: stay, or come along (and a pat, once a day). */
+	UFUNCTION(Exec)
+	void DogCommand();
+
+	/** Logs every companion animal: whose it is, what it's doing and where. */
+	UFUNCTION(Exec)
+	void ListCompanions();
+
 private:
 	AHearthvaleCharacter* GetHearthvaleCharacter() const;
 
