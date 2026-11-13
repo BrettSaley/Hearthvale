@@ -268,7 +268,7 @@ void ACompanion::Fetch(AHearthvaleCharacter* Player, float DeltaSeconds)
 	{
 		return;
 	}
-	Player->GetInventory()->AddItem(Stack.Item, Stack.Quantity);
+	Player->GetInventory()->AddStack(Stack);
 	Item->Destroy();
 	Player->ShowMessage(FText::Format(LOCTEXT("Fetched", "{0} brings you {1} x {2}."), GetName(), Stack.Quantity, Stack.Item->DisplayName.ToLower()),
 		CompanionColor);

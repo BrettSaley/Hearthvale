@@ -37,6 +37,7 @@
 #include "RPG/HealthComponent.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ResourceNode.h"
+#include "RPG/World/RaidSubsystem.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldGenerator.h"
 #include "EngineUtils.h"
@@ -478,6 +479,60 @@ void UHearthvaleCheatManager::SetTrap(FName PieceId, float Ahead)
 	const FVector Ground(At.X, At.Y, UWorldGenerator::GetGroundHeight(At.X, At.Y));
 	const ABuildPiece* Built = ABuildPiece::Spawn(GetWorld(), Piece, FTransform(Character->GetActorRotation(), Ground));
 	Say(Built ? FString::Printf(TEXT("Set %s at %s"), *PieceId.ToString(), *Ground.ToCompactString()) : TEXT("Couldn't set it."));
+}
+
+void UHearthvaleCheatManager::Raid()
+{
+	URaidSubsystem* Raids = URaidSubsystem::Get(GetWorld());
+	FString Why;
+	Say(Raids && Raids->StartRaid(Why) ? TEXT("A raid is coming.") : FString::Printf(TEXT("No raid: %s."), *Why));
+}
+
+void UHearthvaleCheatManager::EndRaid()
+{
+	if (URaidSubsystem* Raids = URaidSubsystem::Get(GetWorld()))
+	{
+		Raids->EndRaid(false);
+	}
+}
+
+void UHearthvaleCheatManager::RaidStatus()
+{
+	URaidSubsystem* Raids = URaidSubsystem::Get(GetWorld());
+	if (!Raids)
+	{
+		return;
+	}
+	FVector Camp;
+	int32 Pieces = 0;
+	Raids->FindCamp(Camp, Pieces);
+	TArray<FString> Battered;
+	for (const ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		if (Built->GetDamage() > 0)
+		{
+			Battered.Add(FString::Printf(TEXT("%s %d/%d"), *Built->GetPiece()->GetPieceId().ToString(), Built->GetDamage(), Built->GetMaxHealth()));
+		}
+	}
+	const AWildlifeHerd* Pack = Raids->GetPack();
+	Say(FString::Printf(TEXT("Camp of %d pieces; %s; battered: %s"), Pieces,
+		Pack ? *FString::Printf(TEXT("%d wolves %.0f m off"), Pack->CountAlive(), FVector::Dist2D(Pack->GetActorLocation(), Camp) / 100.f) : TEXT("no raid"),
+		Battered.IsEmpty() ? TEXT("none") : *FString::Join(Battered, TEXT(", "))));
+}
+
+void UHearthvaleCheatManager::PlacePiece(FName PieceId, float Ahead, float Side)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	UBuildPieceDefinition* Piece = UBuildPieceDefinition::FindPiece(PieceId);
+	if (!Character || !Piece)
+	{
+		Say(FString::Printf(TEXT("No build piece called '%s'."), *PieceId.ToString()));
+		return;
+	}
+	const FVector At = Character->GetActorLocation() + Character->GetActorForwardVector() * Ahead + Character->GetActorRightVector() * Side;
+	const FVector Ground(At.X, At.Y, UWorldGenerator::GetGroundHeight(At.X, At.Y));
+	const ABuildPiece* Built = ABuildPiece::Spawn(GetWorld(), Piece, FTransform(FRotator(0.f, Character->GetActorRotation().Yaw, 0.f), Ground));
+	Say(Built ? FString::Printf(TEXT("Placed %s at %s"), *PieceId.ToString(), *Ground.ToCompactString()) : TEXT("Couldn't place it."));
 }
 
 void UHearthvaleCheatManager::ListTraps()
@@ -1255,9 +1310,9 @@ void UHearthvaleCheatManager::ListSettlers()
 				}
 			}
 		}
-		Say(FString::Printf(TEXT("%s at (%.0f, %.0f): %s, made %d. Chest: %s"), *Settler->GetFullName().ToString(),
+		Say(FString::Printf(TEXT("%s at (%.0f, %.0f): %s, comfort %d, made %d. Chest: %s"), *Settler->GetFullName().ToString(),
 			Settler->GetActorLocation().X, Settler->GetActorLocation().Y, Troubles[static_cast<int32>(Settler->GetTrouble())],
-			Settler->GetMade(), *Chest));
+			Settler->GetComfort(), Settler->GetMade(), *Chest));
 	}
 }
 
@@ -1423,4 +1478,31 @@ void UHearthvaleCheatManager::ListCompanions()
 			Character ? FVector::Dist2D(At, Character->GetActorLocation()) : 0.f,
 			!Companion->IsOwned() ? TEXT("a stray") : Companion->IsStaying() ? TEXT("staying") : TEXT("following"), Companion->GetLoyalty()));
 	}
+}
+
+void UHearthvaleCheatManager::Furnish()
+{
+	int32 Furnished = 0;
+	for (ASettler* Settler : TActorRange<ASettler>(GetWorld()))
+	{
+		const ABuildPiece* Bed = Settler->GetBed();
+		if (!Bed)
+		{
+			continue;
+		}
+		// Along the foot of the bed, on its floor.
+		const FVector Foot = Bed->GetActorLocation() - Bed->GetActorForwardVector() * 150.f;
+		const FVector Side = Bed->GetActorRightVector();
+		const TPair<const TCHAR*, float> Pieces[] = {{TEXT("WoodTable"), -110.f}, {TEXT("WoodStool"), -20.f}, {TEXT("WoolRug"), 60.f}, {TEXT("Torch"), 150.f}};
+		for (const TPair<const TCHAR*, float>& Piece : Pieces)
+		{
+			if (UBuildPieceDefinition* Definition = UBuildPieceDefinition::FindPiece(Piece.Key))
+			{
+				ABuildPiece::Spawn(GetWorld(), Definition, FTransform(Bed->GetActorRotation(), Foot + Side * Piece.Value));
+			}
+		}
+		++Furnished;
+	}
+	Say(FString::Printf(TEXT("Furnished %d house(s)."), Furnished));
+	ListSettlers();
 }

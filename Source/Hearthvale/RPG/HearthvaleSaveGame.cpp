@@ -135,6 +135,7 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 				{
 					Saved.Fuel = Machine->GetFuel();
 				}
+				Saved.Damage = Built->GetDamage();
 				if (const UTrapComponent* Trap = Built->GetTrap())
 				{
 					Saved.TrapWear = Trap->GetWear();
@@ -283,6 +284,10 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 				if (UFarmMachineComponent* Machine = Built ? Built->GetMachine() : nullptr)
 				{
 					Machine->SetFuel(Saved.Fuel);
+				}
+				if (Built)
+				{
+					Built->SetDamage(Saved.Damage);
 				}
 				if (UTrapComponent* Trap = Built ? Built->GetTrap() : nullptr)
 				{
