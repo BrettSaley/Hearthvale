@@ -12,6 +12,7 @@
 #include "RPG/FarmPatch.h"
 #include "RPG/Building/FarmMachineComponent.h"
 #include "RPG/Building/TrapComponent.h"
+#include "RPG/GroundItem.h"
 #include "RPG/InventoryComponent.h"
 
 #define LOCTEXT_NAMESPACE "BuildPiece"
@@ -97,6 +98,41 @@ void ABuildPiece::ApplyLook()
 	{
 		ApplyLight(0.f, FLinearColor::White, FVector::ZeroVector, 0.f);
 	}
+}
+
+int32 ABuildPiece::HealthFor(const UBuildPieceDefinition* InPiece)
+{
+	int32 Things = 0;
+	for (const FItemAmount& Part : InPiece ? InPiece->Cost : TArray<FItemAmount>())
+	{
+		Things += Part.Quantity;
+	}
+	return FMath::Min(10 + Things * 5, 200);
+}
+
+bool ABuildPiece::Batter(int32 Amount)
+{
+	if (Amount <= 0 || IsActorBeingDestroyed())
+	{
+		return false;
+	}
+	Damage += Amount;
+	if (Damage < GetMaxHealth())
+	{
+		return false;
+	}
+	if (Storage)
+	{
+		for (const FItemStack& Slot : Storage->GetSlots())
+		{
+			if (!Slot.IsEmpty())
+			{
+				AGroundItem::Spawn(GetWorld(), Slot, GetActorLocation() + FVector(FMath::FRandRange(-60.f, 60.f), FMath::FRandRange(-60.f, 60.f), 20.f));
+			}
+		}
+	}
+	Destroy();
+	return true;
 }
 
 void ABuildPiece::Destroyed()
