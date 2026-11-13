@@ -19,6 +19,7 @@
 #include "RPG/Town/Settler.h"
 #include "RPG/Town/Villager.h"
 #include "RPG/Town/QuestSubsystem.h"
+#include "RPG/Town/Companion.h"
 #include "RPG/Town/Trader.h"
 #include "RPG/UI/RequestBoardWidget.h"
 #include "RPG/Town/TraderDefinition.h"
@@ -1364,4 +1365,62 @@ void UHearthvaleCheatManager::HurryQuest()
 		QuestLog->Hurry(GetHearthvaleCharacter());
 	}
 	Quests();
+}
+
+namespace
+{
+	ACompanion* NearestCompanion(UWorld* World, const FVector& Near)
+	{
+		ACompanion* Best = nullptr;
+		for (ACompanion* Companion : TActorRange<ACompanion>(World))
+		{
+			if (!Best || FVector::Dist(Companion->GetActorLocation(), Near) < FVector::Dist(Best->GetActorLocation(), Near))
+			{
+				Best = Companion;
+			}
+		}
+		return Best;
+	}
+}
+
+void UHearthvaleCheatManager::Dog()
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	ACompanion* Companion = Character ? NearestCompanion(GetWorld(), Character->GetActorLocation()) : nullptr;
+	if (!Companion)
+	{
+		Say(TEXT("No dog here."));
+		return;
+	}
+	const FVector Front = Companion->GetActorLocation() + Companion->GetActorForwardVector() * 180.f + FVector(0.f, 0.f, 100.f);
+	Character->TeleportTo(Front, (-Companion->GetActorForwardVector()).Rotation());
+	ListCompanions();
+}
+
+void UHearthvaleCheatManager::FeedDog()
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	ACompanion* Companion = Character ? NearestCompanion(GetWorld(), Character->GetActorLocation()) : nullptr;
+	Say(Companion && Companion->Feed(Character) ? TEXT("Fed.") : TEXT("Not fed."));
+}
+
+void UHearthvaleCheatManager::DogCommand()
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	if (ACompanion* Companion = Character ? NearestCompanion(GetWorld(), Character->GetActorLocation()) : nullptr)
+	{
+		Companion->Interact(Character);
+	}
+}
+
+void UHearthvaleCheatManager::ListCompanions()
+{
+	const AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	for (const ACompanion* Companion : TActorRange<ACompanion>(GetWorld()))
+	{
+		const FVector At = Companion->GetActorLocation();
+		Say(FString::Printf(TEXT("%s at (%.0f, %.0f, %.0f), %.0f cm from you: %s, loyalty %d"), *Companion->GetName().ToString(), At.X, At.Y, At.Z,
+			Character ? FVector::Dist2D(At, Character->GetActorLocation()) : 0.f,
+			!Companion->IsOwned() ? TEXT("a stray") : Companion->IsStaying() ? TEXT("staying") : TEXT("following"), Companion->GetLoyalty()));
+	}
 }

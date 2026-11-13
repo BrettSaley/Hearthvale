@@ -13,6 +13,7 @@
 #include "RPG/Town/VillagerDefinition.h"
 #include "RPG/Town/QuestDefinition.h"
 #include "RPG/Town/TraderDefinition.h"
+#include "RPG/Town/Companion.h"
 #include "HearthvaleSaveGame.generated.h"
 
 class AHearthvaleCharacter;
@@ -164,6 +165,10 @@ public:
 	/** What each trader's sold today, by the trader actor's name. */
 	UPROPERTY()
 	TMap<FString, FTraderDayState> Traders;
+
+	/** Strays and the companions they became, by the actor's name. */
+	UPROPERTY()
+	TMap<FString, FSavedCompanion> Companions;
 
 	/** Write a character's progress (and the farm patches in their world) to disk. */
 	static bool SaveProgress(const AHearthvaleCharacter* Character);
