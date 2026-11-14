@@ -5,6 +5,7 @@
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/SkillsComponent.h"
+#include "RPG/World/Firelight.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldClock.h"
 #include "RPG/World/WorldGenerator.h"
@@ -124,6 +125,8 @@ bool URaidSubsystem::StartRaid(FString& OutWhy)
 	Gathering = 0.f;
 	SinceBatter = 0.f;
 	Felled = 0;
+	Idle = 0.f;
+	bScaredOff = false;
 	if (AHearthvaleCharacter* Player = GetPlayer(this))
 	{
 		Player->ShowMessage(LOCTEXT("Howls", "Howls ring out in the dark, close by. A wolf pack is coming for your camp!"), RaidColor);
@@ -150,7 +153,7 @@ void URaidSubsystem::EndRaid(bool bBeaten)
 	else
 	{
 		const UWorldClock* Clock = UWorldClock::Get(this);
-		if (Player && Old && Old->CountAlive() > 0)
+		if (Player && Old && Old->CountAlive() > 0 && !bScaredOff)
 		{
 			Player->ShowMessage(Clock && !Clock->IsNight() ? LOCTEXT("Dawn", "At first light the wolves slink back into the hills.")
 				: LOCTEXT("Sated", "Their fill of havoc had, the wolves slip away into the dark."));
@@ -229,6 +232,7 @@ void URaidSubsystem::TickRaid(float DeltaTime)
 	}
 	SinceBatter = 0.f;
 	AHearthvaleCharacter* Player = GetPlayer(this);
+	bool bBattered = false;
 	for (int32 Index = 0; Index < Herd->GetAnimalCount(); ++Index)
 	{
 		if (!Herd->IsAlive(Index))
@@ -241,7 +245,8 @@ void URaidSubsystem::TickRaid(float DeltaTime)
 		for (ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
 		{
 			const float Distance = FVector::Dist2D(Built->GetActorLocation(), At);
-			if (IsCampPiece(Built) && Distance < Best)
+			// What stands in firelight, they daren't touch.
+			if (IsCampPiece(Built) && Distance < Best && !FFirelight::IsLit(GetWorld(), Built->GetActorLocation()))
 			{
 				Nearest = Built;
 				Best = Distance;
@@ -254,6 +259,7 @@ void URaidSubsystem::TickRaid(float DeltaTime)
 		const FText Name = Nearest->GetPiece()->DisplayName.ToLower();
 		const bool bFell = Nearest->Batter(BatterDamage);
 		Felled += bFell ? 1 : 0;
+		bBattered = true;
 		UE_LOG(LogTemp, Log, TEXT("Raid: a wolf battered the %s (%d / %d)%s."), *Name.ToString(), Nearest->GetDamage(), Nearest->GetMaxHealth(),
 			bFell ? TEXT(" and it fell") : TEXT(""));
 		if (Player && (bFell || SinceWarned > 10.f))
@@ -262,6 +268,19 @@ void URaidSubsystem::TickRaid(float DeltaTime)
 			Player->ShowMessage(bFell ? FText::Format(LOCTEXT("Fell", "The wolves tear down your {0}!"), Name)
 				: FText::Format(LOCTEXT("Clawing", "Wolves are clawing at your {0}!"), Name), RaidColor);
 		}
+	}
+	// Arrived, with nothing they dare touch (it's all in firelight): in time they give up.
+	const bool bArrived = FVector::Dist2D(Herd->GetActorLocation(), Camp) < 400.f;
+	Idle = bBattered || !bArrived ? 0.f : Idle + BatterSeconds;
+	if (Idle >= GiveUpSeconds)
+	{
+		if (Player)
+		{
+			Player->ShowMessage(LOCTEXT("Firelit", "The wolves circle your firelit camp, then melt back into the dark."), RaidWonColor);
+		}
+		UE_LOG(LogTemp, Log, TEXT("Raid: the firelit camp kept the pack off."));
+		bScaredOff = true;
+		EndRaid(false);
 	}
 }
 

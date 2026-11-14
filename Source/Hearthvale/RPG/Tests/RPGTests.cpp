@@ -31,6 +31,8 @@
 #include "RPG/Town/CompanionDefinition.h"
 #include "RPG/Town/TraderDefinition.h"
 #include "RPG/World/RaidSubsystem.h"
+#include "RPG/World/Firelight.h"
+#include "RPG/CraftingStationDefinition.h"
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldGenerator.h"
@@ -1060,6 +1062,15 @@ bool FRaidsTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("A pack is 3 to 6 wolves"), URaidSubsystem::PackSize(Day) >= 3 && URaidSubsystem::PackSize(Day) <= 6);
 	}
 	TestTrue(TEXT("Packs grow"), URaidSubsystem::PackSize(12) > URaidSubsystem::PackSize(1));
+
+	// Fire keeps beasts off: torches and campfires glow, and nowhere's lit without a world.
+	TestFalse(TEXT("No world, no fire"), FFirelight::IsLit(nullptr, FVector::ZeroVector));
+	TestTrue(TEXT("Firelight reaches a few metres"), FFirelight::Radius > URaidSubsystem::BatterReach && FFirelight::Radius < 2000.f);
+	const UBuildPieceDefinition* Torch = UBuildPieceDefinition::FindPiece(TEXT("Torch"));
+	TestTrue(TEXT("A torch glows"), Torch && Torch->LightIntensity > 0.f);
+	const UBuildPieceDefinition* Campfire = UBuildPieceDefinition::FindPiece(TEXT("Campfire"));
+	TestTrue(TEXT("A campfire glows"), Campfire && Campfire->Station && Campfire->Station->LightIntensity > 0.f);
+	TestTrue(TEXT("A firelit camp is given up on in time"), URaidSubsystem::GiveUpSeconds > URaidSubsystem::BatterSeconds);
 
 	// Pieces stand battering by what went into them.
 	TestEqual(TEXT("Something of nothing stands 10"), ABuildPiece::HealthFor(nullptr), 10);
