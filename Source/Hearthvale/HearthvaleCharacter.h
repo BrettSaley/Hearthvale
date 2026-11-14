@@ -222,6 +222,14 @@ public:
 
 	FORCEINLINE UEquipmentComponent* GetEquipment() const { return Equipment; }
 
+	/** Mends the most battered piece within reach with the hammer held, for one of what it's built from; false (with a message) if it can't. */
+	UFUNCTION(BlueprintCallable, Category="RPG")
+	bool MendNearby();
+
+	/** How much one swing of a hammer mends, and how near (cm) the piece must be. */
+	static constexpr int32 MendPerSwing = 10;
+	static constexpr float MendReach = 400.f;
+
 	/** Binds a wound with the bandage in an inventory slot: stops bleeding and heals a little; false (with a message) if there's no need. */
 	UFUNCTION(BlueprintCallable, Category="RPG")
 	bool UseBandage(int32 SlotIndex);

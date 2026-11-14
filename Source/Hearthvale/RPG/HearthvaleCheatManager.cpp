@@ -604,6 +604,28 @@ void UHearthvaleCheatManager::MakeAlpha(const FString& Kind)
 	Say(FString::Printf(TEXT("The %s is %d / %d"), *Nearest->GetAnimalName(0).ToString(), Nearest->GetAnimalHealth(0), Nearest->GetAnimalMaxHealth(0)));
 }
 
+void UHearthvaleCheatManager::BatterNear(int32 Amount)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	ABuildPiece* Nearest = nullptr;
+	for (ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		if (Character && (!Nearest || FVector::Dist(Built->GetActorLocation(), Character->GetActorLocation())
+			< FVector::Dist(Nearest->GetActorLocation(), Character->GetActorLocation())))
+		{
+			Nearest = Built;
+		}
+	}
+	if (!Nearest)
+	{
+		Say(TEXT("Nothing built here."));
+		return;
+	}
+	const FString Id = Nearest->GetPiece()->GetPieceId().ToString();
+	const bool bFell = Nearest->Batter(Amount);
+	Say(bFell ? FString::Printf(TEXT("%s fell."), *Id) : FString::Printf(TEXT("%s battered to %d / %d"), *Id, Nearest->GetMaxHealth() - Nearest->GetDamage(), Nearest->GetMaxHealth()));
+}
+
 void UHearthvaleCheatManager::ListWorn()
 {
 	if (const AHearthvaleCharacter* Character = GetHearthvaleCharacter())

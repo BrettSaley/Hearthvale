@@ -229,6 +229,10 @@ public:
 	UFUNCTION(Exec)
 	void MakeAlpha(const FString& Kind);
 
+	/** Batters the nearest build piece by Amount, as raiders would (BatterNear 10). */
+	UFUNCTION(Exec)
+	void BatterNear(int32 Amount = 10);
+
 	/** Lists what's worn and the total defence. */
 	UFUNCTION(Exec)
 	void ListWorn();

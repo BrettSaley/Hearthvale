@@ -33,7 +33,9 @@ enum class EToolType : uint8
 	/** For harvesting crops: optional, but a better one picks much faster. */
 	Sickle,
 	/** For the big fish out at sea (tuna, swordfish, sharks), which no net will hold. */
-	Harpoon
+	Harpoon,
+	/** For mending battered walls and the like: right-click it held near one. */
+	Hammer
 };
 
 UENUM(BlueprintType)
