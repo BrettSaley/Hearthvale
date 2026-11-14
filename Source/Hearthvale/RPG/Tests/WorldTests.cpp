@@ -196,6 +196,13 @@ bool FWarmthTest::RunTest(const FString& Parameters)
 	Swimming.bInWater = true;
 	TestTrue(TEXT("Swimming chills you"), UWarmthComponent::AirTemperature(Swimming) < UWarmthComponent::AirTemperature(Summer));
 
+	FWarmthConditions Wet = Summer;
+	Wet.Wetness = 1.f;
+	TestTrue(TEXT("Wet through, you feel the cold"), UWarmthComponent::AirTemperature(Wet) < UWarmthComponent::AirTemperature(Summer) - 5.f);
+	TestEqual(TEXT("Swimming soaks you"), UWarmthComponent::StepWetness(0.f, 2.f, true, 0.f, 0.f, false, 15.f), 1.f);
+	TestTrue(TEXT("A storm soaks you in about a minute"), UWarmthComponent::StepWetness(0.f, 60.f, false, 1.f, 0.f, false, 10.f) >= 1.f);
+	TestTrue(TEXT("A fire dries you in under a minute"), UWarmthComponent::StepWetness(1.f, 45.f, false, 0.f, 20.f, false, 25.f) <= 0.f);
+	TestTrue(TEXT("The open air dries you slowly"), UWarmthComponent::StepWetness(1.f, 60.f, false, 0.f, 0.f, false, 8.f) > 0.8f);
 	TestEqual(TEXT("No heat from a fire far off"), UWarmthComponent::FireHeatAt(UWarmthComponent::FireReach + 1.f), 0.f);
 	TestTrue(TEXT("Closer is hotter"), UWarmthComponent::FireHeatAt(400.f) > UWarmthComponent::FireHeatAt(700.f));
 

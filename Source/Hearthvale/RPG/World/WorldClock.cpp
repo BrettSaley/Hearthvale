@@ -15,6 +15,7 @@
 #include "HearthvaleCharacter.h"
 #include "Hearthvale.h"
 #include "RPG/FarmPatch.h"
+#include "RPG/Building/BuildPiece.h"
 #include "RPG/World/HungerComponent.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WeatherEffects.h"
@@ -429,7 +430,9 @@ void UWorldClock::GrowCrops(float RealSeconds)
 			Params.AddIgnoredActor(Patch->GetOwner());
 			FHitResult Hit;
 			const FVector From = Patch->GetActorLocation() + FVector(0.f, 0.f, 60.f);
-			Roofed.Add(Patch, GetWorld()->LineTraceSingleByChannel(Hit, From, From + FVector(0.f, 0.f, 1500.f), ECC_Visibility, Params));
+			// Only something built counts as a greenhouse roof: a tree's canopy doesn't.
+			const bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, From, From + FVector(0.f, 0.f, 1500.f), ECC_Visibility, Params);
+			Roofed.Add(Patch, bHit && Cast<ABuildPiece>(Hit.GetActor()) != nullptr);
 		}
 	}
 	for (AFarmPatch* Patch : TActorRange<AFarmPatch>(GetWorld()))
