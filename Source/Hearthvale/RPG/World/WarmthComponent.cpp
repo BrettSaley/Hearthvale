@@ -57,8 +57,9 @@ void UWarmthComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 	UHealthComponent* Health = Character->GetHealth();
 	if (Health && Health->IsDead())
 	{
-		// Whoever comes back starts warm.
+		// Whoever comes back starts warm and dry.
 		SetWarmth(MaxWarmth);
+		Wetness = 0.f;
 		return;
 	}
 	MeasureTimer -= DeltaTime;
@@ -66,6 +67,13 @@ void UWarmthComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 	{
 		MeasureTimer = 0.5f;
 		Measure();
+	}
+	const bool bWasSoaked = Wetness >= 0.6f;
+	Wetness = StepWetness(Wetness, DeltaTime, Conditions.bInWater, RainOnYou, Conditions.FireHeat, Conditions.bIndoors, Temperature);
+	if (!bWasSoaked && Wetness >= 0.6f)
+	{
+		Character->ShowMessage(LOCTEXT("Soaked", "You're soaked through. Dry off by a fire or indoors before the cold gets in."), ChillColor);
+		UE_LOG(LogHearthvale, Log, TEXT("World: soaked (wetness %.2f)."), Wetness);
 	}
 	Warmth = Step(Warmth, Temperature, DeltaTime);
 
@@ -111,8 +119,11 @@ void UWarmthComponent::Measure()
 	UWorld* World = GetWorld();
 	const FVector At = Character->GetActorLocation();
 	Conditions = FWarmthConditions();
+	RainOnYou = 0.f;
 	if (const UWorldClock* Clock = UWorldClock::Get(this))
 	{
+		// Snow doesn't soak you the way rain does.
+		RainOnYou = Clock->IsSnowAt(At) ? 0.f : Clock->GetPrecipitation();
 		Conditions.Season = Clock->GetSeason();
 		Conditions.Weather = Clock->GetWeather();
 		Conditions.bNight = Clock->IsNight();
@@ -158,6 +169,11 @@ void UWarmthComponent::Measure()
 			Conditions.FireHeat = FMath::Max(Conditions.FireHeat, FireHeatAt(Distance));
 		}
 	}
+	if (Conditions.bSheltered)
+	{
+		RainOnYou = 0.f;
+	}
+	Conditions.Wetness = Wetness;
 	Temperature = AirTemperature(Conditions);
 }
 
@@ -197,6 +213,8 @@ float UWarmthComponent::AirTemperature(const FWarmthConditions& In)
 	{
 		Air -= 4.f;
 	}
+	// Wet through, you feel it a good deal more.
+	Air -= 7.f * FMath::Clamp(In.Wetness, 0.f, 1.f);
 	return Air + In.FireHeat;
 }
 
@@ -209,6 +227,39 @@ float UWarmthComponent::Step(float Warmth, float Temperature, float Seconds)
 EWarmthState UWarmthComponent::StateFor(float Warmth)
 {
 	return Warmth <= 0.f ? EWarmthState::Freezing : Warmth < 25.f ? EWarmthState::Cold : Warmth < 60.f ? EWarmthState::Chilly : EWarmthState::Warm;
+}
+
+float UWarmthComponent::StepWetness(float Wet, float Seconds, bool bSwimming, float RainOnYou, float FireHeat, bool bIndoors, float Air)
+{
+	if (bSwimming)
+	{
+		return FMath::Min(1.f, Wet + Seconds);
+	}
+	if (RainOnYou > 0.05f)
+	{
+		// A storm soaks you in about a minute, light rain in a few.
+		return FMath::Min(1.f, Wet + Seconds * RainOnYou / 60.f);
+	}
+	// Drying: ten minutes in the open, a few by a warm room, under a minute by a fire.
+	float Rate = 1.f / 600.f;
+	if (Air > 15.f)
+	{
+		Rate = FMath::Max(Rate, 1.f / 200.f);
+	}
+	if (bIndoors)
+	{
+		Rate = FMath::Max(Rate, 1.f / 150.f);
+	}
+	if (FireHeat > 5.f)
+	{
+		Rate = FMath::Max(Rate, 1.f / 40.f);
+	}
+	return FMath::Max(0.f, Wet - Seconds * Rate);
+}
+
+FString UWarmthComponent::WetnessWord(float Value)
+{
+	return Value >= 0.6f ? TEXT("soaked") : Value >= 0.2f ? TEXT("damp") : TEXT("");
 }
 
 float UWarmthComponent::FireHeatAt(float Distance)

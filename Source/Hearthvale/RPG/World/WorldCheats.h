@@ -60,6 +60,10 @@ public:
 	UFUNCTION(Exec)
 	void SetWarmth(float Value);
 
+	/** How wet the player is, 0 to 1. */
+	UFUNCTION(Exec)
+	void SetWet(float Wetness);
+
 	/** Lights a campfire just ahead, with logs given for it (as using logs does). */
 	UFUNCTION(Exec)
 	void Campfire();

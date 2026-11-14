@@ -126,7 +126,8 @@ void UWorldCheats::Warmth()
 		Say(TEXT("No warmth yet (the clock gives it to the player once they're in the world)."));
 		return;
 	}
-	Say(FString::Printf(TEXT("Warmth %.0f (%s). Air %.0f degrees%s%s."), Component->GetWarmth(), *UWarmthComponent::StateName(Component->GetState()).ToString(),
+	Say(FString::Printf(TEXT("Warmth %.0f (%s), wet %.2f. Air %.0f degrees%s%s."), Component->GetWarmth(), *UWarmthComponent::StateName(Component->GetState()).ToString(),
+		Component->GetWetness(),
 		Component->GetTemperature(), Component->IsIndoors() ? TEXT(", indoors") : Component->IsSheltered() ? TEXT(", sheltered") : TEXT(""),
 		Component->IsNearFire() ? TEXT(", by a fire") : TEXT("")));
 }
@@ -329,5 +330,15 @@ void UWorldCheats::NextWeather(const FString& Weather, float Hours)
 	{
 		Clock->SetNextWeather(static_cast<EWeather>(Value), Hours);
 		WorldClock();
+	}
+}
+
+void UWorldCheats::SetWet(float Wetness)
+{
+	APlayerController* Controller = GetPlayerController();
+	if (UWarmthComponent* Component = Controller ? UWarmthComponent::FindOrAdd(Controller->GetPawn()) : nullptr)
+	{
+		Component->SetWetness(Wetness);
+		Warmth();
 	}
 }

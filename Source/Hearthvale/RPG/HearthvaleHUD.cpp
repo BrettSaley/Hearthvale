@@ -180,8 +180,9 @@ void AHearthvaleHUD::DrawClock()
 		return;
 	}
 	const float Fraction = Warmth->GetWarmth() / UWarmthComponent::MaxWarmth;
-	const FString Label = FString::Printf(TEXT("%s  %d°%s"), *UWarmthComponent::StateName(Warmth->GetState()).ToString(),
-		FMath::RoundToInt(Warmth->GetTemperature()), Warmth->IsNearFire() ? TEXT("  by a fire") : Warmth->IsIndoors() ? TEXT("  indoors") : Warmth->IsSheltered() ? TEXT("  sheltered") : TEXT(""));
+	const FString Wet = UWarmthComponent::WetnessWord(Warmth->GetWetness());
+	const FString Label = FString::Printf(TEXT("%s%s%s  %d°%s"), *UWarmthComponent::StateName(Warmth->GetState()).ToString(),
+		Wet.IsEmpty() ? TEXT("") : TEXT(", "), *Wet, FMath::RoundToInt(Warmth->GetTemperature()), Warmth->IsNearFire() ? TEXT("  by a fire") : Warmth->IsIndoors() ? TEXT("  indoors") : Warmth->IsSheltered() ? TEXT("  sheltered") : TEXT(""));
 	float LabelWidth, LabelHeight;
 	GetTextSize(Label, LabelWidth, LabelHeight, Font);
 	const float BarWidth = 120.f;
