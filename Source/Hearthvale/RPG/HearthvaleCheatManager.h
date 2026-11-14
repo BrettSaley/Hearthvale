@@ -329,6 +329,10 @@ public:
 	UFUNCTION(Exec)
 	void Furnish();
 
+	/** Makes every settler hungry now (for testing their leaving). */
+	UFUNCTION(Exec)
+	void StarveSettlers();
+
 	/** Walks up to a villager (TalkVillager Bryn; the nearest if none) and talks to them. */
 	UFUNCTION(Exec)
 	void TalkVillager(const FString& Name = TEXT(""));

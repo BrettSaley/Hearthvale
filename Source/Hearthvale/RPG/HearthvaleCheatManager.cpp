@@ -1365,9 +1365,9 @@ void UHearthvaleCheatManager::ListSettlers()
 				}
 			}
 		}
-		Say(FString::Printf(TEXT("%s at (%.0f, %.0f): %s, comfort %d, made %d. Chest: %s"), *Settler->GetFullName().ToString(),
+		Say(FString::Printf(TEXT("%s at (%.0f, %.0f): %s, comfort %d, hungry days %d, made %d. Chest: %s"), *Settler->GetFullName().ToString(),
 			Settler->GetActorLocation().X, Settler->GetActorLocation().Y, Troubles[static_cast<int32>(Settler->GetTrouble())],
-			Settler->GetComfort(), Settler->GetMade(), *Chest));
+			Settler->GetComfort(), Settler->GetHungryDays(), Settler->GetMade(), *Chest));
 	}
 }
 
@@ -1569,4 +1569,13 @@ void UHearthvaleCheatManager::Town()
 		Say(FString::Printf(TEXT("%s, rank %d (announced %d)."), *TownState->Describe().ToString(), TownState->GetRank(),
 			TownState->GetAnnouncedRank()));
 	}
+}
+
+void UHearthvaleCheatManager::StarveSettlers()
+{
+	for (ASettler* Settler : TActorRange<ASettler>(GetWorld()))
+	{
+		Settler->Starve();
+	}
+	ListSettlers();
 }

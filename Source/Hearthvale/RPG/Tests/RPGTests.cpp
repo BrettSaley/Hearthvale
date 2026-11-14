@@ -646,6 +646,12 @@ bool FSettlersTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Bare is normal speed"), ASettler::ComfortSpeed(0), 1.f);
 	TestEqual(TEXT("Homely is twice the speed"), ASettler::ComfortSpeed(ASettler::MaxComfort), 2.f);
 	TestEqual(TEXT("No more than homely"), ASettler::ComfortSpeed(99), 2.f);
+
+	// Hunger: a fed day clears the count, hungry days add up, and enough of them and they go.
+	TestEqual(TEXT("A hungry day"), ASettler::NextHungryDays(0, false), 1);
+	TestEqual(TEXT("Another"), ASettler::NextHungryDays(1, false), 2);
+	TestEqual(TEXT("Fed again"), ASettler::NextHungryDays(1, true), 0);
+	TestTrue(TEXT("One hungry day is only a warning"), ASettler::HungryDaysToLeave > 1);
 	int32 Homely = 0;
 	for (const UBuildPieceDefinition* Piece : UBuildPieceDefinition::GetAllPieces())
 	{
