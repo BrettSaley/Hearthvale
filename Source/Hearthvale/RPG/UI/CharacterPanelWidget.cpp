@@ -569,6 +569,11 @@ UWidget* UCharacterPanelWidget::MakeItemTooltip(const FItemStack& Stack)
 	{
 		AddTooltipLine(Lines, Item->Examine, HearthvaleUI::MutedColor);
 	}
+	if (Item->IsBandage())
+	{
+		AddTooltipLine(Lines, FText::Format(LOCTEXT("BandageLine", "Stops bleeding and heals {0} (right-click held, or the menu)"), Item->BandageHeal),
+			HearthvaleUI::GoodColor);
+	}
 	if (Item->IsFood())
 	{
 		AddTooltipLine(Lines, FText::Format(LOCTEXT("Heals", "Heals {0}"), Item->HealAmount), HearthvaleUI::GoodColor);
@@ -688,6 +693,16 @@ void UCharacterPanelWidget::OpenItemMenu(int32 SlotIndex, FVector2D ScreenPositi
 			if (WeakCharacter.IsValid())
 			{
 				WeakCharacter->GetEquipment()->Equip(SlotIndex);
+			}
+		});
+	}
+	if (Stack.Item->IsBandage())
+	{
+		AddMenuOption(LOCTEXT("BandageOption", "Bind wounds"), [WeakCharacter, SlotIndex]
+		{
+			if (WeakCharacter.IsValid())
+			{
+				WeakCharacter->UseBandage(SlotIndex);
 			}
 		});
 	}

@@ -561,6 +561,27 @@ void UHearthvaleCheatManager::ListTraps()
 	Say(Lines.IsEmpty() ? TEXT("No traps.") : FString::Join(Lines, TEXT("; ")));
 }
 
+void UHearthvaleCheatManager::Bleed(int32 Ticks)
+{
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		Character->GetHealth()->StartBleeding(Ticks);
+		Say(FString::Printf(TEXT("Bleeding %d; health %d / %d"), Character->GetHealth()->GetBleedLeft(), Character->GetHealth()->GetHealth(),
+			Character->GetHealth()->GetMaxHealth()));
+	}
+}
+
+void UHearthvaleCheatManager::UseSlot(int32 Slot)
+{
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		Character->SelectHotbarSlot(Slot);
+		Character->DoUseItem();
+		Say(FString::Printf(TEXT("Health %d / %d; bleeding %d"), Character->GetHealth()->GetHealth(), Character->GetHealth()->GetMaxHealth(),
+			Character->GetHealth()->GetBleedLeft()));
+	}
+}
+
 void UHearthvaleCheatManager::ListWorn()
 {
 	if (const AHearthvaleCharacter* Character = GetHearthvaleCharacter())

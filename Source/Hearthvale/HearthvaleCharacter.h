@@ -222,6 +222,10 @@ public:
 
 	FORCEINLINE UEquipmentComponent* GetEquipment() const { return Equipment; }
 
+	/** Binds a wound with the bandage in an inventory slot: stops bleeding and heals a little; false (with a message) if there's no need. */
+	UFUNCTION(BlueprintCallable, Category="RPG")
+	bool UseBandage(int32 SlotIndex);
+
 	/** Eats the food in an inventory slot, healing; false (with a message) if it can't. */
 	UFUNCTION(BlueprintCallable, Category="RPG")
 	bool Eat(int32 SlotIndex);

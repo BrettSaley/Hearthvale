@@ -44,6 +44,29 @@ int32 UHealthComponent::ThroughArmour(int32 Softened, int32 Defence, float Roll)
 	return Whole + (Roll < After - Whole ? 1 : 0);
 }
 
+float UHealthComponent::BleedChance(float BaseChance, int32 Defence)
+{
+	return FMath::Clamp(BaseChance, 0.f, 1.f) * UEquipmentComponent::ArmourFactor(Defence);
+}
+
+void UHealthComponent::StartBleeding(int32 Ticks)
+{
+	if (IsDead() || Ticks <= 0)
+	{
+		return;
+	}
+	if (!IsBleeding())
+	{
+		BleedTimer = 0.f;
+		if (const AHearthvaleCharacter* Character = Cast<AHearthvaleCharacter>(GetOwner()))
+		{
+			Character->ShowMessage(NSLOCTEXT("Health", "Bleeding", "You're bleeding! Bind the wound with a bandage."), FLinearColor(1.f, 0.3f, 0.3f));
+		}
+	}
+	BleedLeft += Ticks;
+	UE_LOG(LogTemp, Log, TEXT("Health: bleeding, %d to go."), BleedLeft);
+}
+
 float UHealthComponent::RegenSeconds(int32 VitalityLevel)
 {
 	// A point every 6 s at first, every 2 s at 99.
@@ -133,7 +156,40 @@ void UHealthComponent::SetHealth(int32 NewHealth)
 void UHealthComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	Advance(DeltaTime);
+}
+
+void UHealthComponent::Advance(float DeltaTime)
+{
 	SinceHurt += DeltaTime;
+	// An open wound bleeds a point at a time, and no wound mends while it does.
+	if (IsBleeding() && !IsDead())
+	{
+		BleedTimer += DeltaTime;
+		if (BleedTimer >= BleedSeconds)
+		{
+			// (Each point lost counts as being hurt, so resting doesn't heal in between.)
+			SinceHurt = 0.f;
+			BleedTimer = 0.f;
+			--BleedLeft;
+			Health = GetHealth() - 1;
+			OnHealthChanged.Broadcast(Health, -1);
+			UE_LOG(LogTemp, Log, TEXT("Health: bled a point (%d left, %d to go)."), Health, BleedLeft);
+			if (Health <= 0)
+			{
+				StopBleeding();
+				OnDied.Broadcast(NSLOCTEXT("Health", "ByBleeding", "bleeding"));
+				return;
+			}
+			if (!IsBleeding())
+			{
+				if (const AHearthvaleCharacter* Character = Cast<AHearthvaleCharacter>(GetOwner()))
+				{
+					Character->ShowMessage(NSLOCTEXT("Health", "Clotted", "The bleeding stops."));
+				}
+			}
+		}
+	}
 	// Out of harm's way for a while, wounds slowly mend.
 	if (IsDead() || SinceHurt < RestAfter || GetHealth() >= GetMaxHealth())
 	{

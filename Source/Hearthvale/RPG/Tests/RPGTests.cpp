@@ -1146,6 +1146,39 @@ bool FArmourTiersTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBleedingTest, "Hearthvale.Bleeding", TestFlags)
+
+bool FBleedingTest::RunTest(const FString& Parameters)
+{
+	// Armour makes a wound less likely.
+	TestEqual(TEXT("Bare, the base chance"), UHealthComponent::BleedChance(0.5f, 0), 0.5f);
+	TestEqual(TEXT("At 40 defence, half as likely"), UHealthComponent::BleedChance(0.5f, 40), 0.25f);
+
+	// A wound bleeds a point every few seconds, then stops; binding or dying stops it sooner.
+	UHealthComponent* Health = NewObject<UHealthComponent>();
+	Health->StartBleeding(3);
+	TestTrue(TEXT("Bleeding"), Health->IsBleeding());
+	for (int32 Tick = 0; Tick < 3; ++Tick)
+	{
+		Health->Advance(UHealthComponent::BleedSeconds + 0.01f);
+	}
+	TestEqual(TEXT("Three points bled away"), Health->GetHealth(), Health->GetMaxHealth() - 3);
+	TestFalse(TEXT("...and it stops"), Health->IsBleeding());
+	Health->StartBleeding(20);
+	Health->Restore();
+	TestFalse(TEXT("Waking up stops it"), Health->IsBleeding());
+	Health->StartBleeding(2);
+	Health->StartBleeding(2);
+	TestEqual(TEXT("Fresh wounds add up"), Health->GetBleedLeft(), 4);
+
+	// Bandages are made from wool and aren't food.
+	const UItemDefinition* Bandage = UItemDefinition::FindItem(TEXT("Bandage"));
+	TestTrue(TEXT("A bandage binds wounds"), Bandage && Bandage->IsBandage() && !Bandage->IsFood() && Bandage->bStackable);
+	const URecipeDefinition* Make = LoadObject<URecipeDefinition>(nullptr, TEXT("/Game/Crafting/Recipes/MakeBandages.MakeBandages"));
+	TestTrue(TEXT("Bandages are rolled at a workbench"), Make && Make->Output == Bandage && Make->Station == ECraftStation::Workbench);
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWildlifeTest, "Hearthvale.Wildlife", TestFlags)
 
 bool FWildlifeTest::RunTest(const FString& Parameters)

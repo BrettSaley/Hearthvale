@@ -160,6 +160,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Food", meta = (ClampMin = 0))
 	int32 HealAmount = 0;
 
+	/** A bandage: binding a wound with it stops bleeding and heals this much; 0 for anything else. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Food", meta = (ClampMin = 0))
+	int32 BandageHeal = 0;
+
 	/** Seconds a fire lit from this burns; 0 if it won't light (logs only). */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Firemaking", meta = (ClampMin = 0))
 	float BurnSeconds = 0.f;
@@ -182,6 +186,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Items")
 	bool IsSeed() const { return Crop != nullptr; }
+
+	UFUNCTION(BlueprintPure, Category = "Items")
+	bool IsBandage() const { return BandageHeal > 0; }
 
 	UFUNCTION(BlueprintPure, Category = "Items")
 	bool CanLightFire() const { return BurnSeconds > 0.f; }

@@ -8,6 +8,7 @@
 #include "RPG/GatheringComponent.h"
 #include "RPG/GroundItem.h"
 #include "RPG/HealthComponent.h"
+#include "RPG/EquipmentComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "Materials/MaterialInterface.h"
 #include "RPG/World/WorldClock.h"
@@ -759,6 +760,13 @@ void AWildlifeHerd::Strike(FAnimal& Animal)
 		Player->ShowMessage(LOCTEXT("ArmourHeld", "Your armour takes the blow."), FLinearColor(0.75f, 0.8f, 0.9f));
 	}
 	UE_LOG(LogTemp, Log, TEXT("Wildlife: a %s struck the player for %d."), *UEnum::GetValueAsString(Kind), Taken);
+	// Claws and teeth can open a wound that bleeds; armour makes it less likely.
+	const float BaseBleed = Kind == EWildlifeKind::Bear ? 0.5f : Kind == EWildlifeKind::Wolf ? 0.35f : 0.2f;
+	const int32 BleedTicks = Kind == EWildlifeKind::Bear ? 6 : Kind == EWildlifeKind::Wolf ? 4 : 3;
+	if (Taken > 0 && Random.FRand() < UHealthComponent::BleedChance(BaseBleed, Player->GetEquipment()->GetDefence()))
+	{
+		Player->GetHealth()->StartBleeding(BleedTicks);
+	}
 }
 
 void AWildlifeHerd::Tick(float DeltaSeconds)
