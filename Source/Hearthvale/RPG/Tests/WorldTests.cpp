@@ -5,6 +5,7 @@
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/HearthvaleSaveGame.h"
+#include "RPG/World/Cave.h"
 #include "RPG/World/FallenStar.h"
 #include "RPG/World/ForageNode.h"
 #include "RPG/World/HungerComponent.h"
@@ -411,6 +412,32 @@ bool FFallenStarTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("With a pickaxe"), Rock->Tool, EToolType::Pickaxe);
 		TestTrue(TEXT("For something valuable"), Rock->Item && Rock->Item->Value >= 200);
 	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCavesTest, "Hearthvale.World.Caves", WorldTestFlags)
+bool FCavesTest::RunTest(const FString& Parameters)
+{
+	const TArray<FCaveSpot>& Caves = ACave::PlanCaves();
+	TestEqual(TEXT("Five caves"), Caves.Num(), 5);
+	const FVector Start = UWorldGenerator::GetStartLocation();
+	int32 Highland = 0;
+	for (const FCaveSpot& Cave : Caves)
+	{
+		Highland += Cave.Biome == EBiome::Highlands ? 1 : 0;
+		TestTrue(TEXT("Away from the start"), FVector::Dist2D(Cave.Location, Start) >= 30000.f);
+		TestTrue(TEXT("On dry land"), UWorldGenerator::GetGroundHeight(Cave.Location.X, Cave.Location.Y) > 200.f);
+		TestFalse(TEXT("Named"), Cave.Name.IsEmpty());
+		// Its mouth faces downhill.
+		const FVector Out = Cave.Location + FRotator(0.f, Cave.Yaw, 0.f).Vector() * 600.f;
+		TestTrue(TEXT("The mouth faces downhill"), UWorldGenerator::GetGroundHeight(Out.X, Out.Y) <= Cave.Location.Z + 50.f);
+		for (const FCacheSpot& Ruin : ALostCache::PlanCaches())
+		{
+			TestTrue(TEXT("Not on top of a ruin"), FVector::Dist2D(Ruin.Location, Cave.Location) >= 6000.f);
+		}
+	}
+	TestEqual(TEXT("Three in the Highlands"), Highland, 3);
+	TestTrue(TEXT("The hoards are numbered after the ruins"), ACave::FirstHoardIndex > ALostCache::PlanCaches().Num());
 	return true;
 }
 

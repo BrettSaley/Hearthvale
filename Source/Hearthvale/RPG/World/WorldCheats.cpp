@@ -4,6 +4,7 @@
 #include "HearthvaleCharacter.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
+#include "RPG/World/Cave.h"
 #include "RPG/World/FallenStar.h"
 #include "RPG/World/HungerComponent.h"
 #include "RPG/CropDefinition.h"
@@ -348,4 +349,40 @@ void UWorldCheats::Starfall(float Near)
 {
 	static FRandomStream Random(FPlatformTime::Cycles());
 	Say(AFallenStar::Fall(GetWorld(), Random, Near) ? TEXT("A star is falling.") : TEXT("Nowhere for a star to land."));
+}
+
+void UWorldCheats::ListCaves()
+{
+	APlayerController* Controller = GetPlayerController();
+	const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+	int32 Index = 0;
+	for (const ACave* Cave : TActorRange<ACave>(GetWorld()))
+	{
+		Say(FString::Printf(TEXT("%d: %s, %.0f m off."), Index++, *Cave->GetCaveName().ToString(),
+			Pawn ? FVector::Dist2D(Pawn->GetActorLocation(), Cave->GetActorLocation()) / 100.f : 0.f));
+	}
+	if (Index == 0)
+	{
+		Say(TEXT("No caves in this world (they're only on the island)."));
+	}
+}
+
+void UWorldCheats::GoToCave(int32 Index)
+{
+	APlayerController* Controller = GetPlayerController();
+	APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+	int32 Each = 0;
+	for (const ACave* Cave : TActorRange<ACave>(GetWorld()))
+	{
+		if (Pawn && Each++ == Index)
+		{
+			const FVector Mouth = Cave->GetMouth();
+			const FRotator In(0.f, Cave->GetActorRotation().Yaw + 180.f, 0.f);
+			Pawn->TeleportTo(Mouth + FVector(0.f, 0.f, 120.f), In);
+			Controller->SetControlRotation(FRotator(-10.f, In.Yaw, 0.f));
+			Say(FString::Printf(TEXT("At the mouth of %s."), *Cave->GetCaveName().ToString()));
+			return;
+		}
+	}
+	Say(TEXT("No such cave. Try ListCaves."));
 }
