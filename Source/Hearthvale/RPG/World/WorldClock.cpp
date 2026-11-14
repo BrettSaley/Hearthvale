@@ -16,6 +16,7 @@
 #include "Hearthvale.h"
 #include "RPG/FarmPatch.h"
 #include "RPG/Building/BuildPiece.h"
+#include "RPG/World/FallenStar.h"
 #include "RPG/World/HungerComponent.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WeatherEffects.h"
@@ -165,6 +166,21 @@ void UWorldClock::AdvanceHours(float Hours)
 	if (WeatherHoursLeft <= 0.f)
 	{
 		RollWeather();
+	}
+	// Each clear night hour, a chance of a falling star (not while skipping ahead).
+	const int32 WholeHour = Day * 24 + FMath::FloorToInt(Hour);
+	// A jump (sleeping, a cheat) doesn't make up for the hours it skipped.
+	if (StarHour < 0 || bJumping || WholeHour - StarHour > 2 || WholeHour < StarHour)
+	{
+		StarHour = WholeHour;
+	}
+	while (StarHour < WholeHour)
+	{
+		++StarHour;
+		if (IsNight() && Weather == EWeather::Clear && GetWorld() && GetWorld()->HasBegunPlay())
+		{
+			AFallenStar::MaybeFall(GetWorld(), Random);
+		}
 	}
 }
 
