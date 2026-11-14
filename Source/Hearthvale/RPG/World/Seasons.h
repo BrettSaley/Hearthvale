@@ -48,6 +48,10 @@ struct FSavedWorldClock
 	UPROPERTY()
 	float WeatherHoursLeft = 4.f;
 
+	/** What it turns to (Clear in older saves). */
+	UPROPERTY()
+	EWeather NextWeather = EWeather::Clear;
+
 	/** How much snow lies on the ground, 0 to 1; negative (older saves) means as the season has it. */
 	UPROPERTY()
 	float SnowCover = -1.f;

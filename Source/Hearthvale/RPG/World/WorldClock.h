@@ -51,6 +51,9 @@ public:
 	/** 1 to DaysPerSeason. */
 	int32 GetDayOfSeason() const { return Day % DaysPerSeason + 1; }
 	EWeather GetWeather() const { return Weather; }
+	/** What the weather turns to next (the signs give it away about an hour before). */
+	EWeather GetNextWeather() const { return NextWeather; }
+	float GetWeatherHoursLeft() const { return WeatherHoursLeft; }
 	bool IsNight() const { return IsNightAt(Day, Hour); }
 	/** How hard it's raining or snowing, 0 to 1 (it eases in and out). */
 	float GetPrecipitation() const { return Precipitation; }
@@ -76,6 +79,8 @@ public:
 	void SetSeason(ESeason Season);
 	/** Sets the weather now, for this many game hours (it shows straight away). */
 	void SetWeather(EWeather NewWeather, float Hours = 4.f);
+	/** What the weather turns to next, and in how many game hours (for testing the signs). */
+	void SetNextWeather(EWeather Coming, float InHours) { NextWeather = Coming; WeatherHoursLeft = FMath::Max(0.1f, InHours); bSignShown = false; }
 	/** Time runs this many times as fast (for testing). */
 	void SetTimeScale(float Scale) { TimeScale = FMath::Max(0.f, Scale); }
 	/** Sleeps until just after sunrise; false if it isn't night (or evening). */
@@ -123,6 +128,10 @@ public:
 	/** The sky has two settings per weather: how much falls, how cloudy it is. */
 	static float TargetPrecipitation(EWeather Weather);
 	static float TargetOvercast(EWeather Weather);
+	/** How thick the morning mist is, 0 to 1: around sunrise on still, dry mornings, most in spring and autumn. */
+	static float MistAmount(int32 Day, float Hour, EWeather Weather);
+	/** The warning before rain, a storm or snow, or empty for weather that needs none. */
+	static FText SignOf(EWeather Coming, ESeason Season);
 	/** Snow cover after Hours: it settles fast while snowing in winter, slowly with frost on other winter days, and melts out of winter. */
 	static float StepSnowCover(float Cover, ESeason Season, EWeather Weather, float Hours);
 
@@ -139,7 +148,10 @@ private:
 	int32 Day = 0;
 	float Hour = StartHour;
 	EWeather Weather = EWeather::Clear;
+	EWeather NextWeather = EWeather::Clear;
 	float WeatherHoursLeft = 4.f;
+	/** Whether the signs of the coming weather have shown yet. */
+	bool bSignShown = false;
 	float Precipitation = 0.f;
 	float Overcast = 0.f;
 	float SnowCover = 0.f;

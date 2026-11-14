@@ -14,6 +14,7 @@
  *   ListCaches                 GoToCache 3              SearchCache
  *   Waypoint                   ToggleMap
  *   Hunger                     SetHunger 20
+ *   ListCrops                  BuildHut (a closed hut round you)
  */
 UCLASS()
 class HEARTHVALE_API UWorldCheats : public UCheatManagerExtension
@@ -37,6 +38,10 @@ public:
 
 	UFUNCTION(Exec)
 	void TimeScale(float Scale);
+
+	/** What the weather turns to next, in so many game hours (NextWeather Storm 1.5): its signs show about an hour before. */
+	UFUNCTION(Exec)
+	void NextWeather(const FString& Weather, float Hours = 1.5f);
 
 	UFUNCTION(Exec)
 	void SkipDays(int32 Days = 1);
@@ -62,6 +67,14 @@ public:
 	/** Logs every planted plot: its crop, whether it's under a roof, how fast it's growing and how long it has left. */
 	UFUNCTION(Exec)
 	void ListCrops();
+
+	/**
+	 * Builds a closed 2x2-cell wooden hut round the player (eight walls, four roofs, a workbench outside
+	 * first), with logs given for it: for checking indoors warmth and greenhouses. Stand at a farm patch
+	 * (GoTo FarmPatch) to roof it over.
+	 */
+	UFUNCTION(Exec)
+	void BuildHut();
 
 	/** Logs how full the player is. */
 	UFUNCTION(Exec)

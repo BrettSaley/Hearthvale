@@ -42,11 +42,12 @@ void UWorldCheats::WorldClock()
 		{
 			Effects = Each;
 		}
-		Say(FString::Printf(TEXT("%s (day %d). Sun %.0f deg up, rises %.1f, sets %.1f%s. Falling %.2f (%d %s%s), cloud %.2f. Snow %.2f. Crops grow x%.2f, fishing %+.2f."),
+		Say(FString::Printf(TEXT("%s (day %d). Sun %.0f deg up, rises %.1f, sets %.1f%s. Falling %.2f (%d %s%s), cloud %.2f. Snow %.2f. Crops grow x%.2f, fishing %+.2f. Next: %s in %.1f h."),
 			*Clock->Describe().ToString(), Clock->GetDay() + 1, UWorldClock::SunElevation(Clock->GetDay(), Clock->GetHour()),
 			UWorldClock::SunriseHour(Clock->GetDay()), UWorldClock::SunsetHour(Clock->GetDay()), Clock->IsNight() ? TEXT(", night") : TEXT(""),
 			Clock->GetPrecipitation(), Effects ? Effects->GetFallingCount() : 0, Effects && Effects->IsShowingSnow() ? TEXT("flakes") : TEXT("drops"),
-			Effects && Effects->IsSheltered() ? TEXT(", sheltered") : TEXT(""), Clock->GetOvercast(), Clock->GetSnowCover(), Clock->GetCropGrowthRate(), Clock->GetFishingShift()));
+			Effects && Effects->IsSheltered() ? TEXT(", sheltered") : TEXT(""), Clock->GetOvercast(), Clock->GetSnowCover(), Clock->GetCropGrowthRate(), Clock->GetFishingShift(),
+			*UWorldClock::WeatherName(UWorldClock::AdjustForSeason(Clock->GetNextWeather(), Clock->GetSeason())).ToString(), Clock->GetWeatherHoursLeft()));
 	}
 }
 
@@ -292,5 +293,41 @@ void UWorldCheats::ListCrops()
 	if (Count == 0)
 	{
 		Say(TEXT("Nothing planted."));
+	}
+}
+
+void UWorldCheats::BuildHut()
+{
+	APlayerController* Controller = GetPlayerController();
+	if (!Controller)
+	{
+		return;
+	}
+	// The recipe that works on the flat by the camp: the walls on the edges of the 2x2 cells round you, then
+	// roofs aimed down at the wall tops so they sit on them (aimed at the ground, they'd land on you).
+	static const TCHAR* Steps[] = {
+		TEXT("GiveItem Logs 40"), TEXT("BuildAt Workbench 500 0 0"),
+		TEXT("BuildAt WoodWall -100 -200 0"), TEXT("BuildAt WoodWall 100 -200 0"), TEXT("BuildAt WoodWall -100 200 0"), TEXT("BuildAt WoodWall 100 200 0"),
+		TEXT("BuildAt WoodWall -200 -100 1"), TEXT("BuildAt WoodWall -200 100 1"), TEXT("BuildAt WoodWall 200 -100 1"), TEXT("BuildAt WoodWall 200 100 1"),
+		TEXT("BuildAt WoodRoof -100 -195 0"), TEXT("BuildAt WoodRoof 100 -195 0"), TEXT("BuildAt WoodRoof -100 195 0"), TEXT("BuildAt WoodRoof 100 195 0")};
+	for (const TCHAR* Step : Steps)
+	{
+		Controller->ConsoleCommand(Step);
+	}
+	Say(TEXT("Built a hut round you (see the BuildAt lines above for any piece that didn't fit)."));
+}
+
+void UWorldCheats::NextWeather(const FString& Weather, float Hours)
+{
+	const int64 Value = StaticEnum<EWeather>()->GetValueByNameString(Weather);
+	if (Value == INDEX_NONE)
+	{
+		Say(TEXT("Weathers: Clear, Cloudy, Rain, Storm, Snow."));
+		return;
+	}
+	if (UWorldClock* Clock = GetClock())
+	{
+		Clock->SetNextWeather(static_cast<EWeather>(Value), Hours);
+		WorldClock();
 	}
 }
