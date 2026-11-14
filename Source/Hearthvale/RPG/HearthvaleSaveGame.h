@@ -178,6 +178,10 @@ public:
 	UPROPERTY()
 	TMap<FString, FSavedCompanion> Companions;
 
+	/** The highest rank the town's been announced at. */
+	UPROPERTY()
+	int32 TownRank = 0;
+
 	/** Write a character's progress (and the farm patches in their world) to disk. */
 	static bool SaveProgress(const AHearthvaleCharacter* Character);
 

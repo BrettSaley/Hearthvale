@@ -2,6 +2,7 @@
 #include "RPG/AnimalDefinition.h"
 #include "RPG/Durability.h"
 #include "RPG/InventoryComponent.h"
+#include "RPG/Town/TownSubsystem.h"
 
 int32 UTraderDefinition::GetBuyPrice(const FTraderStock& Line) const
 {
@@ -113,13 +114,22 @@ UItemDefinition* UTraderDefinition::GetWanted(int32 Day) const
 
 int32 UTraderDefinition::GetSellPriceOn(const UItemDefinition* Item, int32 Wear, int32 Day) const
 {
-	const int32 Usual = GetSellPrice(Item, Wear);
-	if (Usual <= 0 || !Item || Item != GetWanted(Day))
+	int32 Price = GetSellPrice(Item, Wear);
+	if (Price <= 0 || !Item)
 	{
-		return Usual;
+		return Price;
 	}
 	const float Condition = Wear > 0 ? FDurability::Condition(Item, Wear) : 1.f;
-	return FMath::Max(Usual, FMath::FloorToInt(Item->Value * WantedMultiplier * Condition));
+	// Market day: the traders who live here pay more.
+	if (VisitEvery <= 0 && UTownSubsystem::IsMarketDay(Day))
+	{
+		Price = FMath::Max(Price, FMath::FloorToInt(Item->Value * UTownSubsystem::MarketSellShare * Condition));
+	}
+	if (Item == GetWanted(Day))
+	{
+		Price = FMath::Max(Price, FMath::FloorToInt(Item->Value * WantedMultiplier * Condition));
+	}
+	return Price;
 }
 
 int32 UTraderDefinition::SellItems(UInventoryComponent* Inventory, UItemDefinition* Item, int32 Count, int32 PriceEach) const

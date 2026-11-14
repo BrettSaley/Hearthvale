@@ -7,6 +7,7 @@
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
 #include "RPG/UI/HearthvaleUIStyle.h"
+#include "RPG/Town/TownSubsystem.h"
 
 #define LOCTEXT_NAMESPACE "RequestBoard"
 
@@ -147,14 +148,15 @@ bool ARequestBoard::Deliver(AHearthvaleCharacter* Character, int32 Spot)
 	const FTownRequest Request = *Posted;
 	UInventoryComponent* Inventory = Character->GetInventory();
 	const int32 Have = Inventory->CountItem(Request.Item);
-	if (!State.Deliver(*Definition, Spot, Inventory, Character->GetSkills()))
+	const float Bonus = UTownSubsystem::IsMarketDayIn(this) ? UTownSubsystem::MarketRequestBonus : 1.f;
+	if (!State.Deliver(*Definition, Spot, Inventory, Character->GetSkills(), Bonus))
 	{
 		Character->ShowMessage(Have < Request.Quantity
 			? FText::Format(LOCTEXT("Short", "You need {0} {1} for that ({2} more)."), Request.Quantity, Request.Item->DisplayName.ToLower(), Request.Quantity - Have)
 			: LOCTEXT("NoRoom", "There's no room in your backpack for the coins."), HearthvaleUI::BadColor);
 		return false;
 	}
-	FText Reward = FText::Format(LOCTEXT("Coins", "{0} coins"), Request.Coins);
+	FText Reward = FText::Format(LOCTEXT("Coins", "{0} coins"), FMath::RoundToInt(Request.Coins * Bonus));
 	if (Request.Skill != ESkill::Count && Request.XP > 0)
 	{
 		Reward = FText::Format(LOCTEXT("CoinsXP", "{0} and {1} {2} XP"), Reward, Request.XP, USkillLibrary::GetSkillName(Request.Skill));

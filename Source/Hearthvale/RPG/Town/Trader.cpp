@@ -8,6 +8,7 @@
 #include "RPG/AnimalDefinition.h"
 #include "RPG/Durability.h"
 #include "RPG/World/WorldClock.h"
+#include "RPG/Town/TownSubsystem.h"
 #include "RPG/FarmAnimal.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/Town/TraderDefinition.h"
@@ -255,6 +256,12 @@ int32 ATrader::Buy(AHearthvaleCharacter* Character, int32 StockIndex, int32 Coun
 	}
 	const FTraderStock& Line = Definition->Stock[StockIndex];
 	const int32 Price = Definition->GetBuyPrice(Line);
+	if (Line.MinRank > UTownSubsystem::GetRankIn(this))
+	{
+		Say(Character, FText::Format(LOCTEXT("NotYet", "Once Hearthvale's a {1}, I'll stock {0}."),
+			UTraderDefinition::GetStockName(Line).ToLower(), UTownSubsystem::RankName(Line.MinRank)));
+		return 0;
+	}
 	const int32 Left = GetLeft(StockIndex);
 	if (Left <= 0)
 	{

@@ -21,6 +21,7 @@
 #include "RPG/Town/Villager.h"
 #include "RPG/Town/QuestSubsystem.h"
 #include "RPG/Town/Companion.h"
+#include "RPG/Town/TownSubsystem.h"
 #include "RPG/Town/Trader.h"
 #include "RPG/UI/RequestBoardWidget.h"
 #include "RPG/Town/TraderDefinition.h"
@@ -1127,6 +1128,11 @@ void UHearthvaleCheatManager::Trade(const FString& Name)
 		{
 			continue;
 		}
+		// A travelling trader who isn't in town: only if asked for by name.
+		if (Name.IsEmpty() && !Trader->IsHere())
+		{
+			continue;
+		}
 		if (Character && (!Nearest || FVector::Dist(Trader->GetActorLocation(), Character->GetActorLocation())
 			< FVector::Dist(Nearest->GetActorLocation(), Character->GetActorLocation())))
 		{
@@ -1359,9 +1365,9 @@ void UHearthvaleCheatManager::ListSettlers()
 				}
 			}
 		}
-		Say(FString::Printf(TEXT("%s at (%.0f, %.0f): %s, comfort %d, made %d. Chest: %s"), *Settler->GetFullName().ToString(),
+		Say(FString::Printf(TEXT("%s at (%.0f, %.0f): %s, comfort %d, hungry days %d, made %d. Chest: %s"), *Settler->GetFullName().ToString(),
 			Settler->GetActorLocation().X, Settler->GetActorLocation().Y, Troubles[static_cast<int32>(Settler->GetTrouble())],
-			Settler->GetComfort(), Settler->GetMade(), *Chest));
+			Settler->GetComfort(), Settler->GetHungryDays(), Settler->GetMade(), *Chest));
 	}
 }
 
@@ -1553,5 +1559,23 @@ void UHearthvaleCheatManager::Furnish()
 		++Furnished;
 	}
 	Say(FString::Printf(TEXT("Furnished %d house(s)."), Furnished));
+	ListSettlers();
+}
+
+void UHearthvaleCheatManager::Town()
+{
+	if (const UTownSubsystem* TownState = GetWorld()->GetSubsystem<UTownSubsystem>())
+	{
+		Say(FString::Printf(TEXT("%s, rank %d (announced %d)."), *TownState->Describe().ToString(), TownState->GetRank(),
+			TownState->GetAnnouncedRank()));
+	}
+}
+
+void UHearthvaleCheatManager::StarveSettlers()
+{
+	for (ASettler* Settler : TActorRange<ASettler>(GetWorld()))
+	{
+		Settler->Starve();
+	}
 	ListSettlers();
 }
