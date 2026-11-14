@@ -59,6 +59,10 @@ public:
 	UFUNCTION(Exec)
 	void Campfire();
 
+	/** Logs every planted plot: its crop, whether it's under a roof, how fast it's growing and how long it has left. */
+	UFUNCTION(Exec)
+	void ListCrops();
+
 	/** Logs how full the player is. */
 	UFUNCTION(Exec)
 	void Hunger();

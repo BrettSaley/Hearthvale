@@ -102,6 +102,10 @@ bool FSeasonEffectsTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Crops grow fastest in spring"), Spring > Summer);
 	TestTrue(TEXT("And barely in winter"), Winter < 0.5f && Winter > 0.f);
 	TestTrue(TEXT("Rain waters them"), UWorldClock::CropGrowthRate(ESeason::Summer, EWeather::Rain) > Summer);
+	TestEqual(TEXT("A greenhouse grows all winter"), UWorldClock::PlotGrowthRate(ESeason::Winter, EWeather::Snow, 1.f, true, 1.f), 1.f);
+	TestTrue(TEXT("Snow on an open plot nearly stops it"), UWorldClock::PlotGrowthRate(ESeason::Winter, EWeather::Snow, 1.f, false, 1.f) < 0.15f);
+	TestTrue(TEXT("Rain doesn't reach under a roof"),
+		UWorldClock::PlotGrowthRate(ESeason::Summer, EWeather::Rain, 1.f, true, 0.f) < UWorldClock::PlotGrowthRate(ESeason::Summer, EWeather::Rain, 1.f, false, 0.f));
 
 	// Fish
 	TestTrue(TEXT("Fish bite better in the rain"), UWorldClock::FishingShift(ESeason::Summer, EWeather::Rain, 12.f, 5) < UWorldClock::FishingShift(ESeason::Summer, EWeather::Clear, 12.f, 5));
