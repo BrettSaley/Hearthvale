@@ -8,6 +8,7 @@
 #include "RPG/World/ForageNode.h"
 #include "RPG/World/HungerComponent.h"
 #include "RPG/World/LostCache.h"
+#include "RPG/World/SeasonalColours.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WorldMap.h"
 #include "RPG/World/WildlifeHerd.h"
@@ -345,6 +346,26 @@ bool FHungerTest::RunTest(const FString& Parameters)
 	FWarmthConditions Empty = Fed;
 	Empty.bHungry = true;
 	TestTrue(TEXT("Hungry, you feel the cold more"), UWarmthComponent::AirTemperature(Empty) < UWarmthComponent::AirTemperature(Fed));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSeasonalColoursTest, "Hearthvale.World.SeasonalColours", WorldTestFlags)
+bool FSeasonalColoursTest::RunTest(const FString& Parameters)
+{
+	const FLinearColor Green(0.025f, 0.07f, 0.015f);
+	TestTrue(TEXT("Bush leaves change"), USeasonalColours::IsSeasonal(TEXT("MI_BushLeaves")));
+	TestFalse(TEXT("Spruce needles stay green"), USeasonalColours::IsSeasonal(TEXT("MI_SpruceNeedles")));
+	TestEqual(TEXT("Spring is the leaves' own colour"), USeasonalColours::TintFor(TEXT("MI_BushLeaves"), Green, ESeason::Spring), Green);
+	TestEqual(TEXT("Needles never change"), USeasonalColours::TintFor(TEXT("MI_SpruceNeedles"), Green, ESeason::Autumn), Green);
+	const FLinearColor Autumn = USeasonalColours::TintFor(TEXT("MI_BushLeaves"), Green, ESeason::Autumn);
+	TestTrue(TEXT("Autumn leaves turn red"), Autumn.R > Autumn.G * 2.f);
+	const FLinearColor Birch = USeasonalColours::TintFor(TEXT("MI_BirchLeaves"), Green, ESeason::Autumn);
+	TestTrue(TEXT("Birches turn gold"), Birch.R > Birch.B * 5.f && Birch.G > Birch.B * 5.f);
+	const FLinearColor DeadGrass = USeasonalColours::TintFor(TEXT("MI_Grass"), Green, ESeason::Winter);
+	TestTrue(TEXT("Winter grass isn't green"), DeadGrass.R >= DeadGrass.G);
+	TestEqual(TEXT("Spring ground is green"), USeasonalColours::GroundAutumn(ESeason::Spring), 0.f);
+	TestTrue(TEXT("Autumn ground is goldest"), USeasonalColours::GroundAutumn(ESeason::Autumn) > USeasonalColours::GroundAutumn(ESeason::Winter)
+		&& USeasonalColours::GroundAutumn(ESeason::Winter) > USeasonalColours::GroundAutumn(ESeason::Summer));
 	return true;
 }
 

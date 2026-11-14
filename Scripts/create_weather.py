@@ -5,6 +5,8 @@
 - Snow on the ground: /Game/Ground/M_Ground gets a SnowCover parameter (0 to 1,
   set on the landscape by the world clock) and its colour blends to snow on
   level ground as it rises (patched in place; run again after rebuilding it)
+- Autumn on the ground: M_Ground also gets an Autumn parameter (0 to 1, set on
+  the landscape by USeasonalColours) that warms its grass towards gold and straw
 - Seasonal catches on the fishing spots: trout running in spring, mackerel and tuna
   shoaling in summer, the salmon run in autumn, char under the winter cold
 
@@ -154,6 +156,39 @@ def add_snow_to_ground():
     unreal.log_warning("create_weather: M_Ground now shows snow cover.")
 
 
+def add_autumn_to_ground():
+    """Between the ground colour and the snow: lerp(colour, colour warmed to gold, Autumn x 0.65)."""
+    ground = unreal.load_asset("/Game/Ground/M_Ground")
+    snow = mel.get_material_property_input_node(ground, unreal.MaterialProperty.MP_BASE_COLOR) if ground else None
+    if not isinstance(snow, unreal.MaterialExpressionLinearInterpolate):
+        unreal.log_warning("create_weather: M_Ground has no snow blend to go under; autumn skipped.")
+        return
+    color = mel.get_inputs_for_material_expression(ground, snow)[0]
+    if isinstance(color, unreal.MaterialExpressionLinearInterpolate):
+        unreal.log_warning("create_weather: M_Ground already shows autumn.")
+        return
+    autumn = mel.create_material_expression(ground, unreal.MaterialExpressionScalarParameter, 0, -1500)
+    autumn.set_editor_property("parameter_name", "Autumn")
+    autumn.set_editor_property("default_value", 0.0)
+    strength = mel.create_material_expression(ground, unreal.MaterialExpressionMultiply, 150, -1500)
+    strength.set_editor_property("const_b", 0.65)
+    mel.connect_material_expressions(autumn, "", strength, "A")
+    warm = mel.create_material_expression(ground, unreal.MaterialExpressionMultiply, 600, -800)
+    gold = mel.create_material_expression(ground, unreal.MaterialExpressionConstant3Vector, 450, -900)
+    gold.set_editor_property("constant", unreal.LinearColor(1.7, 1.05, 0.35, 1.0))
+    mel.connect_material_expressions(color, "", warm, "A")
+    mel.connect_material_expressions(gold, "", warm, "B")
+    turn = mel.create_material_expression(ground, unreal.MaterialExpressionLinearInterpolate, 900, -800)
+    mel.connect_material_expressions(color, "", turn, "A")
+    mel.connect_material_expressions(warm, "", turn, "B")
+    mel.connect_material_expressions(strength, "", turn, "Alpha")
+    mel.connect_material_expressions(turn, "", snow, "A")
+    mel.recompile_material(ground)
+    assets.save_loaded_asset(ground, only_if_is_dirty=False)
+    unreal.log_warning("create_weather: M_Ground now shows autumn.")
+
+
 create_materials()
 add_snow_to_ground()
+add_autumn_to_ground()
 create_seasonal_catches()
