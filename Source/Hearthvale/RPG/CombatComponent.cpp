@@ -154,7 +154,7 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 		OutOfReach += DeltaTime;
 		if (OutOfReach > GiveUpAfter)
 		{
-			Character->ShowMessage(FText::Format(LOCTEXT("GotAway", "The {0} gets away."), AWildlifeHerd::GetKindName(Herd->GetKind())));
+			Character->ShowMessage(FText::Format(LOCTEXT("GotAway", "The {0} gets away."), Herd->GetAnimalName(TargetIndex)));
 			StopAttack();
 		}
 		return;
