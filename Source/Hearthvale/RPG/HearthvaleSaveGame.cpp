@@ -11,6 +11,7 @@
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/SkillsComponent.h"
+#include "RPG/World/HungerComponent.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WorldClock.h"
 #include "RPG/World/WorldMap.h"
@@ -51,6 +52,10 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 	if (const UWarmthComponent* Warmth = Character->FindComponentByClass<UWarmthComponent>())
 	{
 		Save->Warmth = Warmth->GetWarmth();
+	}
+	if (const UHungerComponent* Hunger = Character->FindComponentByClass<UHungerComponent>())
+	{
+		Save->Fullness = Hunger->GetFullness();
 	}
 	if (UWorld* World = Character->GetWorld())
 	{
@@ -211,6 +216,8 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 		Character->GetHealth()->Restore();
 	}
 	// A save made while freezing gives a moment's grace to reach a fire.
+	// A save made starving gives a moment's grace to find food, as freezing does.
+	UHungerComponent::FindOrAdd(Character)->SetFullness(Save->Fullness < 0.f ? UHungerComponent::MaxFullness : FMath::Max(Save->Fullness, 10.f));
 	UWarmthComponent::FindOrAdd(Character)->SetWarmth(Save->Warmth < 0.f ? UWarmthComponent::MaxWarmth : FMath::Max(Save->Warmth, 30.f));
 	if (UWorld* World = Character->GetWorld())
 	{

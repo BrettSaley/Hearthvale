@@ -18,6 +18,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/GameModeBase.h"
 #include "HearthvalePlayerController.h"
+#include "RPG/World/HungerComponent.h"
 #include "RPG/Building/BoatComponent.h"
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildingComponent.h"
@@ -323,15 +324,22 @@ bool AHearthvaleCharacter::Eat(int32 SlotIndex)
 	{
 		return false;
 	}
-	if (Health->GetHealth() >= Health->GetMaxHealth())
+	// Eat to heal, or when there's room (hunger).
+	UHungerComponent* Hunger = UHungerComponent::FindOrAdd(this);
+	if (Health->GetHealth() >= Health->GetMaxHealth() && (!Hunger || !Hunger->CanEat()))
 	{
-		ShowMessage(NSLOCTEXT("Hearthvale", "FullHealth", "You're at full health: save it for when you're hurt."));
+		ShowMessage(NSLOCTEXT("Hearthvale", "FullUp", "You're full, and at full health: save it for later."));
 		return false;
 	}
 	LastAte = Now;
 	Inventory->RemoveFromSlot(SlotIndex, 1);
 	const int32 Healed = Health->Heal(Stack.Item->HealAmount);
-	ShowMessage(FText::Format(NSLOCTEXT("Hearthvale", "Ate", "You eat the {0}. It heals {1}."), Stack.Item->DisplayName.ToLower(), Healed),
+	if (Hunger)
+	{
+		Hunger->Feed(Stack.Item);
+	}
+	ShowMessage(Healed > 0 ? FText::Format(NSLOCTEXT("Hearthvale", "Ate", "You eat the {0}. It heals {1}."), Stack.Item->DisplayName.ToLower(), Healed)
+		: FText::Format(NSLOCTEXT("Hearthvale", "AteFilling", "You eat the {0}. That's better."), Stack.Item->DisplayName.ToLower()),
 		FLinearColor(0.55f, 1.f, 0.55f));
 	return true;
 }

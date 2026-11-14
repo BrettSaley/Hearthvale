@@ -6,6 +6,7 @@
 #include "RPG/ItemDefinition.h"
 #include "RPG/HearthvaleSaveGame.h"
 #include "RPG/World/ForageNode.h"
+#include "RPG/World/HungerComponent.h"
 #include "RPG/World/LostCache.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WorldMap.h"
@@ -170,6 +171,11 @@ bool FWarmthTest::RunTest(const FString& Parameters)
 	FWarmthConditions Roofed = Winter;
 	Roofed.bSheltered = true;
 	TestTrue(TEXT("A roof keeps the snow off"), UWarmthComponent::AirTemperature(Roofed) > WinterNight);
+	FWarmthConditions Indoors = Roofed;
+	Indoors.bIndoors = true;
+	TestTrue(TEXT("A whole room is warmer than a roof alone"), UWarmthComponent::AirTemperature(Indoors) > UWarmthComponent::AirTemperature(Roofed) + 5.f);
+	TestTrue(TEXT("Six walls of eight make a room (a doorway's fine)"), UWarmthComponent::IsEnclosed(6, 8));
+	TestFalse(TEXT("Half the walls don't"), UWarmthComponent::IsEnclosed(4, 8));
 	FWarmthConditions ByFire = Winter;
 	ByFire.FireHeat = UWarmthComponent::FireHeatAt(200.f);
 	TestTrue(TEXT("Beside a fire it's warm even on a winter night"), UWarmthComponent::AirTemperature(ByFire) >= UWarmthComponent::Comfort);
@@ -313,6 +319,32 @@ bool FForagingTest::RunTest(const FString& Parameters)
 		TestNotNull(TEXT("Morels give an item"), Morel->Item.Get());
 		TestEqual(TEXT("Picked by hand"), Morel->Tool, EToolType::None);
 	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHungerTest, "Hearthvale.World.Hunger", WorldTestFlags)
+bool FHungerTest::RunTest(const FString& Parameters)
+{
+	TestEqual(TEXT("Full is well fed"), UHungerComponent::StateFor(UHungerComponent::MaxFullness), EHungerState::WellFed);
+	TestEqual(TEXT("Half is peckish"), UHungerComponent::StateFor(50.f), EHungerState::Peckish);
+	TestEqual(TEXT("A fifth is hungry"), UHungerComponent::StateFor(20.f), EHungerState::Hungry);
+	TestEqual(TEXT("Empty is starving"), UHungerComponent::StateFor(0.f), EHungerState::Starving);
+
+	// A full belly lasts about a day and a half of game time, less in the cold.
+	const float GameDay = 24.f * UWorldClock::RealSecondsPerHour;
+	TestTrue(TEXT("Still fed after a day"), UHungerComponent::Drain(UHungerComponent::MaxFullness, GameDay, false) > 0.f);
+	TestEqual(TEXT("Empty after two"), UHungerComponent::Drain(UHungerComponent::MaxFullness, GameDay * 2.f, false), 0.f);
+	TestTrue(TEXT("The cold makes you hungrier"),
+		UHungerComponent::Drain(UHungerComponent::MaxFullness, 600.f, true) < UHungerComponent::Drain(UHungerComponent::MaxFullness, 600.f, false));
+
+	TestTrue(TEXT("A big meal fills more than a snack"), UHungerComponent::FillFor(9) > UHungerComponent::FillFor(2));
+	TestTrue(TEXT("Even food that doesn't heal fills a little"), UHungerComponent::FillFor(0) > 0.f);
+
+	FWarmthConditions Fed;
+	Fed.Season = ESeason::Autumn;
+	FWarmthConditions Empty = Fed;
+	Empty.bHungry = true;
+	TestTrue(TEXT("Hungry, you feel the cold more"), UWarmthComponent::AirTemperature(Empty) < UWarmthComponent::AirTemperature(Fed));
 	return true;
 }
 

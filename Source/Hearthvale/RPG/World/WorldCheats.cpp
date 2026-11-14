@@ -4,6 +4,7 @@
 #include "HearthvaleCharacter.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
+#include "RPG/World/HungerComponent.h"
 #include "RPG/World/LostCache.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WeatherEffects.h"
@@ -123,7 +124,8 @@ void UWorldCheats::Warmth()
 		return;
 	}
 	Say(FString::Printf(TEXT("Warmth %.0f (%s). Air %.0f degrees%s%s."), Component->GetWarmth(), *UWarmthComponent::StateName(Component->GetState()).ToString(),
-		Component->GetTemperature(), Component->IsSheltered() ? TEXT(", sheltered") : TEXT(""), Component->IsNearFire() ? TEXT(", by a fire") : TEXT("")));
+		Component->GetTemperature(), Component->IsIndoors() ? TEXT(", indoors") : Component->IsSheltered() ? TEXT(", sheltered") : TEXT(""),
+		Component->IsNearFire() ? TEXT(", by a fire") : TEXT("")));
 }
 
 void UWorldCheats::SetWarmth(float Value)
@@ -250,5 +252,24 @@ void UWorldCheats::ToggleMap()
 	{
 		Map->SetOpen(!Map->IsOpen());
 		Say(Map->IsOpen() ? TEXT("Map open.") : TEXT("Map closed."));
+	}
+}
+
+void UWorldCheats::Hunger()
+{
+	APlayerController* Controller = GetPlayerController();
+	if (UHungerComponent* Component = Controller ? UHungerComponent::FindOrAdd(Controller->GetPawn()) : nullptr)
+	{
+		Say(FString::Printf(TEXT("Fullness %.0f (%s)."), Component->GetFullness(), *UHungerComponent::StateName(Component->GetState()).ToString()));
+	}
+}
+
+void UWorldCheats::SetHunger(float Fullness)
+{
+	APlayerController* Controller = GetPlayerController();
+	if (UHungerComponent* Component = Controller ? UHungerComponent::FindOrAdd(Controller->GetPawn()) : nullptr)
+	{
+		Component->SetFullness(Fullness);
+		Hunger();
 	}
 }
