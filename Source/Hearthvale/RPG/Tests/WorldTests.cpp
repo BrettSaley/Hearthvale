@@ -82,6 +82,14 @@ bool FWeatherTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Rain turns to snow in winter"), UWorldClock::AdjustForSeason(EWeather::Rain, ESeason::Winter), EWeather::Snow);
 	TestEqual(TEXT("Snow turns to rain in spring"), UWorldClock::AdjustForSeason(EWeather::Snow, ESeason::Spring), EWeather::Rain);
 	TestEqual(TEXT("Nothing falls when it's clear"), UWorldClock::TargetPrecipitation(EWeather::Clear), 0.f);
+	const int32 AutumnDay = UWorldClock::DaysPerSeason * 2 + 1;
+	const float Dawn = UWorldClock::SunriseHour(AutumnDay) + 0.5f;
+	TestTrue(TEXT("Autumn mornings are misty"), UWorldClock::MistAmount(AutumnDay, Dawn, EWeather::Clear) > 0.8f);
+	TestEqual(TEXT("The mist's gone by noon"), UWorldClock::MistAmount(AutumnDay, 13.f, EWeather::Clear), 0.f);
+	TestEqual(TEXT("No mist in the rain"), UWorldClock::MistAmount(AutumnDay, Dawn, EWeather::Rain), 0.f);
+	TestTrue(TEXT("Less in summer"), UWorldClock::MistAmount(UWorldClock::DaysPerSeason + 1, UWorldClock::SunriseHour(UWorldClock::DaysPerSeason + 1) + 0.5f, EWeather::Clear) < 0.5f);
+	TestFalse(TEXT("Storms give a sign"), UWorldClock::SignOf(EWeather::Storm, ESeason::Autumn).IsEmpty());
+	TestTrue(TEXT("Clear skies need none"), UWorldClock::SignOf(EWeather::Clear, ESeason::Autumn).IsEmpty());
 	float Snow = 0.f;
 	Snow = UWorldClock::StepSnowCover(Snow, ESeason::Winter, EWeather::Snow, 4.f);
 	TestEqual(TEXT("Four hours of winter snow covers the ground"), Snow, 1.f);

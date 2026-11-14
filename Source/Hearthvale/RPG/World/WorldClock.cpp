@@ -49,6 +49,7 @@ void UWorldClock::Initialize(FSubsystemCollectionBase& Collection)
 	Super::Initialize(Collection);
 	Random.GenerateNewSeed();
 	WeatherHoursLeft = WeatherHours(Weather, Random.FRand());
+	NextWeather = PickWeather(GetSeason(), Random.FRand());
 	// The world's cheats (SetHour, SetWeather...) ride along with the game's own.
 	static bool bRegistered = false;
 	if (!bRegistered)
@@ -148,6 +149,18 @@ void UWorldClock::AdvanceHours(float Hours)
 	}
 	SnowCover = StepSnowCover(SnowCover, GetSeason(), Weather, Hours);
 	WeatherHoursLeft -= Hours;
+	// About an hour before rain, a storm or snow, the signs show.
+	const EWeather Coming = AdjustForSeason(NextWeather, GetSeason());
+	if (!bSignShown && WeatherHoursLeft > 0.f && WeatherHoursLeft <= 1.2f && Coming != Weather)
+	{
+		bSignShown = true;
+		const FText Sign = SignOf(Coming, GetSeason());
+		if (!Sign.IsEmpty() && !bJumping)
+		{
+			Announce(Sign);
+			UE_LOG(LogHearthvale, Log, TEXT("World: signs of %s coming."), *WeatherName(Coming).ToString());
+		}
+	}
 	if (WeatherHoursLeft <= 0.f)
 	{
 		RollWeather();
@@ -157,8 +170,11 @@ void UWorldClock::AdvanceHours(float Hours)
 void UWorldClock::RollWeather()
 {
 	const EWeather Old = Weather;
-	Weather = PickWeather(GetSeason(), Random.FRand());
+	// What was coming comes (turned to snow or rain if the season changed meanwhile), and the next is picked.
+	Weather = AdjustForSeason(NextWeather, GetSeason());
+	NextWeather = PickWeather(GetSeason(), Random.FRand());
 	WeatherHoursLeft = WeatherHours(Weather, Random.FRand());
+	bSignShown = false;
 	if (Weather == Old)
 	{
 		return;
@@ -265,6 +281,7 @@ FSavedWorldClock UWorldClock::SaveState() const
 	Saved.Hour = Hour;
 	Saved.Weather = Weather;
 	Saved.WeatherHoursLeft = WeatherHoursLeft;
+	Saved.NextWeather = NextWeather;
 	Saved.SnowCover = SnowCover;
 	return Saved;
 }
@@ -279,6 +296,8 @@ void UWorldClock::LoadState(const FSavedWorldClock& Saved)
 	Hour = FMath::Clamp(Saved.Hour, 0.f, 23.99f);
 	Weather = AdjustForSeason(Saved.Weather, GetSeason());
 	WeatherHoursLeft = FMath::Max(0.1f, Saved.WeatherHoursLeft);
+	NextWeather = Saved.NextWeather;
+	bSignShown = WeatherHoursLeft <= 1.2f;
 	SnowCover = Saved.SnowCover >= 0.f ? FMath::Min(Saved.SnowCover, 1.f) : GetSeason() == ESeason::Winter ? 1.f : 0.f;
 	Precipitation = TargetPrecipitation(Weather);
 	Overcast = TargetOvercast(Weather);
@@ -337,7 +356,8 @@ void UWorldClock::ApplySky()
 	}
 	if (AExponentialHeightFog* Mist = Fog.Get())
 	{
-		Mist->GetComponent()->SetFogDensity(FogDensity * (1.f + 1.5f * Overcast + 4.f * Precipitation));
+		// Cloud and rain thicken the air, and so does the morning mist.
+		Mist->GetComponent()->SetFogDensity(FogDensity * (1.f + 1.5f * Overcast + 4.f * Precipitation + 6.f * MistAmount(Day, Hour, Weather)));
 	}
 	if (AWeatherEffects* Sky = Effects.Get())
 	{
@@ -630,6 +650,31 @@ float UWorldClock::StepSnowCover(float Cover, ESeason Season, EWeather Weather, 
 	}
 	// Melts over eight hours, faster in the rain.
 	return FMath::Max(0.f, Cover - Hours / (Weather == EWeather::Rain || Weather == EWeather::Storm ? 4.f : 8.f));
+}
+
+float UWorldClock::MistAmount(int32 Day, float Hour, EWeather Weather)
+{
+	if (Weather != EWeather::Clear && Weather != EWeather::Cloudy)
+	{
+		return 0.f;
+	}
+	// Rises before dawn, thickest just after, burnt off a couple of hours later.
+	const float FromSunrise = Hour - SunriseHour(Day);
+	const float Shape = FromSunrise < 0.5f ? FMath::SmoothStep(-1.5f, 0.5f, FromSunrise) : 1.f - FMath::SmoothStep(0.5f, 2.5f, FromSunrise);
+	static const float BySeason[] = {0.8f, 0.35f, 1.f, 0.6f};
+	return Shape * BySeason[static_cast<int32>(SeasonOfDay(Day))];
+}
+
+FText UWorldClock::SignOf(EWeather Coming, ESeason Season)
+{
+	switch (Coming)
+	{
+	case EWeather::Rain:  return NSLOCTEXT("WorldClock", "SignRain", "Clouds bank up and the air smells of rain.");
+	case EWeather::Storm: return Season == ESeason::Winter ? NSLOCTEXT("WorldClock", "SignBlizzard", "The wind rises and bites: a blizzard's coming. Get under a roof.")
+		: NSLOCTEXT("WorldClock", "SignStorm", "The wind picks up and the birds fall quiet. A storm is coming.");
+	case EWeather::Snow:  return NSLOCTEXT("WorldClock", "SignSnow", "The sky turns heavy and grey: snow before long.");
+	default:              return FText::GetEmpty();
+	}
 }
 
 float UWorldClock::TargetOvercast(EWeather Weather)
