@@ -21,6 +21,7 @@
 #include "RPG/World/HungerComponent.h"
 #include "RPG/Building/BoatComponent.h"
 #include "RPG/Building/BuildPiece.h"
+#include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/Building/BuildingComponent.h"
 #include "RPG/CraftingComponent.h"
 #include "RPG/CraftingStation.h"
@@ -28,6 +29,7 @@
 #include "RPG/GatheringComponent.h"
 #include "RPG/GroundItem.h"
 #include "RPG/CombatComponent.h"
+#include "RPG/Durability.h"
 #include "RPG/EquipmentComponent.h"
 #include "RPG/HealthComponent.h"
 #include "RPG/HearthvaleHUD.h"
@@ -344,6 +346,49 @@ bool AHearthvaleCharacter::Eat(int32 SlotIndex)
 	return true;
 }
 
+bool AHearthvaleCharacter::MendNearby()
+{
+	UItemDefinition* Hammer = GetHeldItem();
+	if (!Hammer || Hammer->ToolType != EToolType::Hammer)
+	{
+		return false;
+	}
+	ABuildPiece* Worst = nullptr;
+	for (ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		if (Built->GetDamage() > 0 && FVector::Dist(Built->GetActorLocation(), GetActorLocation()) < MendReach
+			&& (!Worst || Built->GetDamage() > Worst->GetDamage()))
+		{
+			Worst = Built;
+		}
+	}
+	if (!Worst)
+	{
+		ShowMessage(NSLOCTEXT("Hearthvale", "NothingToMend", "There's nothing battered near enough to mend."));
+		return false;
+	}
+	// Mending takes a little of what it was built from: the first thing on its list.
+	const UBuildPieceDefinition* Piece = Worst->GetPiece();
+	UItemDefinition* Material = Piece && Piece->Cost.Num() > 0 ? Piece->Cost[0].Item.Get() : nullptr;
+	const FText Name = Piece ? Piece->DisplayName.ToLower() : FText::GetEmpty();
+	if (Material && !Inventory->HasItem(Material))
+	{
+		ShowMessage(FText::Format(NSLOCTEXT("Hearthvale", "MendNeeds", "You need {0} to mend the {1}."), Material->DisplayName.ToLower(), Name),
+			FLinearColor(1.f, 0.45f, 0.4f));
+		return false;
+	}
+	if (Material)
+	{
+		Inventory->RemoveItem(Material, 1);
+	}
+	Worst->Mend(MendPerSwing);
+	FDurability::WearCarried(this, Hammer);
+	ShowMessage(FText::Format(NSLOCTEXT("Hearthvale", "Mended", "You mend the {0} ({1} / {2})."), Name,
+		Worst->GetMaxHealth() - Worst->GetDamage(), Worst->GetMaxHealth()), FLinearColor(0.55f, 1.f, 0.55f));
+	UE_LOG(LogTemp, Log, TEXT("Building: mended the %s to %d / %d."), *Name.ToString(), Worst->GetMaxHealth() - Worst->GetDamage(), Worst->GetMaxHealth());
+	return true;
+}
+
 bool AHearthvaleCharacter::UseBandage(int32 SlotIndex)
 {
 	const FItemStack Stack = Inventory->GetSlot(SlotIndex);
@@ -549,6 +594,10 @@ void AHearthvaleCharacter::DoUseItem()
 	else if (Held && Held->IsFood())
 	{
 		Eat(HeldSlot);
+	}
+	else if (Held && Held->ToolType == EToolType::Hammer)
+	{
+		MendNearby();
 	}
 	else if (Held && Held->IsBandage())
 	{

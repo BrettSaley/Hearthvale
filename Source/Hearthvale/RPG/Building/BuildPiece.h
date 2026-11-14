@@ -78,6 +78,9 @@ public:
 	/** Loading: battering taken before. */
 	void SetDamage(int32 InDamage) { Damage = FMath::Max(0, InDamage); }
 
+	/** Mends up to Amount of battering; returns how much it mended. */
+	int32 Mend(int32 Amount);
+
 	/** Takes a battering; at its most it falls (and a chest's contents spill out). True if it fell. */
 	bool Batter(int32 Amount);
 

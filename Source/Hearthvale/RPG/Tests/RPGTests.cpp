@@ -3,6 +3,7 @@
 // -ExecCmds="Automation RunTests Hearthvale; Quit".
 
 #include "Misc/AutomationTest.h"
+#include "HearthvaleCharacter.h"
 #include "RPG/Building/BuildingComponent.h"
 #include "RPG/AnimalDefinition.h"
 #include "RPG/FarmAnimal.h"
@@ -1071,6 +1072,15 @@ bool FRaidsTest::RunTest(const FString& Parameters)
 	const UBuildPieceDefinition* Campfire = UBuildPieceDefinition::FindPiece(TEXT("Campfire"));
 	TestTrue(TEXT("A campfire glows"), Campfire && Campfire->Station && Campfire->Station->LightIntensity > 0.f);
 	TestTrue(TEXT("A firelit camp is given up on in time"), URaidSubsystem::GiveUpSeconds > URaidSubsystem::BatterSeconds);
+
+	// Battered pieces are mended with a hammer.
+	for (const TCHAR* Id : {TEXT("CopperHammer"), TEXT("IronHammer")})
+	{
+		const UItemDefinition* Hammer = UItemDefinition::FindItem(Id);
+		TestTrue(FString::Printf(TEXT("%s is a hammer that wears"), Id), Hammer && Hammer->ToolType == EToolType::Hammer && Hammer->Durability > 0);
+		TestNotNull(FString::Printf(TEXT("%s is smithed"), Id), LoadObject<URecipeDefinition>(nullptr, *FString::Printf(TEXT("/Game/Crafting/Recipes/Smith%s.Smith%s"), Id, Id)));
+	}
+	TestTrue(TEXT("A swing mends a fair bit"), AHearthvaleCharacter::MendPerSwing >= URaidSubsystem::BatterDamage * 3);
 
 	// Pieces stand battering by what went into them.
 	TestEqual(TEXT("Something of nothing stands 10"), ABuildPiece::HealthFor(nullptr), 10);
