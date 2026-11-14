@@ -13,7 +13,8 @@ class ABuildPiece;
  * chance (more as the days go by) that a wolf pack comes for it: they gather
  * 45 m out, howl, then march on the camp, battering down whatever they reach
  * (walls, chests, benches; a smashed chest spills its contents). They turn on
- * the player like any wolves, and spikes hurt them. The raid's over when the
+ * the player like any wolves, and spikes hurt them. What stands in firelight
+ * (FFirelight) they won't touch, and if that's everything they give up. The raid's over when the
  * pack's beaten off (which earns some Guard and Might), when it has torn down
  * MaxFelled pieces or there's nothing left, or at dawn: the survivors slink away.
  */
@@ -60,6 +61,8 @@ public:
 	static constexpr int32 BatterDamage = 2;
 	/** Pieces torn down before the pack's had its fill and goes. */
 	static constexpr int32 MaxFelled = 3;
+	/** Seconds at a firelit camp, with nothing they dare touch, before the pack gives up. */
+	static constexpr float GiveUpSeconds = 40.f;
 
 private:
 	void TickRaid(float DeltaTime);
@@ -74,4 +77,8 @@ private:
 	float SinceWarned = 100.f;
 	/** Pieces torn down this raid. */
 	int32 Felled = 0;
+	/** Seconds at the camp without battering anything (it's all in firelight). */
+	float Idle = 0.f;
+	/** The raid ended because the camp was too well lit (it says so itself). */
+	bool bScaredOff = false;
 };

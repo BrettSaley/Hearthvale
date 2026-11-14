@@ -11,6 +11,7 @@
 #include "RPG/EquipmentComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "Materials/MaterialInterface.h"
+#include "RPG/World/Firelight.h"
 #include "RPG/World/WorldClock.h"
 #include "RPG/World/WorldGenerator.h"
 #include "Camera/PlayerCameraManager.h"
@@ -726,6 +727,12 @@ float AWildlifeHerd::React(FAnimal& Animal, float DeltaSeconds)
 		{
 			Animal.MoodTime = 0.f;
 			Animal.Grazing = 0.f;
+			// Fire keeps them off, unless they're already enraged.
+			if (bFierce && Animal.Anger <= 0.f && FFirelight::IsLit(GetWorld(), FVector(PlayerAt, 0.f)))
+			{
+				Calm(4.f);
+				return Stats.Walk;
+			}
 			// A cub doesn't charge; it bolts, and its mother comes instead.
 			if (bFierce && Animal.Size >= 1.f)
 			{
@@ -760,6 +767,15 @@ float AWildlifeHerd::React(FAnimal& Animal, float DeltaSeconds)
 		{
 			Calm(LoseInterest);
 			PickTarget(Animal);
+			return Stats.Walk;
+		}
+		// The player's reached firelight: it shies away, unless it's enraged.
+		if (Animal.Anger <= 0.f && FFirelight::IsLit(GetWorld(), FVector(PlayerAt, 0.f)))
+		{
+			Player->ShowMessage(FText::Format(LOCTEXT("ShiesAway", "The {0} shies away from the fire."), GetKindName(Kind)));
+			UE_LOG(LogTemp, Log, TEXT("Wildlife: a %s shied away from the fire."), *GetKindName(Kind).ToString());
+			Calm(LoseInterest);
+			PickAwayFrom(Animal, PlayerAt, Random.FRandRange(800.f, 1400.f));
 			return Stats.Walk;
 		}
 		Animal.Target = PlayerAt;
