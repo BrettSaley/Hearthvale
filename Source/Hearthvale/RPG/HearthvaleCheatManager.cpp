@@ -582,6 +582,27 @@ void UHearthvaleCheatManager::UseSlot(int32 Slot)
 	}
 }
 
+void UHearthvaleCheatManager::MakeAlpha(const FString& Kind)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	AWildlifeHerd* Nearest = nullptr;
+	for (AWildlifeHerd* Herd : TActorRange<AWildlifeHerd>(GetWorld()))
+	{
+		if (Character && UEnum::GetDisplayValueAsText(Herd->GetKind()).ToString().Equals(Kind, ESearchCase::IgnoreCase) && Herd->GetAnimalCount() > 0
+			&& (!Nearest || FVector::Dist2D(Herd->GetAnimalLocation(0), Character->GetActorLocation()) < FVector::Dist2D(Nearest->GetAnimalLocation(0), Character->GetActorLocation())))
+		{
+			Nearest = Herd;
+		}
+	}
+	if (!Nearest || !AWildlifeHerd::IsFierce(Nearest->GetKind()))
+	{
+		Say(FString::Printf(TEXT("No fierce %s herd here."), *Kind));
+		return;
+	}
+	Nearest->MakeAlpha(0);
+	Say(FString::Printf(TEXT("The %s is %d / %d"), *Nearest->GetAnimalName(0).ToString(), Nearest->GetAnimalHealth(0), Nearest->GetAnimalMaxHealth(0)));
+}
+
 void UHearthvaleCheatManager::ListWorn()
 {
 	if (const AHearthvaleCharacter* Character = GetHearthvaleCharacter())

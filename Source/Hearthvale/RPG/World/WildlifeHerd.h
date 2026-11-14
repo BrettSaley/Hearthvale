@@ -118,6 +118,25 @@ public:
 	/** Moves where they roam about to Where, and sends the calm ones there. */
 	void MarchTo(const FVector& Where);
 
+	/** Whether one's an alpha: a rare leader of boars, wolves or bears, bigger, tougher, harder-hitting, and dropping a trophy. */
+	bool IsAlpha(int32 Index) const { return Animals.IsValidIndex(Index) && Animals[Index].bAlpha; }
+
+	/** Makes one an alpha (cheats; herds pick their own when built). */
+	void MakeAlpha(int32 Index);
+
+	/** What to call one: "wolf", or "alpha wolf". */
+	FText GetAnimalName(int32 Index) const;
+
+	/** The trophy an alpha of a kind drops (an item ID), or None. */
+	static FName GetTrophy(EWildlifeKind InKind);
+
+	/** The chance a boar, wolf or bear herd is led by an alpha. */
+	static constexpr float AlphaChance = 0.3f;
+	/** How much bigger an alpha is, how much tougher than its size alone makes it, and how much harder it hits. */
+	static constexpr float AlphaSize = 1.3f;
+	static constexpr float AlphaToughness = 1.5f;
+	static constexpr float AlphaDamage = 1.5f;
+
 	/** Whether one's charging or rearing at the player. */
 	bool IsCharging(int32 Index) const;
 
@@ -178,6 +197,8 @@ private:
 		float Step = 0.f;
 		/** A cub is smaller; 1 for a grown animal. */
 		float Size = 1.f;
+		/** A herd's leader, bigger and fiercer (fierce kinds only). */
+		bool bAlpha = false;
 		EMood Mood = EMood::Calm;
 		/** Seconds in the current mood. */
 		float MoodTime = 0.f;
@@ -199,6 +220,7 @@ private:
 	float React(FAnimal& Animal, float DeltaSeconds);
 	void Strike(FAnimal& Animal);
 	void Kill(FAnimal& Animal, bool bDropLoot = true);
+	int32 MaxHealthFor(const FAnimal& Animal) const;
 	/** Another one turns up somewhere about home, at full health. */
 	void Revive(FAnimal& Animal);
 	void Pose(FAnimal& Animal) const;

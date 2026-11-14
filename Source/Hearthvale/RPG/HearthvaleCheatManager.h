@@ -225,6 +225,10 @@ public:
 	UFUNCTION(Exec)
 	void UseSlot(int32 Slot);
 
+	/** Makes the leader of the nearest herd of a kind an alpha (MakeAlpha Wolf). */
+	UFUNCTION(Exec)
+	void MakeAlpha(const FString& Kind);
+
 	/** Lists what's worn and the total defence. */
 	UFUNCTION(Exec)
 	void ListWorn();

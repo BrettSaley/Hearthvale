@@ -235,7 +235,7 @@ int32 AWildlifeHerd::GetAnimalHealth(int32 Index) const
 
 int32 AWildlifeHerd::GetAnimalMaxHealth(int32 Index) const
 {
-	return Animals.IsValidIndex(Index) ? FMath::Max(1, FMath::RoundToInt32(GetMaxHealthOf(Kind) * Animals[Index].Size)) : 1;
+	return Animals.IsValidIndex(Index) ? MaxHealthFor(Animals[Index]) : 1;
 }
 
 int32 AWildlifeHerd::HurtAnimal(int32 Index, int32 Damage, const AActor* Attacker)
@@ -304,6 +304,44 @@ void AWildlifeHerd::MarchTo(const FVector& Where)
 	}
 }
 
+int32 AWildlifeHerd::MaxHealthFor(const FAnimal& Animal) const
+{
+	return FMath::Max(1, FMath::RoundToInt32(GetMaxHealthOf(Kind) * Animal.Size * (Animal.bAlpha ? AlphaToughness : 1.f)));
+}
+
+void AWildlifeHerd::MakeAlpha(int32 Index)
+{
+	if (!Animals.IsValidIndex(Index) || Animals[Index].bAlpha || !IsFierce(Kind))
+	{
+		return;
+	}
+	FAnimal& Animal = Animals[Index];
+	Animal.bAlpha = true;
+	Animal.Size *= AlphaSize;
+	Animal.Body->SetRelativeScale3D(FVector(Animal.Size));
+	if (Animal.DeadFor <= 0.f)
+	{
+		Animal.Health = MaxHealthFor(Animal);
+	}
+	Pose(Animal);
+}
+
+FText AWildlifeHerd::GetAnimalName(int32 Index) const
+{
+	return IsAlpha(Index) ? FText::Format(LOCTEXT("AlphaName", "alpha {0}"), GetKindName(Kind)) : GetKindName(Kind);
+}
+
+FName AWildlifeHerd::GetTrophy(EWildlifeKind InKind)
+{
+	switch (InKind)
+	{
+	case EWildlifeKind::Boar: return TEXT("GreatTusk");
+	case EWildlifeKind::Wolf: return TEXT("AlphaFang");
+	case EWildlifeKind::Bear: return TEXT("BearClaw");
+	default:                  return NAME_None;
+	}
+}
+
 bool AWildlifeHerd::IsCharging(int32 Index) const
 {
 	return IsAlive(Index) && (Animals[Index].Mood == EMood::Charging || Animals[Index].Mood == EMood::Rearing);
@@ -347,6 +385,17 @@ void AWildlifeHerd::Kill(FAnimal& Animal, bool bDropLoot)
 		return;
 	}
 	const FVector Where(Animal.Position, UWorldGenerator::GetGroundHeight(Animal.Position.X, Animal.Position.Y));
+	// An alpha leaves a trophy.
+	if (UItemDefinition* Trophy = Animal.bAlpha ? UItemDefinition::FindItem(GetTrophy(Kind)) : nullptr)
+	{
+		AGroundItem::Spawn(GetWorld(), FItemStack{Trophy, 1}, Where + FVector(0.f, 0.f, 10.f));
+		if (AHearthvaleCharacter* Player = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
+		{
+			Player->ShowMessage(FText::Format(LOCTEXT("AlphaFalls", "The alpha {0} falls! It leaves a {1}."), GetKindName(Kind), Trophy->DisplayName.ToLower()),
+				FLinearColor(1.f, 0.8f, 0.3f));
+		}
+		UE_LOG(LogTemp, Log, TEXT("Wildlife: an alpha %s fell, dropping %s."), *GetKindName(Kind).ToString(), *Trophy->GetItemId().ToString());
+	}
 	for (const TPair<FName, int32>& Drop : GetLoot(Kind))
 	{
 		UItemDefinition* Item = UItemDefinition::FindItem(Drop.Key);
@@ -362,8 +411,7 @@ void AWildlifeHerd::Kill(FAnimal& Animal, bool bDropLoot)
 void AWildlifeHerd::Revive(FAnimal& Animal)
 {
 	Animal.DeadFor = 0.f;
-	Animal.Health = GetMaxHealthOf(Kind);
-	Animal.Health = FMath::Max(1, FMath::RoundToInt32(Animal.Health * Animal.Size));
+	Animal.Health = MaxHealthFor(Animal);
 	Animal.Position = FVector2D(GetActorLocation()) + FVector2D(Random.FRandRange(-0.3f, 0.3f), Random.FRandRange(-0.3f, 0.3f)) * Roam;
 	Animal.Target = Animal.Position;
 	Animal.Mood = EMood::Calm;
@@ -468,12 +516,19 @@ void AWildlifeHerd::Build()
 	{
 		FAnimal& Animal = Animals.AddDefaulted_GetRef();
 		BuildAnimal(Animal, Index);
+		// Now and then a fierce herd's grown one is an alpha.
+		if (Index == 0 && IsFierce(Kind) && Animal.Size >= 1.f && Random.FRand() < AlphaChance)
+		{
+			Animal.bAlpha = true;
+			Animal.Size *= AlphaSize;
+			Animal.Body->SetRelativeScale3D(FVector(Animal.Size));
+		}
 		const FVector Home = GetActorLocation();
 		Animal.Position = FVector2D(Home) + FVector2D(Random.FRandRange(-0.3f, 0.3f), Random.FRandRange(-0.3f, 0.3f)) * Roam;
 		Animal.Yaw = Random.FRandRange(0.f, 360.f);
 		Animal.Grazing = Random.FRandRange(0.f, StatsOf(Kind).GrazeTime.Y);
 		Animal.Target = Animal.Position;
-		Animal.Health = FMath::Max(1, FMath::RoundToInt32(GetMaxHealthOf(Kind) * Animal.Size));
+		Animal.Health = MaxHealthFor(Animal);
 		Pose(Animal);
 	}
 }
@@ -751,10 +806,12 @@ void AWildlifeHerd::Strike(FAnimal& Animal)
 	const FText Hit = Kind == EWildlifeKind::Bear ? LOCTEXT("BearHit", "The bear swats you aside like a sapling! Keep your distance.")
 		: Kind == EWildlifeKind::Wolf ? LOCTEXT("WolfHit", "A wolf lunges and bowls you over!")
 		: LOCTEXT("BoarHit", "The boar slams into you and sends you sprawling!");
-	Player->ShowMessage(Hit, FLinearColor(1.f, 0.35f, 0.3f));
+	Player->ShowMessage(Animal.bAlpha ? FText::Format(LOCTEXT("AlphaHit", "The alpha {0} hits you with terrible force!"), GetKindName(Kind)) : Hit,
+		FLinearColor(1.f, 0.35f, 0.3f));
 	const FText Cause = Kind == EWildlifeKind::Bear ? LOCTEXT("ByBear", "a bear") : Kind == EWildlifeKind::Wolf ? LOCTEXT("ByWolf", "a wolf")
 		: LOCTEXT("ByBoar", "a boar");
-	const int32 Taken = Player->GetHealth()->ApplyDamage(Random.RandRange(Stats.Damage.X, Stats.Damage.Y), Cause);
+	const int32 Blow = Random.RandRange(Stats.Damage.X, Stats.Damage.Y);
+	const int32 Taken = Player->GetHealth()->ApplyDamage(Animal.bAlpha ? FMath::RoundToInt32(Blow * AlphaDamage) : Blow, Cause);
 	if (Taken == 0 && !Player->GetHealth()->IsDead() && !Player->GetHealth()->WasLastBlocked())
 	{
 		Player->ShowMessage(LOCTEXT("ArmourHeld", "Your armour takes the blow."), FLinearColor(0.75f, 0.8f, 0.9f));

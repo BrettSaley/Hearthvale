@@ -192,7 +192,7 @@ void UCombatComponent::Attack()
 	const UEquipmentComponent* Equipment = Character->GetEquipment();
 	const int32 Accuracy = Skills->GetLevel(ESkill::Precision) + (Weapon ? Weapon->AccuracyBonus : 0) + Equipment->GetAccuracyBonus();
 	const EWildlifeKind Kind = Herd->GetKind();
-	const FText Name = AWildlifeHerd::GetKindName(Kind);
+	const FText Name = Herd->GetAnimalName(TargetIndex);
 	if (FMath::FRand() >= HitChance(Accuracy, AWildlifeHerd::GetDefence(Kind)))
 	{
 		UE_LOG(LogTemp, Log, TEXT("Combat: missed the %s."), *Name.ToString());
