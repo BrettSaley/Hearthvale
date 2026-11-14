@@ -15,6 +15,9 @@
 #include "HearthvaleCharacter.h"
 #include "Hearthvale.h"
 #include "RPG/FarmPatch.h"
+#include "RPG/Building/BuildPiece.h"
+#include "RPG/World/FallenStar.h"
+#include "RPG/World/HungerComponent.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WeatherEffects.h"
 #include "RPG/World/WildlifeHerd.h"
@@ -48,6 +51,7 @@ void UWorldClock::Initialize(FSubsystemCollectionBase& Collection)
 	Super::Initialize(Collection);
 	Random.GenerateNewSeed();
 	WeatherHoursLeft = WeatherHours(Weather, Random.FRand());
+	NextWeather = PickWeather(GetSeason(), Random.FRand());
 	// The world's cheats (SetHour, SetWeather...) ride along with the game's own.
 	static bool bRegistered = false;
 	if (!bRegistered)
@@ -103,6 +107,7 @@ void UWorldClock::Tick(float DeltaTime)
 	if (AHearthvaleCharacter* Player = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
 	{
 		UWarmthComponent::FindOrAdd(Player);
+		UHungerComponent::FindOrAdd(Player);
 	}
 	CropTimer += DeltaTime;
 	if (CropTimer >= 1.f)
@@ -146,17 +151,47 @@ void UWorldClock::AdvanceHours(float Hours)
 	}
 	SnowCover = StepSnowCover(SnowCover, GetSeason(), Weather, Hours);
 	WeatherHoursLeft -= Hours;
+	// About an hour before rain, a storm or snow, the signs show.
+	const EWeather Coming = AdjustForSeason(NextWeather, GetSeason());
+	if (!bSignShown && WeatherHoursLeft > 0.f && WeatherHoursLeft <= 1.2f && Coming != Weather)
+	{
+		bSignShown = true;
+		const FText Sign = SignOf(Coming, GetSeason());
+		if (!Sign.IsEmpty() && !bJumping)
+		{
+			Announce(Sign);
+			UE_LOG(LogHearthvale, Log, TEXT("World: signs of %s coming."), *WeatherName(Coming).ToString());
+		}
+	}
 	if (WeatherHoursLeft <= 0.f)
 	{
 		RollWeather();
+	}
+	// Each clear night hour, a chance of a falling star (not while skipping ahead).
+	const int32 WholeHour = Day * 24 + FMath::FloorToInt(Hour);
+	// A jump (sleeping, a cheat) doesn't make up for the hours it skipped.
+	if (StarHour < 0 || bJumping || WholeHour - StarHour > 2 || WholeHour < StarHour)
+	{
+		StarHour = WholeHour;
+	}
+	while (StarHour < WholeHour)
+	{
+		++StarHour;
+		if (IsNight() && Weather == EWeather::Clear && GetWorld() && GetWorld()->HasBegunPlay())
+		{
+			AFallenStar::MaybeFall(GetWorld(), Random);
+		}
 	}
 }
 
 void UWorldClock::RollWeather()
 {
 	const EWeather Old = Weather;
-	Weather = PickWeather(GetSeason(), Random.FRand());
+	// What was coming comes (turned to snow or rain if the season changed meanwhile), and the next is picked.
+	Weather = AdjustForSeason(NextWeather, GetSeason());
+	NextWeather = PickWeather(GetSeason(), Random.FRand());
 	WeatherHoursLeft = WeatherHours(Weather, Random.FRand());
+	bSignShown = false;
 	if (Weather == Old)
 	{
 		return;
@@ -229,9 +264,10 @@ bool UWorldClock::SleepUntilMorning()
 	const float Slept = bEvening ? 24.f - Hour + Wake : Wake - Hour;
 	AdvanceHours(Slept);
 	// Crops grow on real time, so the hours slept count for them too; and you wake warm.
-	const float Seconds = Slept * RealSecondsPerHour * GetCropGrowthRate();
+	float Seconds = 0.f;
 	for (AFarmPatch* Patch : TActorRange<AFarmPatch>(GetWorld()))
 	{
+		Seconds = Slept * RealSecondsPerHour * GetPlotGrowthRate(Patch);
 		Patch->AdjustGrowth(Seconds);
 	}
 	if (AHearthvaleCharacter* Player = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
@@ -262,6 +298,7 @@ FSavedWorldClock UWorldClock::SaveState() const
 	Saved.Hour = Hour;
 	Saved.Weather = Weather;
 	Saved.WeatherHoursLeft = WeatherHoursLeft;
+	Saved.NextWeather = NextWeather;
 	Saved.SnowCover = SnowCover;
 	return Saved;
 }
@@ -276,6 +313,8 @@ void UWorldClock::LoadState(const FSavedWorldClock& Saved)
 	Hour = FMath::Clamp(Saved.Hour, 0.f, 23.99f);
 	Weather = AdjustForSeason(Saved.Weather, GetSeason());
 	WeatherHoursLeft = FMath::Max(0.1f, Saved.WeatherHoursLeft);
+	NextWeather = Saved.NextWeather;
+	bSignShown = WeatherHoursLeft <= 1.2f;
 	SnowCover = Saved.SnowCover >= 0.f ? FMath::Min(Saved.SnowCover, 1.f) : GetSeason() == ESeason::Winter ? 1.f : 0.f;
 	Precipitation = TargetPrecipitation(Weather);
 	Overcast = TargetOvercast(Weather);
@@ -334,7 +373,8 @@ void UWorldClock::ApplySky()
 	}
 	if (AExponentialHeightFog* Mist = Fog.Get())
 	{
-		Mist->GetComponent()->SetFogDensity(FogDensity * (1.f + 1.5f * Overcast + 4.f * Precipitation));
+		// Cloud and rain thicken the air, and so does the morning mist.
+		Mist->GetComponent()->SetFogDensity(FogDensity * (1.f + 1.5f * Overcast + 4.f * Precipitation + 6.f * MistAmount(Day, Hour, Weather)));
 	}
 	if (AWeatherEffects* Sky = Effects.Get())
 	{
@@ -394,15 +434,42 @@ void UWorldClock::ApplySnow()
 
 void UWorldClock::GrowCrops(float RealSeconds)
 {
-	const float Extra = (GetCropGrowthRate() - 1.f) * RealSeconds;
-	if (FMath::IsNearlyZero(Extra))
+	// Look again for roofs over the plots every so often (they're built and taken down).
+	RoofTimer -= RealSeconds;
+	if (RoofTimer <= 0.f)
 	{
-		return;
+		RoofTimer = 10.f;
+		Roofed.Reset();
+		for (const AFarmPatch* Patch : TActorRange<AFarmPatch>(GetWorld()))
+		{
+			FCollisionQueryParams Params(SCENE_QUERY_STAT(GreenhouseRoof), false, Patch);
+			Params.AddIgnoredActor(Patch->GetOwner());
+			FHitResult Hit;
+			const FVector From = Patch->GetActorLocation() + FVector(0.f, 0.f, 60.f);
+			// Only something built counts as a greenhouse roof: a tree's canopy doesn't.
+			const bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, From, From + FVector(0.f, 0.f, 1500.f), ECC_Visibility, Params);
+			Roofed.Add(Patch, bHit && Cast<ABuildPiece>(Hit.GetActor()) != nullptr);
+		}
 	}
 	for (AFarmPatch* Patch : TActorRange<AFarmPatch>(GetWorld()))
 	{
-		Patch->AdjustGrowth(Extra);
+		const float Extra = (GetPlotGrowthRate(Patch) - 1.f) * RealSeconds;
+		if (!FMath::IsNearlyZero(Extra))
+		{
+			Patch->AdjustGrowth(Extra);
+		}
 	}
+}
+
+bool UWorldClock::IsUnderRoof(const AFarmPatch* Patch) const
+{
+	const bool* Found = Roofed.Find(Patch);
+	return Found && *Found;
+}
+
+float UWorldClock::GetPlotGrowthRate(const AFarmPatch* Patch) const
+{
+	return PlotGrowthRate(GetSeason(), Weather, Precipitation, IsUnderRoof(Patch), SnowCover);
 }
 
 // --- The rules ---
@@ -456,6 +523,16 @@ float UWorldClock::CropGrowthRate(ESeason Season, EWeather Weather, float Precip
 	const bool bRain = Weather == EWeather::Rain || (Weather == EWeather::Storm && Season != ESeason::Winter);
 	// Rain waters every crop.
 	return BySeason[static_cast<int32>(Season)] + (bRain ? 0.5f * FMath::Clamp(Precipitation, 0.f, 1.f) : 0.f);
+}
+
+float UWorldClock::PlotGrowthRate(ESeason Season, EWeather Weather, float Precipitation, bool bUnderRoof, float Snow)
+{
+	if (bUnderRoof)
+	{
+		// A greenhouse: winter's no matter, but it has to be watered by hand (or a sprinkler).
+		return Season == ESeason::Winter ? 1.f : CropGrowthRate(Season, EWeather::Clear);
+	}
+	return CropGrowthRate(Season, Weather, Precipitation) * (1.f - 0.7f * FMath::Clamp(Snow, 0.f, 1.f));
 }
 
 float UWorldClock::FishingShift(ESeason Season, EWeather Weather, float Hour, int32 Day)
@@ -592,6 +669,31 @@ float UWorldClock::StepSnowCover(float Cover, ESeason Season, EWeather Weather, 
 	}
 	// Melts over eight hours, faster in the rain.
 	return FMath::Max(0.f, Cover - Hours / (Weather == EWeather::Rain || Weather == EWeather::Storm ? 4.f : 8.f));
+}
+
+float UWorldClock::MistAmount(int32 Day, float Hour, EWeather Weather)
+{
+	if (Weather != EWeather::Clear && Weather != EWeather::Cloudy)
+	{
+		return 0.f;
+	}
+	// Rises before dawn, thickest just after, burnt off a couple of hours later.
+	const float FromSunrise = Hour - SunriseHour(Day);
+	const float Shape = FromSunrise < 0.5f ? FMath::SmoothStep(-1.5f, 0.5f, FromSunrise) : 1.f - FMath::SmoothStep(0.5f, 2.5f, FromSunrise);
+	static const float BySeason[] = {0.8f, 0.35f, 1.f, 0.6f};
+	return Shape * BySeason[static_cast<int32>(SeasonOfDay(Day))];
+}
+
+FText UWorldClock::SignOf(EWeather Coming, ESeason Season)
+{
+	switch (Coming)
+	{
+	case EWeather::Rain:  return NSLOCTEXT("WorldClock", "SignRain", "Clouds bank up and the air smells of rain.");
+	case EWeather::Storm: return Season == ESeason::Winter ? NSLOCTEXT("WorldClock", "SignBlizzard", "The wind rises and bites: a blizzard's coming. Get under a roof.")
+		: NSLOCTEXT("WorldClock", "SignStorm", "The wind picks up and the birds fall quiet. A storm is coming.");
+	case EWeather::Snow:  return NSLOCTEXT("WorldClock", "SignSnow", "The sky turns heavy and grey: snow before long.");
+	default:              return FText::GetEmpty();
+	}
 }
 
 float UWorldClock::TargetOvercast(EWeather Weather)

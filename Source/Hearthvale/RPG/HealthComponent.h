@@ -50,11 +50,35 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	int32 Heal(int32 Amount);
 
+	/** Whether the last blow was caught on a shield. */
+	bool WasLastBlocked() const { return bLastBlocked; }
+
+	/** Time passing: bleeding, and slowly healing out of harm's way (what the tick does; tests call it straight). */
+	void Advance(float DeltaTime);
+
 	/** Straight to a number (loading, cheats): clamped to 1..the most. */
 	void SetHealth(int32 NewHealth);
 
-	/** Back to full (waking after dying). */
-	void Restore() { SetHealth(GetMaxHealth()); }
+	/** Back to full (waking after dying), and no longer bleeding. */
+	void Restore() { StopBleeding(); SetHealth(GetMaxHealth()); }
+
+	/** A wound that bleeds: a point lost every BleedSeconds, Ticks times (more adds to it), until bound or it stops. */
+	void StartBleeding(int32 Ticks);
+
+	/** Binding the wound (or dying) stops it. */
+	void StopBleeding() { BleedLeft = 0; BleedTimer = 0.f; }
+
+	UFUNCTION(BlueprintPure, Category = "Health")
+	bool IsBleeding() const { return BleedLeft > 0; }
+
+	/** Points still to bleed away. */
+	int32 GetBleedLeft() const { return BleedLeft; }
+
+	/** The chance a beast's blow opens a bleeding wound, for its base chance and the defence worn (armour makes it less likely). */
+	static float BleedChance(float BaseChance, int32 Defence);
+
+	/** Seconds between each point bled away. */
+	static constexpr float BleedSeconds = 4.f;
 
 	/** Seconds since the last blow (for the HUD's red flash). */
 	float GetSinceHurt() const { return SinceHurt; }
@@ -86,5 +110,8 @@ private:
 
 	int32 Health = 10;
 	float SinceHurt = 100.f;
+	bool bLastBlocked = false;
+	int32 BleedLeft = 0;
+	float BleedTimer = 0.f;
 	float Resting = 0.f;
 };

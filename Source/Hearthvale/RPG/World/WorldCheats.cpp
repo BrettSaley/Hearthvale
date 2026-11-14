@@ -4,6 +4,10 @@
 #include "HearthvaleCharacter.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
+#include "RPG/World/FallenStar.h"
+#include "RPG/World/HungerComponent.h"
+#include "RPG/CropDefinition.h"
+#include "RPG/FarmPatch.h"
 #include "RPG/World/LostCache.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WeatherEffects.h"
@@ -39,11 +43,12 @@ void UWorldCheats::WorldClock()
 		{
 			Effects = Each;
 		}
-		Say(FString::Printf(TEXT("%s (day %d). Sun %.0f deg up, rises %.1f, sets %.1f%s. Falling %.2f (%d %s%s), cloud %.2f. Snow %.2f. Crops grow x%.2f, fishing %+.2f."),
+		Say(FString::Printf(TEXT("%s (day %d). Sun %.0f deg up, rises %.1f, sets %.1f%s. Falling %.2f (%d %s%s), cloud %.2f. Snow %.2f. Crops grow x%.2f, fishing %+.2f. Next: %s in %.1f h."),
 			*Clock->Describe().ToString(), Clock->GetDay() + 1, UWorldClock::SunElevation(Clock->GetDay(), Clock->GetHour()),
 			UWorldClock::SunriseHour(Clock->GetDay()), UWorldClock::SunsetHour(Clock->GetDay()), Clock->IsNight() ? TEXT(", night") : TEXT(""),
 			Clock->GetPrecipitation(), Effects ? Effects->GetFallingCount() : 0, Effects && Effects->IsShowingSnow() ? TEXT("flakes") : TEXT("drops"),
-			Effects && Effects->IsSheltered() ? TEXT(", sheltered") : TEXT(""), Clock->GetOvercast(), Clock->GetSnowCover(), Clock->GetCropGrowthRate(), Clock->GetFishingShift()));
+			Effects && Effects->IsSheltered() ? TEXT(", sheltered") : TEXT(""), Clock->GetOvercast(), Clock->GetSnowCover(), Clock->GetCropGrowthRate(), Clock->GetFishingShift(),
+			*UWorldClock::WeatherName(UWorldClock::AdjustForSeason(Clock->GetNextWeather(), Clock->GetSeason())).ToString(), Clock->GetWeatherHoursLeft()));
 	}
 }
 
@@ -122,8 +127,10 @@ void UWorldCheats::Warmth()
 		Say(TEXT("No warmth yet (the clock gives it to the player once they're in the world)."));
 		return;
 	}
-	Say(FString::Printf(TEXT("Warmth %.0f (%s). Air %.0f degrees%s%s."), Component->GetWarmth(), *UWarmthComponent::StateName(Component->GetState()).ToString(),
-		Component->GetTemperature(), Component->IsSheltered() ? TEXT(", sheltered") : TEXT(""), Component->IsNearFire() ? TEXT(", by a fire") : TEXT("")));
+	Say(FString::Printf(TEXT("Warmth %.0f (%s), wet %.2f. Air %.0f degrees%s%s."), Component->GetWarmth(), *UWarmthComponent::StateName(Component->GetState()).ToString(),
+		Component->GetWetness(),
+		Component->GetTemperature(), Component->IsIndoors() ? TEXT(", indoors") : Component->IsSheltered() ? TEXT(", sheltered") : TEXT(""),
+		Component->IsNearFire() ? TEXT(", by a fire") : TEXT("")));
 }
 
 void UWorldCheats::SetWarmth(float Value)
@@ -251,4 +258,94 @@ void UWorldCheats::ToggleMap()
 		Map->SetOpen(!Map->IsOpen());
 		Say(Map->IsOpen() ? TEXT("Map open.") : TEXT("Map closed."));
 	}
+}
+
+void UWorldCheats::Hunger()
+{
+	APlayerController* Controller = GetPlayerController();
+	if (UHungerComponent* Component = Controller ? UHungerComponent::FindOrAdd(Controller->GetPawn()) : nullptr)
+	{
+		Say(FString::Printf(TEXT("Fullness %.0f (%s)."), Component->GetFullness(), *UHungerComponent::StateName(Component->GetState()).ToString()));
+	}
+}
+
+void UWorldCheats::SetHunger(float Fullness)
+{
+	APlayerController* Controller = GetPlayerController();
+	if (UHungerComponent* Component = Controller ? UHungerComponent::FindOrAdd(Controller->GetPawn()) : nullptr)
+	{
+		Component->SetFullness(Fullness);
+		Hunger();
+	}
+}
+
+void UWorldCheats::ListCrops()
+{
+	const UWorldClock* Clock = GetClock();
+	int32 Count = 0;
+	for (const AFarmPatch* Patch : TActorRange<AFarmPatch>(GetWorld()))
+	{
+		if (Clock && Patch->GetCrop())
+		{
+			++Count;
+			Say(FString::Printf(TEXT("%s: %s%s, growing x%.2f, %.0f s left."), *Patch->GetName(), *Patch->GetCrop()->DisplayName.ToString(),
+				Clock->IsUnderRoof(Patch) ? TEXT(" (under a roof)") : TEXT(""), Clock->GetPlotGrowthRate(Patch), Patch->GetSecondsLeft()));
+		}
+	}
+	if (Count == 0)
+	{
+		Say(TEXT("Nothing planted."));
+	}
+}
+
+void UWorldCheats::BuildGreenhouse()
+{
+	APlayerController* Controller = GetPlayerController();
+	if (!Controller)
+	{
+		return;
+	}
+	// The recipe that works on the flat by the camp: the walls on the edges of the 2x2 cells round you, then
+	// roofs aimed down at the wall tops so they sit on them (aimed at the ground, they'd land on you).
+	static const TCHAR* Steps[] = {
+		TEXT("GiveItem Logs 40"), TEXT("BuildAt Workbench 500 0 0"),
+		TEXT("BuildAt WoodWall -100 -200 0"), TEXT("BuildAt WoodWall 100 -200 0"), TEXT("BuildAt WoodWall -100 200 0"), TEXT("BuildAt WoodWall 100 200 0"),
+		TEXT("BuildAt WoodWall -200 -100 1"), TEXT("BuildAt WoodWall -200 100 1"), TEXT("BuildAt WoodWall 200 -100 1"), TEXT("BuildAt WoodWall 200 100 1"),
+		TEXT("BuildAt WoodRoof -100 -195 0"), TEXT("BuildAt WoodRoof 100 -195 0"), TEXT("BuildAt WoodRoof -100 195 0"), TEXT("BuildAt WoodRoof 100 195 0")};
+	for (const TCHAR* Step : Steps)
+	{
+		Controller->ConsoleCommand(Step);
+	}
+	Say(TEXT("Built a hut round you (see the BuildAt lines above for any piece that didn't fit)."));
+}
+
+void UWorldCheats::NextWeather(const FString& Weather, float Hours)
+{
+	const int64 Value = StaticEnum<EWeather>()->GetValueByNameString(Weather);
+	if (Value == INDEX_NONE)
+	{
+		Say(TEXT("Weathers: Clear, Cloudy, Rain, Storm, Snow."));
+		return;
+	}
+	if (UWorldClock* Clock = GetClock())
+	{
+		Clock->SetNextWeather(static_cast<EWeather>(Value), Hours);
+		WorldClock();
+	}
+}
+
+void UWorldCheats::SetWet(float Wetness)
+{
+	APlayerController* Controller = GetPlayerController();
+	if (UWarmthComponent* Component = Controller ? UWarmthComponent::FindOrAdd(Controller->GetPawn()) : nullptr)
+	{
+		Component->SetWetness(Wetness);
+		Warmth();
+	}
+}
+
+void UWorldCheats::Starfall(float Near)
+{
+	static FRandomStream Random(FPlatformTime::Cycles());
+	Say(AFallenStar::Fall(GetWorld(), Random, Near) ? TEXT("A star is falling.") : TEXT("Nowhere for a star to land."));
 }

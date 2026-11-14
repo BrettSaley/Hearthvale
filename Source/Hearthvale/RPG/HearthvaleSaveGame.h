@@ -139,6 +139,10 @@ public:
 	UPROPERTY()
 	float Warmth = -1.f;
 
+	/** How full the character is; negative (older saves) means well fed. */
+	UPROPERTY()
+	float Fullness = -1.f;
+
 	/** The ruins found and searched. */
 	UPROPERTY()
 	TArray<FSavedCache> Caches;

@@ -18,6 +18,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/GameModeBase.h"
 #include "HearthvalePlayerController.h"
+#include "RPG/World/HungerComponent.h"
 #include "RPG/Building/BoatComponent.h"
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/Building/BuildingComponent.h"
@@ -272,7 +273,8 @@ void AHearthvaleCharacter::Tick(float DeltaSeconds)
 	{
 		// Wading is slow going: down to under half speed at the deepest.
 		const float Wading = FMath::Clamp((UBoatComponent::WaterLevel - Feet) / WadeDepth, 0.f, 1.f);
-		GetCharacterMovement()->MaxWalkSpeed = DryWalkSpeed * (1.f - 0.55f * Wading);
+		// Heavy armour slows the stride a little.
+		GetCharacterMovement()->MaxWalkSpeed = DryWalkSpeed * UEquipmentComponent::SpeedFactor(Equipment->GetWeight()) * (1.f - 0.55f * Wading);
 		LastWadeable = GetActorLocation();
 		return;
 	}
@@ -322,16 +324,45 @@ bool AHearthvaleCharacter::Eat(int32 SlotIndex)
 	{
 		return false;
 	}
-	if (Health->GetHealth() >= Health->GetMaxHealth())
+	// Eat to heal, or when there's room (hunger).
+	UHungerComponent* Hunger = UHungerComponent::FindOrAdd(this);
+	if (Health->GetHealth() >= Health->GetMaxHealth() && (!Hunger || !Hunger->CanEat()))
 	{
-		ShowMessage(NSLOCTEXT("Hearthvale", "FullHealth", "You're at full health: save it for when you're hurt."));
+		ShowMessage(NSLOCTEXT("Hearthvale", "FullUp", "You're full, and at full health: save it for later."));
 		return false;
 	}
 	LastAte = Now;
 	Inventory->RemoveFromSlot(SlotIndex, 1);
 	const int32 Healed = Health->Heal(Stack.Item->HealAmount);
-	ShowMessage(FText::Format(NSLOCTEXT("Hearthvale", "Ate", "You eat the {0}. It heals {1}."), Stack.Item->DisplayName.ToLower(), Healed),
+	if (Hunger)
+	{
+		Hunger->Feed(Stack.Item);
+	}
+	ShowMessage(Healed > 0 ? FText::Format(NSLOCTEXT("Hearthvale", "Ate", "You eat the {0}. It heals {1}."), Stack.Item->DisplayName.ToLower(), Healed)
+		: FText::Format(NSLOCTEXT("Hearthvale", "AteFilling", "You eat the {0}. That's better."), Stack.Item->DisplayName.ToLower()),
 		FLinearColor(0.55f, 1.f, 0.55f));
+	return true;
+}
+
+bool AHearthvaleCharacter::UseBandage(int32 SlotIndex)
+{
+	const FItemStack Stack = Inventory->GetSlot(SlotIndex);
+	if (Stack.IsEmpty() || !Stack.Item->IsBandage())
+	{
+		return false;
+	}
+	if (!Health->IsBleeding() && Health->GetHealth() >= Health->GetMaxHealth())
+	{
+		ShowMessage(NSLOCTEXT("Hearthvale", "NoWound", "You've no wound to bind."));
+		return false;
+	}
+	Inventory->RemoveFromSlot(SlotIndex, 1);
+	const bool bWasBleeding = Health->IsBleeding();
+	Health->StopBleeding();
+	const int32 Healed = Health->Heal(Stack.Item->BandageHeal);
+	ShowMessage(bWasBleeding ? FText::Format(NSLOCTEXT("Hearthvale", "Bound", "You bind the wound. The bleeding stops (+{0})."), Healed)
+		: FText::Format(NSLOCTEXT("Hearthvale", "Dressed", "You dress your cuts (+{0})."), Healed), FLinearColor(0.55f, 1.f, 0.55f));
+	UE_LOG(LogTemp, Log, TEXT("Health: bandaged (was bleeding: %d), healed %d."), bWasBleeding ? 1 : 0, Healed);
 	return true;
 }
 
@@ -518,6 +549,10 @@ void AHearthvaleCharacter::DoUseItem()
 	else if (Held && Held->IsFood())
 	{
 		Eat(HeldSlot);
+	}
+	else if (Held && Held->IsBandage())
+	{
+		UseBandage(HeldSlot);
 	}
 	else if (UEquipmentComponent::IsWearable(Held))
 	{

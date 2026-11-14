@@ -13,6 +13,8 @@
  *   Warmth                     SetWarmth 10             Campfire (lights one just ahead)
  *   ListCaches                 GoToCache 3              SearchCache
  *   Waypoint                   ToggleMap
+ *   Hunger                     SetHunger 20
+ *   ListCrops                  BuildGreenhouse (a closed hut round you)
  */
 UCLASS()
 class HEARTHVALE_API UWorldCheats : public UCheatManagerExtension
@@ -37,6 +39,10 @@ public:
 	UFUNCTION(Exec)
 	void TimeScale(float Scale);
 
+	/** What the weather turns to next, in so many game hours (NextWeather Storm 1.5): its signs show about an hour before. */
+	UFUNCTION(Exec)
+	void NextWeather(const FString& Weather, float Hours = 1.5f);
+
 	UFUNCTION(Exec)
 	void SkipDays(int32 Days = 1);
 
@@ -54,9 +60,37 @@ public:
 	UFUNCTION(Exec)
 	void SetWarmth(float Value);
 
+	/** How wet the player is, 0 to 1. */
+	UFUNCTION(Exec)
+	void SetWet(float Wetness);
+
 	/** Lights a campfire just ahead, with logs given for it (as using logs does). */
 	UFUNCTION(Exec)
 	void Campfire();
+
+	/** Logs every planted plot: its crop, whether it's under a roof, how fast it's growing and how long it has left. */
+	UFUNCTION(Exec)
+	void ListCrops();
+
+	/**
+	 * Builds a closed 2x2-cell wooden hut round the player (eight walls, four roofs, a workbench outside
+	 * first), with logs given for it: for checking indoors warmth and greenhouses. Stand at a farm patch
+	 * (GoTo FarmPatch) to roof it over.
+	 */
+	UFUNCTION(Exec)
+	void BuildGreenhouse();
+
+	/** A star falls now: far off, or Near cm ahead of the player (Starfall 1500). */
+	UFUNCTION(Exec)
+	void Starfall(float Near = 0.f);
+
+	/** Logs how full the player is. */
+	UFUNCTION(Exec)
+	void Hunger();
+
+	/** Sets how full the player is, 0 to 100. */
+	UFUNCTION(Exec)
+	void SetHunger(float Fullness);
 
 	/** Logs every lost cache: where, its biome, found or not, searched or not. */
 	UFUNCTION(Exec)

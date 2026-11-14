@@ -51,6 +51,9 @@ public:
 	/** 1 to DaysPerSeason. */
 	int32 GetDayOfSeason() const { return Day % DaysPerSeason + 1; }
 	EWeather GetWeather() const { return Weather; }
+	/** What the weather turns to next (the signs give it away about an hour before). */
+	EWeather GetNextWeather() const { return NextWeather; }
+	float GetWeatherHoursLeft() const { return WeatherHoursLeft; }
 	bool IsNight() const { return IsNightAt(Day, Hour); }
 	/** How hard it's raining or snowing, 0 to 1 (it eases in and out). */
 	float GetPrecipitation() const { return Precipitation; }
@@ -76,6 +79,8 @@ public:
 	void SetSeason(ESeason Season);
 	/** Sets the weather now, for this many game hours (it shows straight away). */
 	void SetWeather(EWeather NewWeather, float Hours = 4.f);
+	/** What the weather turns to next, and in how many game hours (for testing the signs). */
+	void SetNextWeather(EWeather Coming, float InHours) { NextWeather = Coming; WeatherHoursLeft = FMath::Max(0.1f, InHours); bSignShown = false; }
 	/** Time runs this many times as fast (for testing). */
 	void SetTimeScale(float Scale) { TimeScale = FMath::Max(0.f, Scale); }
 	/** Sleeps until just after sunrise; false if it isn't night (or evening). */
@@ -98,6 +103,15 @@ public:
 	/** The sun's compass direction: east at sunrise, south at noon, west at sunset (yaw, degrees). */
 	static float SunYaw(int32 Day, float Hour);
 	static float CropGrowthRate(ESeason Season, EWeather Weather, float Precipitation = 1.f);
+	/**
+	 * One plot's rate: under a roof (a greenhouse) it grows as in spring all winter but the rain can't
+	 * reach it; in the open, settled snow slows it almost to nothing.
+	 */
+	static float PlotGrowthRate(ESeason Season, EWeather Weather, float Precipitation, bool bUnderRoof, float SnowCover);
+	/** A plot's rate right now (under a roof or not, as last looked). */
+	float GetPlotGrowthRate(const class AFarmPatch* Patch) const;
+	/** Whether a plot has a roof over it (looked at every few seconds). */
+	bool IsUnderRoof(const class AFarmPatch* Patch) const;
 	static float FishingShift(ESeason Season, EWeather Weather, float Hour, int32 Day);
 	/** How far off (as a multiple) a wild animal of a kind notices the player. */
 	static float AlertScale(EWildlifeKind Kind, ESeason Season, EWeather Weather, bool bNight);
@@ -114,6 +128,10 @@ public:
 	/** The sky has two settings per weather: how much falls, how cloudy it is. */
 	static float TargetPrecipitation(EWeather Weather);
 	static float TargetOvercast(EWeather Weather);
+	/** How thick the morning mist is, 0 to 1: around sunrise on still, dry mornings, most in spring and autumn. */
+	static float MistAmount(int32 Day, float Hour, EWeather Weather);
+	/** The warning before rain, a storm or snow, or empty for weather that needs none. */
+	static FText SignOf(EWeather Coming, ESeason Season);
 	/** Snow cover after Hours: it settles fast while snowing in winter, slowly with frost on other winter days, and melts out of winter. */
 	static float StepSnowCover(float Cover, ESeason Season, EWeather Weather, float Hours);
 
@@ -130,7 +148,12 @@ private:
 	int32 Day = 0;
 	float Hour = StartHour;
 	EWeather Weather = EWeather::Clear;
+	EWeather NextWeather = EWeather::Clear;
 	float WeatherHoursLeft = 4.f;
+	/** The last whole hour (day x 24 + hour) a falling star was rolled for. */
+	int32 StarHour = -1;
+	/** Whether the signs of the coming weather have shown yet. */
+	bool bSignShown = false;
 	float Precipitation = 0.f;
 	float Overcast = 0.f;
 	float SnowCover = 0.f;
@@ -138,6 +161,9 @@ private:
 	float ShownSnow = -1.f;
 	float TimeScale = 1.f;
 	float CropTimer = 0.f;
+	/** Which plots have a roof over them, looked at every RoofCheckSeconds. */
+	TMap<TWeakObjectPtr<const AFarmPatch>, bool> Roofed;
+	float RoofTimer = 0.f;
 	FRandomStream Random;
 
 	TWeakObjectPtr<ADirectionalLight> Sun;

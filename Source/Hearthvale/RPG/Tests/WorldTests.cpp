@@ -5,8 +5,11 @@
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/HearthvaleSaveGame.h"
+#include "RPG/World/FallenStar.h"
 #include "RPG/World/ForageNode.h"
+#include "RPG/World/HungerComponent.h"
 #include "RPG/World/LostCache.h"
+#include "RPG/World/SeasonalColours.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WorldMap.h"
 #include "RPG/World/WildlifeHerd.h"
@@ -80,6 +83,14 @@ bool FWeatherTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Rain turns to snow in winter"), UWorldClock::AdjustForSeason(EWeather::Rain, ESeason::Winter), EWeather::Snow);
 	TestEqual(TEXT("Snow turns to rain in spring"), UWorldClock::AdjustForSeason(EWeather::Snow, ESeason::Spring), EWeather::Rain);
 	TestEqual(TEXT("Nothing falls when it's clear"), UWorldClock::TargetPrecipitation(EWeather::Clear), 0.f);
+	const int32 AutumnDay = UWorldClock::DaysPerSeason * 2 + 1;
+	const float Dawn = UWorldClock::SunriseHour(AutumnDay) + 0.5f;
+	TestTrue(TEXT("Autumn mornings are misty"), UWorldClock::MistAmount(AutumnDay, Dawn, EWeather::Clear) > 0.8f);
+	TestEqual(TEXT("The mist's gone by noon"), UWorldClock::MistAmount(AutumnDay, 13.f, EWeather::Clear), 0.f);
+	TestEqual(TEXT("No mist in the rain"), UWorldClock::MistAmount(AutumnDay, Dawn, EWeather::Rain), 0.f);
+	TestTrue(TEXT("Less in summer"), UWorldClock::MistAmount(UWorldClock::DaysPerSeason + 1, UWorldClock::SunriseHour(UWorldClock::DaysPerSeason + 1) + 0.5f, EWeather::Clear) < 0.5f);
+	TestFalse(TEXT("Storms give a sign"), UWorldClock::SignOf(EWeather::Storm, ESeason::Autumn).IsEmpty());
+	TestTrue(TEXT("Clear skies need none"), UWorldClock::SignOf(EWeather::Clear, ESeason::Autumn).IsEmpty());
 	float Snow = 0.f;
 	Snow = UWorldClock::StepSnowCover(Snow, ESeason::Winter, EWeather::Snow, 4.f);
 	TestEqual(TEXT("Four hours of winter snow covers the ground"), Snow, 1.f);
@@ -100,6 +111,10 @@ bool FSeasonEffectsTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Crops grow fastest in spring"), Spring > Summer);
 	TestTrue(TEXT("And barely in winter"), Winter < 0.5f && Winter > 0.f);
 	TestTrue(TEXT("Rain waters them"), UWorldClock::CropGrowthRate(ESeason::Summer, EWeather::Rain) > Summer);
+	TestEqual(TEXT("A greenhouse grows all winter"), UWorldClock::PlotGrowthRate(ESeason::Winter, EWeather::Snow, 1.f, true, 1.f), 1.f);
+	TestTrue(TEXT("Snow on an open plot nearly stops it"), UWorldClock::PlotGrowthRate(ESeason::Winter, EWeather::Snow, 1.f, false, 1.f) < 0.15f);
+	TestTrue(TEXT("Rain doesn't reach under a roof"),
+		UWorldClock::PlotGrowthRate(ESeason::Summer, EWeather::Rain, 1.f, true, 0.f) < UWorldClock::PlotGrowthRate(ESeason::Summer, EWeather::Rain, 1.f, false, 0.f));
 
 	// Fish
 	TestTrue(TEXT("Fish bite better in the rain"), UWorldClock::FishingShift(ESeason::Summer, EWeather::Rain, 12.f, 5) < UWorldClock::FishingShift(ESeason::Summer, EWeather::Clear, 12.f, 5));
@@ -170,6 +185,11 @@ bool FWarmthTest::RunTest(const FString& Parameters)
 	FWarmthConditions Roofed = Winter;
 	Roofed.bSheltered = true;
 	TestTrue(TEXT("A roof keeps the snow off"), UWarmthComponent::AirTemperature(Roofed) > WinterNight);
+	FWarmthConditions Indoors = Roofed;
+	Indoors.bIndoors = true;
+	TestTrue(TEXT("A whole room is warmer than a roof alone"), UWarmthComponent::AirTemperature(Indoors) > UWarmthComponent::AirTemperature(Roofed) + 5.f);
+	TestTrue(TEXT("Six walls of eight make a room (a doorway's fine)"), UWarmthComponent::IsEnclosed(6, 8));
+	TestFalse(TEXT("Half the walls don't"), UWarmthComponent::IsEnclosed(4, 8));
 	FWarmthConditions ByFire = Winter;
 	ByFire.FireHeat = UWarmthComponent::FireHeatAt(200.f);
 	TestTrue(TEXT("Beside a fire it's warm even on a winter night"), UWarmthComponent::AirTemperature(ByFire) >= UWarmthComponent::Comfort);
@@ -177,6 +197,13 @@ bool FWarmthTest::RunTest(const FString& Parameters)
 	Swimming.bInWater = true;
 	TestTrue(TEXT("Swimming chills you"), UWarmthComponent::AirTemperature(Swimming) < UWarmthComponent::AirTemperature(Summer));
 
+	FWarmthConditions Wet = Summer;
+	Wet.Wetness = 1.f;
+	TestTrue(TEXT("Wet through, you feel the cold"), UWarmthComponent::AirTemperature(Wet) < UWarmthComponent::AirTemperature(Summer) - 5.f);
+	TestEqual(TEXT("Swimming soaks you"), UWarmthComponent::StepWetness(0.f, 2.f, true, 0.f, 0.f, false, 15.f), 1.f);
+	TestTrue(TEXT("A storm soaks you in about a minute"), UWarmthComponent::StepWetness(0.f, 60.f, false, 1.f, 0.f, false, 10.f) >= 1.f);
+	TestTrue(TEXT("A fire dries you in under a minute"), UWarmthComponent::StepWetness(1.f, 45.f, false, 0.f, 20.f, false, 25.f) <= 0.f);
+	TestTrue(TEXT("The open air dries you slowly"), UWarmthComponent::StepWetness(1.f, 60.f, false, 0.f, 0.f, false, 8.f) > 0.8f);
 	TestEqual(TEXT("No heat from a fire far off"), UWarmthComponent::FireHeatAt(UWarmthComponent::FireReach + 1.f), 0.f);
 	TestTrue(TEXT("Closer is hotter"), UWarmthComponent::FireHeatAt(400.f) > UWarmthComponent::FireHeatAt(700.f));
 
@@ -312,6 +339,77 @@ bool FForagingTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("Lichen only in winter"), Lichen->Seasons.Num() == 1 && Lichen->Seasons[0] == ESeason::Winter);
 		TestNotNull(TEXT("Morels give an item"), Morel->Item.Get());
 		TestEqual(TEXT("Picked by hand"), Morel->Tool, EToolType::None);
+	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHungerTest, "Hearthvale.World.Hunger", WorldTestFlags)
+bool FHungerTest::RunTest(const FString& Parameters)
+{
+	TestEqual(TEXT("Full is well fed"), UHungerComponent::StateFor(UHungerComponent::MaxFullness), EHungerState::WellFed);
+	TestEqual(TEXT("Half is peckish"), UHungerComponent::StateFor(50.f), EHungerState::Peckish);
+	TestEqual(TEXT("A fifth is hungry"), UHungerComponent::StateFor(20.f), EHungerState::Hungry);
+	TestEqual(TEXT("Empty is starving"), UHungerComponent::StateFor(0.f), EHungerState::Starving);
+
+	// A full belly lasts about a day and a half of game time, less in the cold.
+	const float GameDay = 24.f * UWorldClock::RealSecondsPerHour;
+	TestTrue(TEXT("Still fed after a day"), UHungerComponent::Drain(UHungerComponent::MaxFullness, GameDay, false) > 0.f);
+	TestEqual(TEXT("Empty after two"), UHungerComponent::Drain(UHungerComponent::MaxFullness, GameDay * 2.f, false), 0.f);
+	TestTrue(TEXT("The cold makes you hungrier"),
+		UHungerComponent::Drain(UHungerComponent::MaxFullness, 600.f, true) < UHungerComponent::Drain(UHungerComponent::MaxFullness, 600.f, false));
+
+	TestTrue(TEXT("A big meal fills more than a snack"), UHungerComponent::FillFor(9) > UHungerComponent::FillFor(2));
+	TestTrue(TEXT("Even food that doesn't heal fills a little"), UHungerComponent::FillFor(0) > 0.f);
+
+	FWarmthConditions Fed;
+	Fed.Season = ESeason::Autumn;
+	FWarmthConditions Empty = Fed;
+	Empty.bHungry = true;
+	TestTrue(TEXT("Hungry, you feel the cold more"), UWarmthComponent::AirTemperature(Empty) < UWarmthComponent::AirTemperature(Fed));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSeasonalColoursTest, "Hearthvale.World.SeasonalColours", WorldTestFlags)
+bool FSeasonalColoursTest::RunTest(const FString& Parameters)
+{
+	const FLinearColor Green(0.025f, 0.07f, 0.015f);
+	TestTrue(TEXT("Bush leaves change"), USeasonalColours::IsSeasonal(TEXT("MI_BushLeaves")));
+	TestFalse(TEXT("Spruce needles stay green"), USeasonalColours::IsSeasonal(TEXT("MI_SpruceNeedles")));
+	TestEqual(TEXT("Spring is the leaves' own colour"), USeasonalColours::TintFor(TEXT("MI_BushLeaves"), Green, ESeason::Spring), Green);
+	TestEqual(TEXT("Needles never change"), USeasonalColours::TintFor(TEXT("MI_SpruceNeedles"), Green, ESeason::Autumn), Green);
+	const FLinearColor Autumn = USeasonalColours::TintFor(TEXT("MI_BushLeaves"), Green, ESeason::Autumn);
+	TestTrue(TEXT("Autumn leaves turn red"), Autumn.R > Autumn.G * 2.f);
+	const FLinearColor Birch = USeasonalColours::TintFor(TEXT("MI_BirchLeaves"), Green, ESeason::Autumn);
+	TestTrue(TEXT("Birches turn gold"), Birch.R > Birch.B * 5.f && Birch.G > Birch.B * 5.f);
+	const FLinearColor DeadGrass = USeasonalColours::TintFor(TEXT("MI_Grass"), Green, ESeason::Winter);
+	TestTrue(TEXT("Winter grass isn't green"), DeadGrass.R >= DeadGrass.G);
+	TestEqual(TEXT("Spring ground is green"), USeasonalColours::GroundAutumn(ESeason::Spring), 0.f);
+	TestTrue(TEXT("Autumn ground is goldest"), USeasonalColours::GroundAutumn(ESeason::Autumn) > USeasonalColours::GroundAutumn(ESeason::Winter)
+		&& USeasonalColours::GroundAutumn(ESeason::Winter) > USeasonalColours::GroundAutumn(ESeason::Summer));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFallenStarTest, "Hearthvale.World.FallenStar", WorldTestFlags)
+bool FFallenStarTest::RunTest(const FString& Parameters)
+{
+	FRandomStream Random(11);
+	const FVector Start = UWorldGenerator::GetStartLocation();
+	for (int32 Each = 0; Each < 20; ++Each)
+	{
+		FVector Spot;
+		if (!TestTrue(TEXT("Somewhere to land"), AFallenStar::PickLandingSpot(Random, Start, AFallenStar::LandsBeyond, Spot)))
+		{
+			break;
+		}
+		TestTrue(TEXT("Far off"), FVector::Dist2D(Spot, Start) >= AFallenStar::LandsBeyond);
+		TestTrue(TEXT("On dry land"), UWorldGenerator::GetGroundHeight(Spot.X, Spot.Y) > 100.f && UWorldGenerator::GetBiome(Spot.X, Spot.Y) != EBiome::Water);
+	}
+	UGatheringNodeDefinition* Rock = Cast<UGatheringNodeDefinition>(StaticLoadObject(UGatheringNodeDefinition::StaticClass(), nullptr, TEXT("/Game/Gathering/Nodes/FallenStar.FallenStar")));
+	if (TestNotNull(TEXT("The fallen star's rock (create_starfall.py)"), Rock))
+	{
+		TestEqual(TEXT("Mined"), Rock->Skill, ESkill::Mining);
+		TestEqual(TEXT("With a pickaxe"), Rock->Tool, EToolType::Pickaxe);
+		TestTrue(TEXT("For something valuable"), Rock->Item && Rock->Item->Value >= 200);
 	}
 	return true;
 }

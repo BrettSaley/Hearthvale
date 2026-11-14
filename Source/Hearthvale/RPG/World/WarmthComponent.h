@@ -27,9 +27,15 @@ struct FWarmthConditions
 	bool bHighlands = false;
 	/** A roof overhead: out of the wind, rain and snow. */
 	bool bSheltered = false;
+	/** A roof and walls all round (a doorway's fine): a room that holds its heat, and a fire in it warms the whole room. */
+	bool bIndoors = false;
 	bool bInWater = false;
 	/** Degrees from fires nearby. */
 	float FireHeat = 0.f;
+	/** An empty stomach feels the cold more. */
+	bool bHungry = false;
+	/** How wet you are, 0 to 1: wet clothes feel the cold. */
+	float Wetness = 0.f;
 };
 
 /**
@@ -67,6 +73,12 @@ public:
 	float GetTemperature() const { return Temperature; }
 	EWarmthState GetState() const { return State; }
 	bool IsSheltered() const { return Conditions.bSheltered; }
+	bool IsIndoors() const { return Conditions.bIndoors; }
+	/** How wet the player is, 0 to 1: rain and swimming soak them, a fire, a room or warm air dries them. */
+	float GetWetness() const { return Wetness; }
+	void SetWetness(float Value) { Wetness = FMath::Clamp(Value, 0.f, 1.f); }
+	/** "", "damp" or "soaked", for the HUD. */
+	static FString WetnessWord(float Value);
 	bool IsNearFire() const { return Conditions.FireHeat > 0.f; }
 	/** "Warm", "Cold"... */
 	static FText StateName(EWarmthState InState);
@@ -78,12 +90,22 @@ public:
 	static EWarmthState StateFor(float Warmth);
 	/** Degrees a fire gives at a distance (cm). */
 	static float FireHeatAt(float Distance);
+	/**
+	 * Wetness after some seconds: soaked fast swimming, steadily in the rain (by how hard it falls) out from
+	 * under a roof; otherwise it dries, slowly in the open, faster indoors or in warm air, fastest by a fire.
+	 */
+	static float StepWetness(float Wet, float Seconds, bool bSwimming, float RainOnYou, float FireHeat, bool bIndoors, float Air);
+	/** Whether walls hit in enough of the directions round someone to count as a room (with a roof): 6 of 8. */
+	static bool IsEnclosed(int32 WallsHit, int32 Directions) { return Directions > 0 && WallsHit * 4 >= Directions * 3; }
 
 private:
 	void Measure();
 	AHearthvaleCharacter* GetCharacter() const;
 
 	float Warmth = MaxWarmth;
+	float Wetness = 0.f;
+	/** Rain falling on the player now (0 to 1), as last measured. */
+	float RainOnYou = 0.f;
 	float Temperature = 15.f;
 	EWarmthState State = EWarmthState::Warm;
 	FWarmthConditions Conditions;

@@ -6,7 +6,8 @@ at: metal at an anvil with a bar of the same metal, wood and leather at a
 workbench with a plank or a hide. Better materials last longer.
 
 Run last of the item scripts (after create_items.py, create_crafting.py,
-create_farming.py, create_fishing.py, create_hunting.py and create_armour.py),
+create_farming.py, create_fishing.py, create_hunting.py, create_armour.py and
+create_weapons.py),
 headless with the editor closed:
     UnrealEditor-Cmd.exe Hearthvale.uproject -run=pythonscript -script="<path>/Scripts/create_durability.py"
 
@@ -29,6 +30,8 @@ OTHERS = {
     "WoodenShield": (60, "Plank", W),
     "LeatherCap": (90, "Hide", W), "LeatherJerkin": (90, "Hide", W), "LeatherTrousers": (90, "Hide", W),
     "LeatherGloves": (90, "Hide", W), "LeatherBoots": (90, "Hide", W),
+    "SilversteelHelm": (750, "SilverBar", A), "SilversteelChestplate": (750, "SilverBar", A),
+    "SilversteelGreaves": (750, "SilverBar", A), "SilversteelShield": (750, "SilverBar", A),
 }
 
 

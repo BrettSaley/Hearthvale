@@ -3,6 +3,7 @@
 #include "TimerManager.h"
 #include "UnrealClient.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "HearthvaleCharacter.h"
 #include "HearthvalePlayerController.h"
 #include "RPG/Building/BoatComponent.h"
@@ -561,6 +562,48 @@ void UHearthvaleCheatManager::ListTraps()
 	Say(Lines.IsEmpty() ? TEXT("No traps.") : FString::Join(Lines, TEXT("; ")));
 }
 
+void UHearthvaleCheatManager::Bleed(int32 Ticks)
+{
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		Character->GetHealth()->StartBleeding(Ticks);
+		Say(FString::Printf(TEXT("Bleeding %d; health %d / %d"), Character->GetHealth()->GetBleedLeft(), Character->GetHealth()->GetHealth(),
+			Character->GetHealth()->GetMaxHealth()));
+	}
+}
+
+void UHearthvaleCheatManager::UseSlot(int32 Slot)
+{
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		Character->SelectHotbarSlot(Slot);
+		Character->DoUseItem();
+		Say(FString::Printf(TEXT("Health %d / %d; bleeding %d"), Character->GetHealth()->GetHealth(), Character->GetHealth()->GetMaxHealth(),
+			Character->GetHealth()->GetBleedLeft()));
+	}
+}
+
+void UHearthvaleCheatManager::MakeAlpha(const FString& Kind)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	AWildlifeHerd* Nearest = nullptr;
+	for (AWildlifeHerd* Herd : TActorRange<AWildlifeHerd>(GetWorld()))
+	{
+		if (Character && UEnum::GetDisplayValueAsText(Herd->GetKind()).ToString().Equals(Kind, ESearchCase::IgnoreCase) && Herd->GetAnimalCount() > 0
+			&& (!Nearest || FVector::Dist2D(Herd->GetAnimalLocation(0), Character->GetActorLocation()) < FVector::Dist2D(Nearest->GetAnimalLocation(0), Character->GetActorLocation())))
+		{
+			Nearest = Herd;
+		}
+	}
+	if (!Nearest || !AWildlifeHerd::IsFierce(Nearest->GetKind()))
+	{
+		Say(FString::Printf(TEXT("No fierce %s herd here."), *Kind));
+		return;
+	}
+	Nearest->MakeAlpha(0);
+	Say(FString::Printf(TEXT("The %s is %d / %d"), *Nearest->GetAnimalName(0).ToString(), Nearest->GetAnimalHealth(0), Nearest->GetAnimalMaxHealth(0)));
+}
+
 void UHearthvaleCheatManager::ListWorn()
 {
 	if (const AHearthvaleCharacter* Character = GetHearthvaleCharacter())
@@ -575,8 +618,10 @@ void UHearthvaleCheatManager::ListWorn()
 				: FString::Printf(TEXT("%s: %s"), *UEquipmentComponent::GetSlotName(Each).ToString(), Item ? *Item->DisplayName.ToString() : TEXT("-")));
 		}
 		const int32 Defence = Character->GetEquipment()->GetDefence();
-		Say(FString::Printf(TEXT("%s; defence %d (blows %d%% through)"), *FString::Join(Lines, TEXT(", ")), Defence,
-			FMath::RoundToInt32(UEquipmentComponent::ArmourFactor(Defence) * 100.f)));
+		const UEquipmentComponent* Equipment = Character->GetEquipment();
+		Say(FString::Printf(TEXT("%s; defence %d (blows %d%% through); block %d%%; weight %.0f (walk speed %.0f)"), *FString::Join(Lines, TEXT(", ")), Defence,
+			FMath::RoundToInt32(UEquipmentComponent::ArmourFactor(Defence) * 100.f), FMath::RoundToInt32(Equipment->GetBlockChance() * 100.f), Equipment->GetWeight(),
+			Character->GetCharacterMovement()->MaxWalkSpeed));
 	}
 }
 
