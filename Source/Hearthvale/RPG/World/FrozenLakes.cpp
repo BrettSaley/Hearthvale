@@ -75,5 +75,33 @@ void AFrozenLakes::SetFrozen(bool bInFrozen)
 			}
 		}
 	}
+	// Anyone out on the ice as it breaks up scrambles to the nearest shore (there's no swimming: deep water
+	// would only send them back to where they last stood, out on the ice that's gone).
+	if (!bFrozen && Player)
+	{
+		const FVector At = Player->GetActorLocation();
+		for (const FVector& Lake : UWorldGenerator::GetLakes())
+		{
+			const FVector2D Out = FVector2D(At) - FVector2D(Lake);
+			if (Out.Size() >= Lake.Z * 0.95f || UWorldGenerator::GetGroundHeight(At.X, At.Y) > 0.f)
+			{
+				continue;
+			}
+			const FVector2D Way = Out.IsNearlyZero() ? FVector2D(1.f, 0.f) : Out.GetSafeNormal();
+			for (float Along = Out.Size(); Along < Lake.Z * 2.f; Along += 100.f)
+			{
+				const FVector2D Spot = FVector2D(Lake) + Way * Along;
+				const float Ground = UWorldGenerator::GetGroundHeight(Spot.X, Spot.Y);
+				if (Ground > 40.f)
+				{
+					Player->TeleportTo(FVector(Spot, Ground + 120.f), Player->GetActorRotation());
+					Player->ShowMessage(NSLOCTEXT("FrozenLakes", "Ashore", "The ice gives way under you, and you scramble ashore."), FLinearColor(0.6f, 0.8f, 1.f));
+					UE_LOG(LogHearthvale, Log, TEXT("World: the player scrambled ashore from the thawing ice."));
+					break;
+				}
+			}
+			break;
+		}
+	}
 	UE_LOG(LogHearthvale, Log, TEXT("World: the lakes %s (%d)."), bFrozen ? TEXT("freeze over") : TEXT("thaw"), Sheets.Num());
 }
