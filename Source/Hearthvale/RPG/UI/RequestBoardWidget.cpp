@@ -129,7 +129,9 @@ void URequestBoardWidget::Refresh()
 		Lines->AddChildToVerticalBox(Text)->SetPadding(FMargin(0.f, 2.f, 0.f, 4.f));
 
 		const int32 Have = Owner->GetInventory()->CountItem(Request->Item);
-		FText Pays = FText::Format(LOCTEXT("PaysCoins", "Pays {0} coins"), Request->Coins);
+		const bool bMarket = UTownSubsystem::IsMarketDayIn(Notices);
+		FText Pays = FText::Format(bMarket ? LOCTEXT("PaysCoinsMarket", "Pays {0} coins (market day)") : LOCTEXT("PaysCoins", "Pays {0} coins"),
+			FMath::RoundToInt(Request->Coins * (bMarket ? UTownSubsystem::MarketRequestBonus : 1.f)));
 		if (Request->Skill != ESkill::Count && Request->XP > 0)
 		{
 			Pays = FText::Format(LOCTEXT("PaysXP", "{0} and {1} {2} XP"), Pays, Request->XP, USkillLibrary::GetSkillName(Request->Skill));

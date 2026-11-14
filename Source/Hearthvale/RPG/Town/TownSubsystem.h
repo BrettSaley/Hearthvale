@@ -35,6 +35,18 @@ public:
 	/** "camp", "hamlet", "village", "town". */
 	static FText RankName(int32 Rank);
 
+	/** The last day of each season is market day: traders in town pay more and requests pay half as much again. */
+	static bool IsMarketDay(int32 Day);
+
+	/** What a trader who's always in town pays on market day, times an item's value (half on other days). */
+	static constexpr float MarketSellShare = 0.75f;
+
+	/** Requests pay this many times their coins on market day. */
+	static constexpr float MarketRequestBonus = 1.5f;
+
+	/** Whether it's market day in a world (by its clock). */
+	static bool IsMarketDayIn(const UObject* WorldContext);
+
 	virtual bool DoesSupportWorldType(const EWorldType::Type WorldType) const override;
 	virtual void Tick(float DeltaTime) override;
 	virtual TStatId GetStatId() const override;
@@ -56,6 +68,8 @@ public:
 
 private:
 	int32 AnnouncedRank = 0;
+	/** The last market day the town heard about. */
+	int32 AnnouncedMarket = -1;
 	/** The first count waits a moment, so a saved game's rank is loaded before it's compared. */
 	float Check = 2.f;
 };

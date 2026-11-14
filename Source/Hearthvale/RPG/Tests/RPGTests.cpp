@@ -30,6 +30,7 @@
 #include "RPG/Town/QuestDefinition.h"
 #include "RPG/Town/CompanionDefinition.h"
 #include "RPG/Town/TownSubsystem.h"
+#include "RPG/World/WorldClock.h"
 #include "RPG/Town/TraderDefinition.h"
 #include "RPG/World/RaidSubsystem.h"
 #include "RPG/Building/BuildPiece.h"
@@ -766,6 +767,20 @@ bool FTownRankTest::RunTest(const FString& Parameters)
 			At - UTownSubsystem::ScoreFor(Rank - 1) >= UTownSubsystem::ScoreFor(Rank - 1) - UTownSubsystem::ScoreFor(FMath::Max(0, Rank - 2)));
 	}
 	TestEqual(TEXT("No higher than a town"), UTownSubsystem::RankOf(100000), UTownSubsystem::TopRank);
+
+	// Market day: the last day of each season. A trader who lives here pays three quarters on it; a pedlar doesn't.
+	TestFalse(TEXT("No market on the first day"), UTownSubsystem::IsMarketDay(0));
+	TestTrue(TEXT("Market on the season's last day"), UTownSubsystem::IsMarketDay(UWorldClock::DaysPerSeason - 1));
+	TestTrue(TEXT("And the next season's"), UTownSubsystem::IsMarketDay(2 * UWorldClock::DaysPerSeason - 1));
+	UTraderDefinition* Local = NewObject<UTraderDefinition>();
+	UItemDefinition* Pelt = NewObject<UItemDefinition>();
+	Pelt->Value = 40;
+	const int32 MarketDay = UWorldClock::DaysPerSeason - 1;
+	TestEqual(TEXT("Half on an ordinary day"), Local->GetSellPriceOn(Pelt, 0, 0), 20);
+	TestEqual(TEXT("Three quarters on market day"), Local->GetSellPriceOn(Pelt, 0, MarketDay), 30);
+	Local->VisitEvery = 3;
+	TestEqual(TEXT("A pedlar pays his usual"), Local->GetSellPriceOn(Pelt, 0, MarketDay), 20);
+	TestTrue(TEXT("Market prices never beat buying"), UTownSubsystem::MarketSellShare < 1.f);
 	TestFalse(TEXT("Each rank has a name"), UTownSubsystem::RankName(2).IsEmpty());
 
 	// Odile keeps some of her stock back until the town's grown.

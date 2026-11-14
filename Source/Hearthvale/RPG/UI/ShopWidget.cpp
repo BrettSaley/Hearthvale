@@ -157,9 +157,11 @@ void UShopWidget::Open(AHearthvaleCharacter* InCharacter, ATrader* InTrader)
 		}
 	}
 	const UItemDefinition* Wanted = InTrader->GetWantedToday();
+	const bool bMarket = Definition->VisitEvery <= 0 && UTownSubsystem::IsMarketDayIn(InTrader);
 	SellInfo->SetText(Wanted
 		? FText::Format(LOCTEXT("PaysWanted", "{0} pays half what things are worth, and {1} coins each for {2} today!"), Definition->DisplayName,
 			InTrader->GetSellPriceToday(Wanted), Wanted->DisplayName.ToLower())
+		: bMarket ? FText::Format(LOCTEXT("PaysMarket", "Market day: {0} pays three quarters of what things are worth!"), Definition->DisplayName)
 		: FText::Format(LOCTEXT("Pays", "{0} pays half what things are worth."), Definition->DisplayName));
 	Refresh();
 }

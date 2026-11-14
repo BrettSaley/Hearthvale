@@ -9,6 +9,7 @@
 #include "RPG/Town/Settler.h"
 #include "RPG/Town/Villager.h"
 #include "RPG/UI/HearthvaleUIStyle.h"
+#include "RPG/World/WorldClock.h"
 
 #define LOCTEXT_NAMESPACE "Town"
 
@@ -43,6 +44,17 @@ FText UTownSubsystem::RankName(int32 Rank)
 	case 3: return LOCTEXT("Town", "town");
 	default: return LOCTEXT("Camp", "camp");
 	}
+}
+
+bool UTownSubsystem::IsMarketDay(int32 Day)
+{
+	return Day >= 0 && Day % UWorldClock::DaysPerSeason == UWorldClock::DaysPerSeason - 1;
+}
+
+bool UTownSubsystem::IsMarketDayIn(const UObject* WorldContext)
+{
+	const UWorldClock* Clock = UWorldClock::Get(WorldContext);
+	return Clock && IsMarketDay(Clock->GetDay());
 }
 
 bool UTownSubsystem::DoesSupportWorldType(const EWorldType::Type WorldType) const
@@ -114,6 +126,17 @@ void UTownSubsystem::Tick(float DeltaTime)
 		return;
 	}
 	Check = TownCheckSeconds;
+	// Market day: the town hears in the morning.
+	const UWorldClock* Clock = UWorldClock::Get(this);
+	if (Clock && IsMarketDay(Clock->GetDay()) && Clock->GetDay() != AnnouncedMarket && !Clock->IsNight())
+	{
+		AnnouncedMarket = Clock->GetDay();
+		if (const AHearthvaleCharacter* Player = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0)))
+		{
+			Player->ShowMessage(LOCTEXT("Market", "It's market day! Odile pays more today, and requests pay half as much again."),
+				HearthvaleUI::GoldColor);
+		}
+	}
 	const int32 Rank = GetRank();
 	if (Rank <= AnnouncedRank)
 	{
