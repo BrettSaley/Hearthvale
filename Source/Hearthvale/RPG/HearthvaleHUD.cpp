@@ -226,7 +226,7 @@ void AHearthvaleHUD::DrawTarget(AHearthvaleCharacter* Character)
 	}
 	const int32 Index = Combat->GetTargetIndex();
 	const float Fraction = static_cast<float>(Herd->GetAnimalHealth(Index)) / Herd->GetAnimalMaxHealth(Index);
-	FString Name = AWildlifeHerd::GetKindName(Herd->GetKind()).ToString();
+	FString Name = Herd->GetAnimalName(Index).ToString();
 	Name[0] = FChar::ToUpper(Name[0]);
 	const FString Text = FString::Printf(TEXT("%s  %d / %d"), *Name, Herd->GetAnimalHealth(Index), Herd->GetAnimalMaxHealth(Index));
 	const float Width = Canvas->ClipX * 0.22f;

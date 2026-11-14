@@ -99,7 +99,7 @@ bool UInteractionComponent::GetFocusPrompt(FInteractionPrompt& OutPrompt) const
 	{
 		const AHearthvaleCharacter* Character = Cast<AHearthvaleCharacter>(GetOwner());
 		const UItemDefinition* Weapon = Character ? Character->GetCombat()->GetWeapon() : nullptr;
-		FString Name = AWildlifeHerd::GetKindName(Herd->GetKind()).ToString();
+		FString Name = Herd->GetAnimalName(FocusAnimal).ToString();
 		Name[0] = FChar::ToUpper(Name[0]);
 		OutPrompt.Action = Weapon && Weapon->AttackRange > 0.f ? NSLOCTEXT("Interaction", "Shoot", "Shoot") : NSLOCTEXT("Interaction", "Attack", "Attack");
 		OutPrompt.Target = FText::Format(NSLOCTEXT("Interaction", "AnimalHealth", "{0}  ({1} / {2})"), FText::FromString(Name),

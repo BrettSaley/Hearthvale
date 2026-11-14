@@ -1179,6 +1179,32 @@ bool FBleedingTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAlphaTest, "Hearthvale.Alphas", TestFlags)
+
+bool FAlphaTest::RunTest(const FString& Parameters)
+{
+	// Alphas are rare, bigger, tougher and fiercer.
+	TestTrue(TEXT("Alphas are the exception"), AWildlifeHerd::AlphaChance > 0.f && AWildlifeHerd::AlphaChance < 0.5f);
+	TestTrue(TEXT("Bigger, tougher, fiercer"), AWildlifeHerd::AlphaSize > 1.f && AWildlifeHerd::AlphaToughness > 1.f && AWildlifeHerd::AlphaDamage > 1.f);
+
+	// Each fierce kind's alpha leaves a trophy that a smith sets in an amulet for the neck.
+	const TPair<EWildlifeKind, const TCHAR*> Kinds[] = {{EWildlifeKind::Boar, TEXT("TuskCharm")}, {EWildlifeKind::Wolf, TEXT("FangAmulet")},
+		{EWildlifeKind::Bear, TEXT("ClawTalisman")}};
+	for (const TPair<EWildlifeKind, const TCHAR*>& Each : Kinds)
+	{
+		const UItemDefinition* Trophy = UItemDefinition::FindItem(AWildlifeHerd::GetTrophy(Each.Key));
+		const UItemDefinition* Amulet = UItemDefinition::FindItem(Each.Value);
+		TestTrue(FString::Printf(TEXT("%s's alpha leaves a trophy"), *AWildlifeHerd::GetKindName(Each.Key).ToString()), Trophy != nullptr);
+		TestTrue(FString::Printf(TEXT("%s is worn at the neck and helps"), Each.Value), Amulet && Amulet->EquipSlot == EEquipSlot::Neck
+			&& UEquipmentComponent::IsWearable(Amulet) && Amulet->AccuracyBonus + Amulet->StrengthBonus + Amulet->DefenceBonus > 0);
+		const URecipeDefinition* Recipe = LoadObject<URecipeDefinition>(nullptr, *FString::Printf(TEXT("/Game/Crafting/Recipes/Smith%s.Smith%s"), Each.Value, Each.Value));
+		TestTrue(FString::Printf(TEXT("%s is smithed from its trophy"), Each.Value), Recipe && Recipe->Output == Amulet && Recipe->Skill == ESkill::Smithing
+			&& Recipe->Inputs.ContainsByPredicate([Trophy](const FItemAmount& In) { return In.Item == Trophy; }));
+	}
+	TestTrue(TEXT("Rabbits have no alphas"), AWildlifeHerd::GetTrophy(EWildlifeKind::Rabbit).IsNone());
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWildlifeTest, "Hearthvale.Wildlife", TestFlags)
 
 bool FWildlifeTest::RunTest(const FString& Parameters)
