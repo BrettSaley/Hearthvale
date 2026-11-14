@@ -217,6 +217,14 @@ public:
 	UFUNCTION(Exec)
 	void ListTraps();
 
+	/** Opens a bleeding wound (Bleed 5 for five points over 20 s). */
+	UFUNCTION(Exec)
+	void Bleed(int32 Ticks = 4);
+
+	/** Uses the item in a slot as right-clicking it held would (UseSlot 2). */
+	UFUNCTION(Exec)
+	void UseSlot(int32 Slot);
+
 	/** Lists what's worn and the total defence. */
 	UFUNCTION(Exec)
 	void ListWorn();
