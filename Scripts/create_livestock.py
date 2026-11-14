@@ -8,6 +8,8 @@
 - Animals in /Game/Farming/Animals: a Cow that eats vegetables and is milked
   with a bucket, and a Pig that roots up truffles on the ground near it
 - A few wild cows and pigs placed around the start of the island, to tame
+- A Brush (made at a workbench from a plank and some wool): groom any tame
+  animal once a day to keep it happy; happy animals give a little more
 
 Run after create_farming.py and create_building.py (it reuses their colours and
 the building piece setup), headless with the editor closed:
@@ -51,6 +53,7 @@ def item(name):
 F = unreal.ItemCategory.FOOD
 ITEMS = {
     "Bucket": dict(name="Bucket", examine="Planks and a rope handle. For milking.", category=unreal.ItemCategory.TOOL, value=15),
+    "Brush": dict(name="Brush", examine="Stiff bristles on a wooden back. Animals love it.", category=unreal.ItemCategory.TOOL, value=12),
     "Milk": dict(name="Milk", examine="Fresh from the cow.", category=F, stackable=True, value=8, heal=2),
     "Butter": dict(name="Butter", examine="Yellow, salty and soft.", category=F, stackable=True, value=25, heal=3),
     "Cheese": dict(name="Cheese", examine="A wheel of hard cheese.", category=F, stackable=True, value=60, heal=6),
@@ -78,6 +81,7 @@ def create_items():
 
 RECIPES = {
     "MakeBucket": (Station.WORKBENCH, [("Plank", 3)], "Bucket", 1, 2.4, "You make a bucket."),
+    "MakeBrush": (Station.WORKBENCH, [("Plank", 1), ("Wool", 1)], "Brush", 1, 2.0, "You make a brush."),
     "ChurnButter": (Station.CHURN, [("Milk", 2)], "Butter", 1, 3.0, "You churn the milk into butter.", 12),
     "PressCheese": (Station.CHURN, [("Milk", 3)], "Cheese", 1, 3.6, "You press a cheese.", 20),
     "MakeButteredPotato": (Station.FIRE, [("Potato", 1), ("Butter", 1)], "ButteredPotato", 1, 2.0, "You bake and butter a potato."),
@@ -280,8 +284,20 @@ def place_wild(animals):
     unreal.log(f"create_livestock: placed {placed} wild animals.")
 
 
+def set_grooming():
+    """Every farm animal, the chickens and sheep from create_farming.py too, is groomed with the brush."""
+    brush = item("Brush")
+    for name in ["Chicken", "Sheep", "Cow", "Pig"]:
+        kind = unreal.load_asset(f"/Game/Farming/Animals/{name}")
+        if kind:
+            kind.set_editor_property("groom_tool", brush)
+            save(kind)
+
+
 create_items()
 create_recipes()
 create_materials()
 create_churn()
-place_wild(create_animals())
+animals = create_animals()
+set_grooming()
+place_wild(animals)

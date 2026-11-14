@@ -5,6 +5,7 @@
 #include "Misc/AutomationTest.h"
 #include "RPG/Building/BuildingComponent.h"
 #include "RPG/AnimalDefinition.h"
+#include "RPG/FarmAnimal.h"
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/CraftingComponent.h"
 #include "RPG/CraftingStationDefinition.h"
@@ -375,6 +376,19 @@ bool FLivestockTest::RunTest(const FString& Parameters)
 		TestNull(TEXT("Pigs need nothing to collect from"), Pig->CollectTool.Get());
 		TestTrue(TEXT("A pig's head is among its parts"), Pig->Parts.IsValidIndex(Pig->FirstHeadPart));
 	}
+	// Care: a happy animal gives one more; a fed day cheers it a little, a hungry one more than undoes that.
+	TestEqual(TEXT("An ordinary lot"), AFarmAnimal::ProduceAmount(2, AFarmAnimal::HappyAt - 1), 2);
+	TestEqual(TEXT("A happy animal's lot"), AFarmAnimal::ProduceAmount(2, AFarmAnimal::HappyAt), 3);
+	TestEqual(TEXT("A fed day"), AFarmAnimal::DayChange(3, true), 4);
+	TestEqual(TEXT("A hungry day"), AFarmAnimal::DayChange(3, false), 1);
+	TestEqual(TEXT("Never below nothing"), AFarmAnimal::DayChange(1, false), 0);
+	TestEqual(TEXT("Never above the top"), AFarmAnimal::DayChange(AFarmAnimal::MaxHappiness, true), AFarmAnimal::MaxHappiness);
+	for (const TCHAR* Name : {TEXT("Chicken"), TEXT("Sheep"), TEXT("Cow"), TEXT("Pig")})
+	{
+		const UAnimalDefinition* Kind = LoadObject<UAnimalDefinition>(nullptr, *FString::Printf(TEXT("/Game/Farming/Animals/%s.%s"), Name, Name));
+		TestTrue(FString::Printf(TEXT("%s can be brushed"), Name), Kind && Kind->GroomTool && Kind->GroomTool->GetFName() == TEXT("Brush"));
+	}
+
 	// Hens still lay in nest boxes.
 	const UAnimalDefinition* Chicken = LoadObject<UAnimalDefinition>(nullptr, TEXT("/Game/Farming/Animals/Chicken.Chicken"));
 	TestTrue(TEXT("Hens use nest boxes"), Chicken && Chicken->bUsesNest);
@@ -464,6 +478,22 @@ bool FTradingTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("A half-worn axe fetches half that"), Trader->GetSellPrice(Axe, 50), 10);
 	TestEqual(TEXT("A nearly broken axe still fetches a coin"), Trader->GetSellPrice(Axe, 99), 1);
 
+	// A travelling trader: every third day from day 1, after something different each visit, paying double for it.
+	UTraderDefinition* Pedlar = NewObject<UTraderDefinition>();
+	Pedlar->VisitEvery = 3;
+	Pedlar->FirstVisitDay = 1;
+	Pedlar->WantedItems = {Wool, Bucket};
+	Pedlar->WantedMultiplier = 2.f;
+	TestFalse(TEXT("Not there before the first visit"), Pedlar->IsVisitDay(0));
+	TestTrue(TEXT("There on day 1"), Pedlar->IsVisitDay(1));
+	TestFalse(TEXT("Gone on day 2"), Pedlar->IsVisitDay(2));
+	TestTrue(TEXT("Back on day 4"), Pedlar->IsVisitDay(4));
+	TestEqual(TEXT("After wool on the first visit"), Pedlar->GetWanted(1), Wool);
+	TestEqual(TEXT("After a bucket on the next"), Pedlar->GetWanted(4), Bucket);
+	TestEqual(TEXT("Wool fetches double its value when wanted"), Pedlar->GetSellPriceOn(Wool, 0, 1), 24);
+	TestEqual(TEXT("And the usual half when not"), Pedlar->GetSellPriceOn(Wool, 0, 4), 6);
+	TestTrue(TEXT("Odile's always there"), Trader->IsVisitDay(2) && Trader->GetWanted(2) == nullptr);
+
 	// The game's trader: everything for sale costs more than they'd pay for it, and there's livestock.
 	const UTraderDefinition* Odile = LoadObject<UTraderDefinition>(nullptr, TEXT("/Game/Town/Traders/Odile.Odile"));
 	if (TestNotNull(TEXT("The town trader exists"), Odile))
@@ -483,6 +513,17 @@ bool FTradingTest::RunTest(const FString& Parameters)
 			bAnimals |= Line.Animal != nullptr;
 		}
 		TestTrue(TEXT("They sell livestock"), bAnimals);
+		// And the pedlar who comes now and then.
+		const UTraderDefinition* Pell = LoadObject<UTraderDefinition>(nullptr, TEXT("/Game/Town/Traders/Pell.Pell"));
+		if (TestNotNull(TEXT("The pedlar exists"), Pell))
+		{
+			TestTrue(TEXT("The pedlar travels"), Pell->VisitEvery > 1);
+			TestFalse(TEXT("The pedlar is after something"), Pell->WantedItems.IsEmpty() || Pell->WantedItems.Contains(nullptr));
+			for (const FTraderStock& Line : Pell->Stock)
+			{
+				TestTrue(TEXT("The pedlar's goods can't be sold back to him for profit"), !Line.Item || Pell->GetSellPrice(Line.Item) < Pell->GetBuyPrice(Line));
+			}
+		}
 		bool bLimited = false;
 		for (const FTraderStock& Line : Odile->Stock)
 		{

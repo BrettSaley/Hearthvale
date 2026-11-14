@@ -45,6 +45,15 @@ public:
 	/** Open by day; at night they've gone home and the stall's shut. */
 	bool IsOpen() const;
 
+	/** In town today (a travelling trader only comes now and then). */
+	bool IsHere() const;
+
+	/** What they're after today, if anything (they pay well for it). */
+	UItemDefinition* GetWantedToday() const;
+
+	/** What they'll pay today for one of an item, worn or not. */
+	int32 GetSellPriceToday(const UItemDefinition* Item, int32 Wear = 0) const;
+
 	/** How many of a line of stock are left today; MAX_int32 for no limit. */
 	int32 GetLeft(int32 StockIndex) const;
 
@@ -76,6 +85,11 @@ private:
 
 	/** Brings the day's counts up to today (by the world clock). */
 	void RollDay();
+
+	/** Whether they were in town last we looked (to say when they arrive). */
+	bool bWasHere = true;
+	bool bLookedYet = false;
+	int32 GetToday() const;
 
 	/** Seconds until they may call out again. */
 	float CallOutWait = 0.f;
