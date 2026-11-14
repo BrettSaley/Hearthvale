@@ -29,6 +29,7 @@
 #include "RPG/Town/VillagerDefinition.h"
 #include "RPG/Town/QuestDefinition.h"
 #include "RPG/Town/CompanionDefinition.h"
+#include "RPG/Town/TownSubsystem.h"
 #include "RPG/Town/TraderDefinition.h"
 #include "RPG/World/RaidSubsystem.h"
 #include "RPG/Building/BuildPiece.h"
@@ -747,6 +748,40 @@ bool FCompanionTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Its tail is among its parts"), Dog->Parts.IsValidIndex(Dog->FirstTailPart));
 	TestTrue(TEXT("It runs faster than it trots"), Dog->RunSpeed > Dog->Speed);
 	TestTrue(TEXT("It warns of danger further off than it fetches"), Dog->WarnRange > Dog->FetchRange);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTownRankTest, "Hearthvale.TownRank", TestFlags)
+
+bool FTownRankTest::RunTest(const FString& Parameters)
+{
+	// A camp, then a hamlet, a village and a town as its standing grows, each further off than the last.
+	TestEqual(TEXT("Nothing done: a camp"), UTownSubsystem::RankOf(0), 0);
+	for (int32 Rank = 1; Rank <= UTownSubsystem::TopRank; ++Rank)
+	{
+		const int32 At = UTownSubsystem::ScoreFor(Rank);
+		TestEqual(FString::Printf(TEXT("Rank %d at %d"), Rank, At), UTownSubsystem::RankOf(At), Rank);
+		TestEqual(FString::Printf(TEXT("Not rank %d just short of it"), Rank), UTownSubsystem::RankOf(At - 1), Rank - 1);
+		TestTrue(FString::Printf(TEXT("Rank %d is further off than the last"), Rank),
+			At - UTownSubsystem::ScoreFor(Rank - 1) >= UTownSubsystem::ScoreFor(Rank - 1) - UTownSubsystem::ScoreFor(FMath::Max(0, Rank - 2)));
+	}
+	TestEqual(TEXT("No higher than a town"), UTownSubsystem::RankOf(100000), UTownSubsystem::TopRank);
+	TestFalse(TEXT("Each rank has a name"), UTownSubsystem::RankName(2).IsEmpty());
+
+	// Odile keeps some of her stock back until the town's grown.
+	const UTraderDefinition* Odile = LoadObject<UTraderDefinition>(nullptr, TEXT("/Game/Town/Traders/Odile.Odile"));
+	if (TestNotNull(TEXT("Odile exists"), Odile))
+	{
+		int32 Ranked = 0;
+		bool bStartersFree = true;
+		for (const FTraderStock& Line : Odile->Stock)
+		{
+			Ranked += Line.MinRank > 0 ? 1 : 0;
+			bStartersFree &= !(Line.Item && Line.Item->GetFName() == TEXT("PotatoSeed")) || Line.MinRank == 0;
+		}
+		TestTrue(TEXT("Some of her stock comes with the town's growth"), Ranked >= 3);
+		TestTrue(TEXT("Seeds are there from the start"), bStartersFree);
+	}
 	return true;
 }
 

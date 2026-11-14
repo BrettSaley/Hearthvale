@@ -357,6 +357,10 @@ public:
 	UFUNCTION(Exec)
 	void ListCompanions();
 
+	/** Logs the town's standing, its rank, and what makes it up. */
+	UFUNCTION(Exec)
+	void Town();
+
 private:
 	AHearthvaleCharacter* GetHearthvaleCharacter() const;
 

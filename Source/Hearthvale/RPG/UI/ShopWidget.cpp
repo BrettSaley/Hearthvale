@@ -16,6 +16,7 @@
 #include "RPG/ItemDefinition.h"
 #include "RPG/Town/Trader.h"
 #include "RPG/Town/TraderDefinition.h"
+#include "RPG/Town/TownSubsystem.h"
 #include "RPG/UI/HearthvaleUIStyle.h"
 #include "RPG/UI/InventorySlotWidget.h"
 #include "RPG/UI/MenuButtonWidget.h"
@@ -180,12 +181,17 @@ void UShopWidget::Refresh()
 		const int32 Left = Trader->GetLeft(Index);
 		FText Label = FText::Format(Line.Animal ? LOCTEXT("AnimalLine", "{0} (tame)  -  {1} coins") : LOCTEXT("ItemLine", "{0}  -  {1} coins"),
 			UTraderDefinition::GetStockName(Line), Definition->GetBuyPrice(Line));
-		if (Left != MAX_int32)
+		const bool bLocked = Line.MinRank > UTownSubsystem::GetRankIn(Trader.Get());
+		if (bLocked)
+		{
+			Label = FText::Format(LOCTEXT("Locked", "{0}  (when Hearthvale's a {1})"), Label, UTownSubsystem::RankName(Line.MinRank));
+		}
+		else if (Left != MAX_int32)
 		{
 			Label = Left > 0 ? FText::Format(LOCTEXT("Left", "{0}  ({1} left)"), Label, Left) : FText::Format(LOCTEXT("SoldOutLine", "{0}  (sold out)"), Label);
 		}
 		StockButtons[Index]->SetLabel(Label);
-		StockButtons[Index]->SetDimmed(Definition->GetBuyPrice(Line) > Coins || Left <= 0);
+		StockButtons[Index]->SetDimmed(bLocked || Definition->GetBuyPrice(Line) > Coins || Left <= 0);
 	}
 	for (UInventorySlotWidget* SlotWidget : BackpackSlots)
 	{

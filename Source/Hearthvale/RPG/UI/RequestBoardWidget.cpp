@@ -13,6 +13,7 @@
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/Town/RequestBoard.h"
+#include "RPG/Town/TownSubsystem.h"
 #include "RPG/UI/HearthvaleUIStyle.h"
 #include "RPG/UI/MenuButtonWidget.h"
 
@@ -152,8 +153,9 @@ void URequestBoardWidget::Refresh()
 		Deliver->SetDimmed(Have < Request->Quantity);
 		Row->AddChildToHorizontalBox(Deliver)->SetVerticalAlignment(VAlign_Center);
 	}
-	Footer->SetText(FText::Format(LOCTEXT("Footer", "Requests done: {0}  ·  bigger jobs go up as the town gets to know you  ·  E or X to close"),
-		State.Done));
+	const UTownSubsystem* Town = GetWorld() ? GetWorld()->GetSubsystem<UTownSubsystem>() : nullptr;
+	Footer->SetText(FText::Format(LOCTEXT("Footer", "Requests done: {0}  ·  {1}  ·  E or X to close"), State.Done,
+		Town ? Town->Describe() : FText::GetEmpty()));
 	UpdateWaits();
 }
 

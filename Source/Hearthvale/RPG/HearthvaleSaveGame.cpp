@@ -20,6 +20,7 @@
 #include "RPG/Town/QuestSubsystem.h"
 #include "RPG/Town/Trader.h"
 #include "RPG/Town/Companion.h"
+#include "RPG/Town/TownSubsystem.h"
 #include "Hearthvale.h"
 
 const FString UHearthvaleSaveGame::SlotName = TEXT("Hearthvale");
@@ -92,6 +93,10 @@ bool UHearthvaleSaveGame::SaveProgress(const AHearthvaleCharacter* Character)
 		for (const ATrader* Trader : TActorRange<ATrader>(World))
 		{
 			Save->Traders.Add(Trader->GetName(), Trader->GetDayState());
+		}
+		if (const UTownSubsystem* Town = World->GetSubsystem<UTownSubsystem>())
+		{
+			Save->TownRank = Town->GetAnnouncedRank();
 		}
 		for (const ACompanion* Companion : TActorRange<ACompanion>(World))
 		{
@@ -232,6 +237,10 @@ bool UHearthvaleSaveGame::LoadProgress(AHearthvaleCharacter* Character)
 			{
 				Trader->LoadDayState(*Saved);
 			}
+		}
+		if (UTownSubsystem* Town = World->GetSubsystem<UTownSubsystem>())
+		{
+			Town->SetAnnouncedRank(Save->TownRank);
 		}
 		for (ACompanion* Companion : TActorRange<ACompanion>(World))
 		{
