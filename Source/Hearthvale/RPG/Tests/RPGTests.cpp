@@ -1202,6 +1202,16 @@ bool FAlphaTest::RunTest(const FString& Parameters)
 			&& Recipe->Inputs.ContainsByPredicate([Trophy](const FItemAmount& In) { return In.Item == Trophy; }));
 	}
 	TestTrue(TEXT("Rabbits have no alphas"), AWildlifeHerd::GetTrophy(EWildlifeKind::Rabbit).IsNone());
+
+	// Rings worn in the ring slot do something, more for rarer gems.
+	int32 Last = 0;
+	for (const TCHAR* Id : {TEXT("SilverRing"), TEXT("JadeRing"), TEXT("SapphireRing"), TEXT("RubyRing")})
+	{
+		const UItemDefinition* Ring = UItemDefinition::FindItem(Id);
+		const int32 Total = Ring ? Ring->AccuracyBonus + Ring->StrengthBonus + Ring->DefenceBonus : 0;
+		TestTrue(FString::Printf(TEXT("%s helps more than the one before"), Id), Ring && Ring->EquipSlot == EEquipSlot::Ring && Total > Last);
+		Last = Total;
+	}
 	return true;
 }
 

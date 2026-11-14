@@ -802,16 +802,26 @@ void AWildlifeHerd::Strike(FAnimal& Animal)
 	}
 	Player->GetGathering()->StopGathering();
 	Player->GetCrafting()->StopCrafting();
-	Player->LaunchCharacter(Away * Stats.Knock + FVector(0.f, 0.f, 300.f + Stats.Knock * 0.2f), true, true);
 	const FText Hit = Kind == EWildlifeKind::Bear ? LOCTEXT("BearHit", "The bear swats you aside like a sapling! Keep your distance.")
 		: Kind == EWildlifeKind::Wolf ? LOCTEXT("WolfHit", "A wolf lunges and bowls you over!")
 		: LOCTEXT("BoarHit", "The boar slams into you and sends you sprawling!");
-	Player->ShowMessage(Animal.bAlpha ? FText::Format(LOCTEXT("AlphaHit", "The alpha {0} hits you with terrible force!"), GetKindName(Kind)) : Hit,
-		FLinearColor(1.f, 0.35f, 0.3f));
 	const FText Cause = Kind == EWildlifeKind::Bear ? LOCTEXT("ByBear", "a bear") : Kind == EWildlifeKind::Wolf ? LOCTEXT("ByWolf", "a wolf")
 		: LOCTEXT("ByBoar", "a boar");
 	const int32 Blow = Random.RandRange(Stats.Damage.X, Stats.Damage.Y);
+	const int32 Before = Player->GetHealth()->GetHealth();
 	const int32 Taken = Player->GetHealth()->ApplyDamage(Animal.bAlpha ? FMath::RoundToInt32(Blow * AlphaDamage) : Blow, Cause);
+	// Knocked flying, or only staggered back when the shield caught it (not if the blow killed: they've woken elsewhere).
+	if (Taken < Before)
+	{
+		// (A caught blow says so itself.)
+		if (!Player->GetHealth()->WasLastBlocked())
+		{
+			Player->ShowMessage(Animal.bAlpha ? FText::Format(LOCTEXT("AlphaHit", "The alpha {0} hits you with terrible force!"), GetKindName(Kind)) : Hit,
+				FLinearColor(1.f, 0.35f, 0.3f));
+		}
+		const float Knock = Stats.Knock * (Player->GetHealth()->WasLastBlocked() ? 0.35f : 1.f);
+		Player->LaunchCharacter(Away * Knock + FVector(0.f, 0.f, 300.f + Knock * 0.2f), true, true);
+	}
 	if (Taken == 0 && !Player->GetHealth()->IsDead() && !Player->GetHealth()->WasLastBlocked())
 	{
 		Player->ShowMessage(LOCTEXT("ArmourHeld", "Your armour takes the blow."), FLinearColor(0.75f, 0.8f, 0.9f));
