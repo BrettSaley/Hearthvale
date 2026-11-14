@@ -8,6 +8,7 @@
 #include "RPG/World/Cave.h"
 #include "RPG/World/FallenStar.h"
 #include "RPG/World/ForageNode.h"
+#include "RPG/World/FrozenLakes.h"
 #include "RPG/World/HungerComponent.h"
 #include "RPG/World/LostCache.h"
 #include "RPG/World/SeasonalColours.h"
@@ -15,6 +16,7 @@
 #include "RPG/World/WorldMap.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldClock.h"
+#include "RPG/World/WorldGenerator.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -97,6 +99,11 @@ bool FWeatherTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Four hours of winter snow covers the ground"), Snow, 1.f);
 	TestTrue(TEXT("It melts in spring"), UWorldClock::StepSnowCover(Snow, ESeason::Spring, EWeather::Clear, 4.f) < 1.f);
 	TestEqual(TEXT("And is gone in a day"), UWorldClock::StepSnowCover(Snow, ESeason::Spring, EWeather::Clear, 24.f), 0.f);
+	TestFalse(TEXT("Lakes stay open with a little snow"), AFrozenLakes::ShouldFreeze(0.4f, false));
+	TestTrue(TEXT("They freeze once it's settled"), AFrozenLakes::ShouldFreeze(0.7f, false));
+	TestTrue(TEXT("And stay frozen as it starts to melt"), AFrozenLakes::ShouldFreeze(0.4f, true));
+	TestFalse(TEXT("Till most of it's gone"), AFrozenLakes::ShouldFreeze(0.2f, true));
+	TestTrue(TEXT("There are lakes to freeze"), UWorldGenerator::GetLakes().Num() > 0);
 	TestEqual(TEXT("No snow settles in summer"), UWorldClock::StepSnowCover(0.f, ESeason::Summer, EWeather::Storm, 10.f), 0.f);
 	TestTrue(TEXT("Storms are heavier than rain"), UWorldClock::TargetPrecipitation(EWeather::Storm) > UWorldClock::TargetPrecipitation(EWeather::Rain));
 	return true;
