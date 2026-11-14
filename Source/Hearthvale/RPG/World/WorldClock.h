@@ -98,6 +98,15 @@ public:
 	/** The sun's compass direction: east at sunrise, south at noon, west at sunset (yaw, degrees). */
 	static float SunYaw(int32 Day, float Hour);
 	static float CropGrowthRate(ESeason Season, EWeather Weather, float Precipitation = 1.f);
+	/**
+	 * One plot's rate: under a roof (a greenhouse) it grows as in spring all winter but the rain can't
+	 * reach it; in the open, settled snow slows it almost to nothing.
+	 */
+	static float PlotGrowthRate(ESeason Season, EWeather Weather, float Precipitation, bool bUnderRoof, float SnowCover);
+	/** A plot's rate right now (under a roof or not, as last looked). */
+	float GetPlotGrowthRate(const class AFarmPatch* Patch) const;
+	/** Whether a plot has a roof over it (looked at every few seconds). */
+	bool IsUnderRoof(const class AFarmPatch* Patch) const;
 	static float FishingShift(ESeason Season, EWeather Weather, float Hour, int32 Day);
 	/** How far off (as a multiple) a wild animal of a kind notices the player. */
 	static float AlertScale(EWildlifeKind Kind, ESeason Season, EWeather Weather, bool bNight);
@@ -138,6 +147,9 @@ private:
 	float ShownSnow = -1.f;
 	float TimeScale = 1.f;
 	float CropTimer = 0.f;
+	/** Which plots have a roof over them, looked at every RoofCheckSeconds. */
+	TMap<TWeakObjectPtr<const AFarmPatch>, bool> Roofed;
+	float RoofTimer = 0.f;
 	FRandomStream Random;
 
 	TWeakObjectPtr<ADirectionalLight> Sun;

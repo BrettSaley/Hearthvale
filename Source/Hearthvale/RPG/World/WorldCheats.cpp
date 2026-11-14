@@ -5,6 +5,8 @@
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/World/HungerComponent.h"
+#include "RPG/CropDefinition.h"
+#include "RPG/FarmPatch.h"
 #include "RPG/World/LostCache.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WeatherEffects.h"
@@ -271,5 +273,24 @@ void UWorldCheats::SetHunger(float Fullness)
 	{
 		Component->SetFullness(Fullness);
 		Hunger();
+	}
+}
+
+void UWorldCheats::ListCrops()
+{
+	const UWorldClock* Clock = GetClock();
+	int32 Count = 0;
+	for (const AFarmPatch* Patch : TActorRange<AFarmPatch>(GetWorld()))
+	{
+		if (Clock && Patch->GetCrop())
+		{
+			++Count;
+			Say(FString::Printf(TEXT("%s: %s%s, growing x%.2f, %.0f s left."), *Patch->GetName(), *Patch->GetCrop()->DisplayName.ToString(),
+				Clock->IsUnderRoof(Patch) ? TEXT(" (under a roof)") : TEXT(""), Clock->GetPlotGrowthRate(Patch), Patch->GetSecondsLeft()));
+		}
+	}
+	if (Count == 0)
+	{
+		Say(TEXT("Nothing planted."));
 	}
 }

@@ -231,9 +231,10 @@ bool UWorldClock::SleepUntilMorning()
 	const float Slept = bEvening ? 24.f - Hour + Wake : Wake - Hour;
 	AdvanceHours(Slept);
 	// Crops grow on real time, so the hours slept count for them too; and you wake warm.
-	const float Seconds = Slept * RealSecondsPerHour * GetCropGrowthRate();
+	float Seconds = 0.f;
 	for (AFarmPatch* Patch : TActorRange<AFarmPatch>(GetWorld()))
 	{
+		Seconds = Slept * RealSecondsPerHour * GetPlotGrowthRate(Patch);
 		Patch->AdjustGrowth(Seconds);
 	}
 	if (AHearthvaleCharacter* Player = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
@@ -396,15 +397,40 @@ void UWorldClock::ApplySnow()
 
 void UWorldClock::GrowCrops(float RealSeconds)
 {
-	const float Extra = (GetCropGrowthRate() - 1.f) * RealSeconds;
-	if (FMath::IsNearlyZero(Extra))
+	// Look again for roofs over the plots every so often (they're built and taken down).
+	RoofTimer -= RealSeconds;
+	if (RoofTimer <= 0.f)
 	{
-		return;
+		RoofTimer = 10.f;
+		Roofed.Reset();
+		for (const AFarmPatch* Patch : TActorRange<AFarmPatch>(GetWorld()))
+		{
+			FCollisionQueryParams Params(SCENE_QUERY_STAT(GreenhouseRoof), false, Patch);
+			Params.AddIgnoredActor(Patch->GetOwner());
+			FHitResult Hit;
+			const FVector From = Patch->GetActorLocation() + FVector(0.f, 0.f, 60.f);
+			Roofed.Add(Patch, GetWorld()->LineTraceSingleByChannel(Hit, From, From + FVector(0.f, 0.f, 1500.f), ECC_Visibility, Params));
+		}
 	}
 	for (AFarmPatch* Patch : TActorRange<AFarmPatch>(GetWorld()))
 	{
-		Patch->AdjustGrowth(Extra);
+		const float Extra = (GetPlotGrowthRate(Patch) - 1.f) * RealSeconds;
+		if (!FMath::IsNearlyZero(Extra))
+		{
+			Patch->AdjustGrowth(Extra);
+		}
 	}
+}
+
+bool UWorldClock::IsUnderRoof(const AFarmPatch* Patch) const
+{
+	const bool* Found = Roofed.Find(Patch);
+	return Found && *Found;
+}
+
+float UWorldClock::GetPlotGrowthRate(const AFarmPatch* Patch) const
+{
+	return PlotGrowthRate(GetSeason(), Weather, Precipitation, IsUnderRoof(Patch), SnowCover);
 }
 
 // --- The rules ---
@@ -458,6 +484,16 @@ float UWorldClock::CropGrowthRate(ESeason Season, EWeather Weather, float Precip
 	const bool bRain = Weather == EWeather::Rain || (Weather == EWeather::Storm && Season != ESeason::Winter);
 	// Rain waters every crop.
 	return BySeason[static_cast<int32>(Season)] + (bRain ? 0.5f * FMath::Clamp(Precipitation, 0.f, 1.f) : 0.f);
+}
+
+float UWorldClock::PlotGrowthRate(ESeason Season, EWeather Weather, float Precipitation, bool bUnderRoof, float Snow)
+{
+	if (bUnderRoof)
+	{
+		// A greenhouse: winter's no matter, but it has to be watered by hand (or a sprinkler).
+		return Season == ESeason::Winter ? 1.f : CropGrowthRate(Season, EWeather::Clear);
+	}
+	return CropGrowthRate(Season, Weather, Precipitation) * (1.f - 0.7f * FMath::Clamp(Snow, 0.f, 1.f));
 }
 
 float UWorldClock::FishingShift(ESeason Season, EWeather Weather, float Hour, int32 Day)
