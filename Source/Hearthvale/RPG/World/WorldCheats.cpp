@@ -296,7 +296,7 @@ void UWorldCheats::ListCrops()
 	}
 }
 
-void UWorldCheats::BuildHut()
+void UWorldCheats::BuildGreenhouse()
 {
 	APlayerController* Controller = GetPlayerController();
 	if (!Controller)

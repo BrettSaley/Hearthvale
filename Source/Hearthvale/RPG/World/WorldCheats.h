@@ -14,7 +14,7 @@
  *   ListCaches                 GoToCache 3              SearchCache
  *   Waypoint                   ToggleMap
  *   Hunger                     SetHunger 20
- *   ListCrops                  BuildHut (a closed hut round you)
+ *   ListCrops                  BuildGreenhouse (a closed hut round you)
  */
 UCLASS()
 class HEARTHVALE_API UWorldCheats : public UCheatManagerExtension
@@ -74,7 +74,7 @@ public:
 	 * (GoTo FarmPatch) to roof it over.
 	 */
 	UFUNCTION(Exec)
-	void BuildHut();
+	void BuildGreenhouse();
 
 	/** Logs how full the player is. */
 	UFUNCTION(Exec)
