@@ -10,6 +10,7 @@
 #include "HearthvaleCharacter.h"
 #include "Hearthvale.h"
 #include "RPG/Building/BuildPiece.h"
+#include "RPG/World/FallenStar.h"
 #include "RPG/World/LostCache.h"
 #include "RPG/World/WorldGenerator.h"
 
@@ -75,6 +76,13 @@ TArray<FMapMarker> UWorldMap::GatherMarkers() const
 			// Searched ones stay on the map, greyed, but leave the compass until they fill again.
 			const bool bFull = Cache->HasLoot();
 			Markers.Add({Cache->GetActorLocation(), Cache->GetCacheName().ToString(), bFull ? RuinColor : SearchedColor, bFull});
+		}
+	}
+	for (const AFallenStar* Star : TActorRange<AFallenStar>(World))
+	{
+		if (!Star->IsDepleted())
+		{
+			Markers.Add({Star->GetActorLocation(), TEXT("Fallen star"), FLinearColor(0.75f, 0.55f, 1.f), true});
 		}
 	}
 	for (const ABuildPiece* Piece : TActorRange<ABuildPiece>(World))

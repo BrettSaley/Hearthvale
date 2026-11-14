@@ -80,6 +80,10 @@ public:
 	UFUNCTION(Exec)
 	void BuildGreenhouse();
 
+	/** A star falls now: far off, or Near cm ahead of the player (Starfall 1500). */
+	UFUNCTION(Exec)
+	void Starfall(float Near = 0.f);
+
 	/** Logs how full the player is. */
 	UFUNCTION(Exec)
 	void Hunger();

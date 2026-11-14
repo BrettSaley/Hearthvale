@@ -4,6 +4,7 @@
 #include "HearthvaleCharacter.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
+#include "RPG/World/FallenStar.h"
 #include "RPG/World/HungerComponent.h"
 #include "RPG/CropDefinition.h"
 #include "RPG/FarmPatch.h"
@@ -341,4 +342,10 @@ void UWorldCheats::SetWet(float Wetness)
 		Component->SetWetness(Wetness);
 		Warmth();
 	}
+}
+
+void UWorldCheats::Starfall(float Near)
+{
+	static FRandomStream Random(FPlatformTime::Cycles());
+	Say(AFallenStar::Fall(GetWorld(), Random, Near) ? TEXT("A star is falling.") : TEXT("Nowhere for a star to land."));
 }

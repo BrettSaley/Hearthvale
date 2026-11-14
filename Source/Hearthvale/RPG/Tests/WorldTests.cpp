@@ -5,6 +5,7 @@
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/HearthvaleSaveGame.h"
+#include "RPG/World/FallenStar.h"
 #include "RPG/World/ForageNode.h"
 #include "RPG/World/HungerComponent.h"
 #include "RPG/World/LostCache.h"
@@ -385,6 +386,31 @@ bool FSeasonalColoursTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Spring ground is green"), USeasonalColours::GroundAutumn(ESeason::Spring), 0.f);
 	TestTrue(TEXT("Autumn ground is goldest"), USeasonalColours::GroundAutumn(ESeason::Autumn) > USeasonalColours::GroundAutumn(ESeason::Winter)
 		&& USeasonalColours::GroundAutumn(ESeason::Winter) > USeasonalColours::GroundAutumn(ESeason::Summer));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFallenStarTest, "Hearthvale.World.FallenStar", WorldTestFlags)
+bool FFallenStarTest::RunTest(const FString& Parameters)
+{
+	FRandomStream Random(11);
+	const FVector Start = UWorldGenerator::GetStartLocation();
+	for (int32 Each = 0; Each < 20; ++Each)
+	{
+		FVector Spot;
+		if (!TestTrue(TEXT("Somewhere to land"), AFallenStar::PickLandingSpot(Random, Start, AFallenStar::LandsBeyond, Spot)))
+		{
+			break;
+		}
+		TestTrue(TEXT("Far off"), FVector::Dist2D(Spot, Start) >= AFallenStar::LandsBeyond);
+		TestTrue(TEXT("On dry land"), UWorldGenerator::GetGroundHeight(Spot.X, Spot.Y) > 100.f && UWorldGenerator::GetBiome(Spot.X, Spot.Y) != EBiome::Water);
+	}
+	UGatheringNodeDefinition* Rock = Cast<UGatheringNodeDefinition>(StaticLoadObject(UGatheringNodeDefinition::StaticClass(), nullptr, TEXT("/Game/Gathering/Nodes/FallenStar.FallenStar")));
+	if (TestNotNull(TEXT("The fallen star's rock (create_starfall.py)"), Rock))
+	{
+		TestEqual(TEXT("Mined"), Rock->Skill, ESkill::Mining);
+		TestEqual(TEXT("With a pickaxe"), Rock->Tool, EToolType::Pickaxe);
+		TestTrue(TEXT("For something valuable"), Rock->Item && Rock->Item->Value >= 200);
+	}
 	return true;
 }
 

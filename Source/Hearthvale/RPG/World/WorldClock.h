@@ -150,6 +150,8 @@ private:
 	EWeather Weather = EWeather::Clear;
 	EWeather NextWeather = EWeather::Clear;
 	float WeatherHoursLeft = 4.f;
+	/** The last whole hour (day x 24 + hour) a falling star was rolled for. */
+	int32 StarHour = -1;
 	/** Whether the signs of the coming weather have shown yet. */
 	bool bSignShown = false;
 	float Precipitation = 0.f;
