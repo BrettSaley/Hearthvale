@@ -10,10 +10,10 @@
 
 namespace
 {
-	const TCHAR* Cube = TEXT("/Engine/BasicShapes/Cube.Cube");
-	const TCHAR* Cylinder = TEXT("/Engine/BasicShapes/Cylinder.Cylinder");
-	const TCHAR* Cone = TEXT("/Engine/BasicShapes/Cone.Cone");
-	const TCHAR* Sphere = TEXT("/Engine/BasicShapes/Sphere.Sphere");
+	const TCHAR* HeldCube = TEXT("/Engine/BasicShapes/Cube.Cube");
+	const TCHAR* HeldCylinder = TEXT("/Engine/BasicShapes/Cylinder.Cylinder");
+	const TCHAR* HeldCone = TEXT("/Engine/BasicShapes/Cone.Cone");
+	const TCHAR* HeldSphere = TEXT("/Engine/BasicShapes/Sphere.Sphere");
 	const TCHAR* Wood = TEXT("Planks");
 	const TCHAR* Grip = TEXT("Leather");
 	const TCHAR* String = TEXT("Straw");
@@ -180,60 +180,60 @@ void UHeldItemComponent::Build(USceneComponent* Pivot, const UItemDefinition* It
 	switch (Shape)
 	{
 	case EShape::Sword:
-		AddPart(Pivot, Cube, Grip, FVector(0.f, 0.f, 0.f), FVector(0.14f, 0.03f, 0.03f));
-		AddPart(Pivot, Sphere, Metal, FVector(-8.f, 0.f, 0.f), FVector(0.045f));
-		AddPart(Pivot, Cube, Metal, FVector(8.f, 0.f, 0.f), FVector(0.03f, 0.04f, 0.22f));
-		AddPart(Pivot, Cube, Metal, FVector(47.f, 0.f, 0.f), FVector(0.78f, 0.012f, 0.06f));
+		AddPart(Pivot, HeldCube, Grip, FVector(0.f, 0.f, 0.f), FVector(0.14f, 0.03f, 0.03f));
+		AddPart(Pivot, HeldSphere, Metal, FVector(-8.f, 0.f, 0.f), FVector(0.045f));
+		AddPart(Pivot, HeldCube, Metal, FVector(8.f, 0.f, 0.f), FVector(0.03f, 0.04f, 0.22f));
+		AddPart(Pivot, HeldCube, Metal, FVector(47.f, 0.f, 0.f), FVector(0.78f, 0.012f, 0.06f));
 		break;
 	case EShape::Spear:
 	case EShape::Harpoon:
-		AddPart(Pivot, Cube, Wood, FVector(45.f, 0.f, 0.f), FVector(2.1f, 0.03f, 0.03f));
-		AddPart(Pivot, Cone, Metal, FVector(158.f, 0.f, 0.f), FVector(0.06f, 0.06f, 0.22f), AlongX);
+		AddPart(Pivot, HeldCube, Wood, FVector(45.f, 0.f, 0.f), FVector(2.1f, 0.03f, 0.03f));
+		AddPart(Pivot, HeldCone, Metal, FVector(158.f, 0.f, 0.f), FVector(0.06f, 0.06f, 0.22f), AlongX);
 		if (Shape == EShape::Harpoon)
 		{
-			AddPart(Pivot, Cube, Metal, FVector(150.f, 3.f, 0.f), FVector(0.08f, 0.015f, 0.015f), FRotator(0.f, -35.f, 0.f));
+			AddPart(Pivot, HeldCube, Metal, FVector(150.f, 3.f, 0.f), FVector(0.08f, 0.015f, 0.015f), FRotator(0.f, -35.f, 0.f));
 		}
 		break;
 	case EShape::Axe:
-		AddPart(Pivot, Cube, Wood, FVector(20.f, 0.f, 0.f), FVector(0.68f, 0.03f, 0.03f));
-		AddPart(Pivot, Cube, Metal, FVector(48.f, 0.f, 7.f), FVector(0.13f, 0.025f, 0.16f));
+		AddPart(Pivot, HeldCube, Wood, FVector(20.f, 0.f, 0.f), FVector(0.68f, 0.03f, 0.03f));
+		AddPart(Pivot, HeldCube, Metal, FVector(48.f, 0.f, 7.f), FVector(0.13f, 0.025f, 0.16f));
 		break;
 	case EShape::Pickaxe:
-		AddPart(Pivot, Cube, Wood, FVector(20.f, 0.f, 0.f), FVector(0.68f, 0.03f, 0.03f));
-		AddPart(Pivot, Cube, Metal, FVector(50.f, 0.f, 0.f), FVector(0.05f, 0.035f, 0.46f));
-		AddPart(Pivot, Cone, Metal, FVector(50.f, 0.f, 25.f), FVector(0.04f, 0.04f, 0.08f));
+		AddPart(Pivot, HeldCube, Wood, FVector(20.f, 0.f, 0.f), FVector(0.68f, 0.03f, 0.03f));
+		AddPart(Pivot, HeldCube, Metal, FVector(50.f, 0.f, 0.f), FVector(0.05f, 0.035f, 0.46f));
+		AddPart(Pivot, HeldCone, Metal, FVector(50.f, 0.f, 25.f), FVector(0.04f, 0.04f, 0.08f));
 		break;
 	case EShape::Hammer:
-		AddPart(Pivot, Cube, Wood, FVector(14.f, 0.f, 0.f), FVector(0.48f, 0.03f, 0.03f));
-		AddPart(Pivot, Cube, Metal, FVector(38.f, 0.f, 0.f), FVector(0.09f, 0.17f, 0.09f));
+		AddPart(Pivot, HeldCube, Wood, FVector(14.f, 0.f, 0.f), FVector(0.48f, 0.03f, 0.03f));
+		AddPart(Pivot, HeldCube, Metal, FVector(38.f, 0.f, 0.f), FVector(0.09f, 0.17f, 0.09f));
 		break;
 	case EShape::Sickle:
-		AddPart(Pivot, Cube, Grip, FVector(0.f, 0.f, 0.f), FVector(0.16f, 0.03f, 0.03f));
-		AddPart(Pivot, Cube, Metal, FVector(16.f, 0.f, 4.f), FVector(0.18f, 0.01f, 0.02f), FRotator(30.f, 0.f, 0.f));
-		AddPart(Pivot, Cube, Metal, FVector(25.f, 0.f, 13.f), FVector(0.16f, 0.01f, 0.02f), FRotator(75.f, 0.f, 0.f));
-		AddPart(Pivot, Cube, Metal, FVector(25.f, 0.f, 22.f), FVector(0.1f, 0.01f, 0.02f), FRotator(120.f, 0.f, 0.f));
+		AddPart(Pivot, HeldCube, Grip, FVector(0.f, 0.f, 0.f), FVector(0.16f, 0.03f, 0.03f));
+		AddPart(Pivot, HeldCube, Metal, FVector(16.f, 0.f, 4.f), FVector(0.18f, 0.01f, 0.02f), FRotator(30.f, 0.f, 0.f));
+		AddPart(Pivot, HeldCube, Metal, FVector(25.f, 0.f, 13.f), FVector(0.16f, 0.01f, 0.02f), FRotator(75.f, 0.f, 0.f));
+		AddPart(Pivot, HeldCube, Metal, FVector(25.f, 0.f, 22.f), FVector(0.1f, 0.01f, 0.02f), FRotator(120.f, 0.f, 0.f));
 		break;
 	case EShape::Net:
-		AddPart(Pivot, Cube, Wood, FVector(25.f, 0.f, 0.f), FVector(0.8f, 0.03f, 0.03f));
-		AddPart(Pivot, Cylinder, String, FVector(75.f, 0.f, 0.f), FVector(0.4f, 0.4f, 0.01f), FRotator(0.f, 0.f, 90.f));
+		AddPart(Pivot, HeldCube, Wood, FVector(25.f, 0.f, 0.f), FVector(0.8f, 0.03f, 0.03f));
+		AddPart(Pivot, HeldCylinder, String, FVector(75.f, 0.f, 0.f), FVector(0.4f, 0.4f, 0.01f), FRotator(0.f, 0.f, 90.f));
 		break;
 	case EShape::Bow:
 	{
 		const TCHAR* Limbs = Wood;
-		AddPart(Pivot, Cube, Grip, FVector(0.f, 0.f, 0.f), FVector(0.03f, 0.04f, 0.14f));
-		AddPart(Pivot, Cube, Limbs, FVector(4.f, 0.f, 30.f), FVector(0.025f, 0.03f, 0.5f), FRotator(-12.f, 0.f, 0.f));
-		AddPart(Pivot, Cube, Limbs, FVector(4.f, 0.f, -30.f), FVector(0.025f, 0.03f, 0.5f), FRotator(12.f, 0.f, 0.f));
-		AddPart(Pivot, Cylinder, String, FVector(-2.f, 0.f, 0.f), FVector(0.005f, 0.005f, 1.04f));
+		AddPart(Pivot, HeldCube, Grip, FVector(0.f, 0.f, 0.f), FVector(0.03f, 0.04f, 0.14f));
+		AddPart(Pivot, HeldCube, Limbs, FVector(4.f, 0.f, 30.f), FVector(0.025f, 0.03f, 0.5f), FRotator(-12.f, 0.f, 0.f));
+		AddPart(Pivot, HeldCube, Limbs, FVector(4.f, 0.f, -30.f), FVector(0.025f, 0.03f, 0.5f), FRotator(12.f, 0.f, 0.f));
+		AddPart(Pivot, HeldCylinder, String, FVector(-2.f, 0.f, 0.f), FVector(0.005f, 0.005f, 1.04f));
 		break;
 	}
 	case EShape::Crossbow:
-		AddPart(Pivot, Cube, Wood, FVector(18.f, 0.f, 0.f), FVector(0.62f, 0.05f, 0.06f));
-		AddPart(Pivot, Cube, Metal, FVector(44.f, 0.f, 3.f), FVector(0.04f, 0.6f, 0.03f));
-		AddPart(Pivot, Cylinder, String, FVector(36.f, 0.f, 3.f), FVector(0.005f, 0.005f, 0.5f), FRotator(0.f, 0.f, 90.f));
+		AddPart(Pivot, HeldCube, Wood, FVector(18.f, 0.f, 0.f), FVector(0.62f, 0.05f, 0.06f));
+		AddPart(Pivot, HeldCube, Metal, FVector(44.f, 0.f, 3.f), FVector(0.04f, 0.6f, 0.03f));
+		AddPart(Pivot, HeldCylinder, String, FVector(36.f, 0.f, 3.f), FVector(0.005f, 0.005f, 0.5f), FRotator(0.f, 0.f, 90.f));
 		break;
 	case EShape::Shield:
-		AddPart(Pivot, Cylinder, IsWooden(Item) ? Wood : Metal, FVector(0.f, 0.f, 0.f), FVector(0.55f, 0.55f, 0.04f));
-		AddPart(Pivot, Sphere, Metal, FVector(0.f, 0.f, 3.f), FVector(0.1f, 0.1f, 0.05f));
+		AddPart(Pivot, HeldCylinder, IsWooden(Item) ? Wood : Metal, FVector(0.f, 0.f, 0.f), FVector(0.55f, 0.55f, 0.04f));
+		AddPart(Pivot, HeldSphere, Metal, FVector(0.f, 0.f, 3.f), FVector(0.1f, 0.1f, 0.05f));
 		break;
 	default:
 		break;
