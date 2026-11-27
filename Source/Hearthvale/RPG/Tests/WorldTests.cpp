@@ -5,8 +5,10 @@
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/HearthvaleSaveGame.h"
+#include "RPG/World/Cave.h"
 #include "RPG/World/FallenStar.h"
 #include "RPG/World/ForageNode.h"
+#include "RPG/World/FrozenLakes.h"
 #include "RPG/World/HungerComponent.h"
 #include "RPG/World/LostCache.h"
 #include "RPG/World/SeasonalColours.h"
@@ -14,6 +16,7 @@
 #include "RPG/World/WorldMap.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldClock.h"
+#include "RPG/World/WorldGenerator.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -96,6 +99,11 @@ bool FWeatherTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Four hours of winter snow covers the ground"), Snow, 1.f);
 	TestTrue(TEXT("It melts in spring"), UWorldClock::StepSnowCover(Snow, ESeason::Spring, EWeather::Clear, 4.f) < 1.f);
 	TestEqual(TEXT("And is gone in a day"), UWorldClock::StepSnowCover(Snow, ESeason::Spring, EWeather::Clear, 24.f), 0.f);
+	TestFalse(TEXT("Lakes stay open with a little snow"), AFrozenLakes::ShouldFreeze(0.4f, false));
+	TestTrue(TEXT("They freeze once it's settled"), AFrozenLakes::ShouldFreeze(0.7f, false));
+	TestTrue(TEXT("And stay frozen as it starts to melt"), AFrozenLakes::ShouldFreeze(0.4f, true));
+	TestFalse(TEXT("Till most of it's gone"), AFrozenLakes::ShouldFreeze(0.2f, true));
+	TestTrue(TEXT("There are lakes to freeze"), UWorldGenerator::GetLakes().Num() > 0);
 	TestEqual(TEXT("No snow settles in summer"), UWorldClock::StepSnowCover(0.f, ESeason::Summer, EWeather::Storm, 10.f), 0.f);
 	TestTrue(TEXT("Storms are heavier than rain"), UWorldClock::TargetPrecipitation(EWeather::Storm) > UWorldClock::TargetPrecipitation(EWeather::Rain));
 	return true;
@@ -411,6 +419,38 @@ bool FFallenStarTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("With a pickaxe"), Rock->Tool, EToolType::Pickaxe);
 		TestTrue(TEXT("For something valuable"), Rock->Item && Rock->Item->Value >= 200);
 	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCavesTest, "Hearthvale.World.Caves", WorldTestFlags)
+bool FCavesTest::RunTest(const FString& Parameters)
+{
+	const TArray<FCaveSpot>& Caves = ACave::PlanCaves();
+	TestEqual(TEXT("Five caves"), Caves.Num(), 5);
+	const FVector Start = UWorldGenerator::GetStartLocation();
+	int32 Highland = 0;
+	for (const FCaveSpot& Cave : Caves)
+	{
+		Highland += Cave.Biome == EBiome::Highlands ? 1 : 0;
+		TestTrue(TEXT("Away from the start"), FVector::Dist2D(Cave.Location, Start) >= 30000.f);
+		TestTrue(TEXT("On dry land"), UWorldGenerator::GetGroundHeight(Cave.Location.X, Cave.Location.Y) > 200.f);
+		TestFalse(TEXT("Named"), Cave.Name.IsEmpty());
+		// Its mouth faces downhill.
+		const FVector Out = Cave.Location + FRotator(0.f, Cave.Yaw, 0.f).Vector() * 600.f;
+		TestTrue(TEXT("The mouth faces downhill"), UWorldGenerator::GetGroundHeight(Out.X, Out.Y) <= Cave.Location.Z + 50.f);
+		for (const FCacheSpot& Ruin : ALostCache::PlanCaches())
+		{
+			TestTrue(TEXT("Not on top of a ruin"), FVector::Dist2D(Ruin.Location, Cave.Location) >= 6000.f);
+		}
+	}
+	TestEqual(TEXT("Three in the Highlands"), Highland, 3);
+	for (const FCaveSpot& Cave : Caves)
+	{
+		const FVector Inside = Cave.Location + FRotator(0.f, Cave.Yaw, 0.f).Vector() * -500.f;
+		TestTrue(TEXT("A cave's chamber is kept clear"), ACave::InAnyFootprint(Inside));
+	}
+	TestFalse(TEXT("The start isn't"), ACave::InAnyFootprint(Start));
+	TestTrue(TEXT("The hoards are numbered after the ruins"), ACave::FirstHoardIndex > ALostCache::PlanCaches().Num());
 	return true;
 }
 

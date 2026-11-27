@@ -11,6 +11,7 @@
 #include "RPG/GroundItem.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
+#include "RPG/World/Cave.h"
 #include "RPG/World/ForageNode.h"
 #include "RPG/World/WorldClock.h"
 
@@ -87,6 +88,7 @@ void ULostCacheRegistry::OnWorldBeginPlay(UWorld& InWorld)
 	{
 		UE_LOG(LogHearthvale, Log, TEXT("Placed %d lost caches."), ALostCache::SpawnAll(&InWorld));
 		UE_LOG(LogHearthvale, Log, TEXT("Placed %d wild plants to forage."), AForageNode::SpawnAll(&InWorld));
+		UE_LOG(LogHearthvale, Log, TEXT("Placed %d caves."), ACave::SpawnAll(&InWorld));
 	}
 }
 
@@ -202,19 +204,24 @@ int32 ALostCache::SpawnAll(UWorld* World)
 	const TArray<FCacheSpot>& Spots = PlanCaches();
 	for (int32 Each = 0; Each < Spots.Num(); ++Each)
 	{
-		const FTransform Transform(FRotator(0.f, Spots[Each].Yaw, 0.f), Spots[Each].Location);
-		ALostCache* Cache = World->SpawnActorDeferred<ALostCache>(StaticClass(), Transform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-		if (Cache)
-		{
-			Cache->Index = Each;
-			Cache->Biome = Spots[Each].Biome;
-			Cache->CacheName = Spots[Each].Name;
-			Cache->FinishSpawning(Transform);
-			Cache->Build();
-			++Placed;
-		}
+		Placed += SpawnOne(World, Each, FTransform(FRotator(0.f, Spots[Each].Yaw, 0.f), Spots[Each].Location), Spots[Each].Biome, Spots[Each].Name) ? 1 : 0;
 	}
 	return Placed;
+}
+
+ALostCache* ALostCache::SpawnOne(UWorld* World, int32 InIndex, const FTransform& Transform, EBiome InBiome, const FText& InName, bool bJustChest)
+{
+	ALostCache* Cache = World ? World->SpawnActorDeferred<ALostCache>(StaticClass(), Transform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn) : nullptr;
+	if (Cache)
+	{
+		Cache->Index = InIndex;
+		Cache->Biome = InBiome;
+		Cache->CacheName = InName;
+		Cache->bJustChest = bJustChest;
+		Cache->FinishSpawning(Transform);
+		Cache->Build();
+	}
+	return Cache;
 }
 
 void ALostCache::Build()
@@ -238,9 +245,15 @@ void ALostCache::Build()
 			Piece->SetMaterial(0, Material);
 		}
 	};
-	// A broken ring of standing and fallen stones; a gap where the way in was.
+	// A broken ring of standing and fallen stones; a gap where the way in was. (None for a chest on its own, in a cave.)
 	for (int32 Stone = 0; Stone < StoneCount; ++Stone)
 	{
+		if (bJustChest)
+		{
+			Pieces[Stone]->SetVisibility(false);
+			Pieces[Stone]->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			continue;
+		}
 		const float Angle = (Stone + 0.5f) / (StoneCount + 1) * UE_TWO_PI;
 		const FVector Out(FMath::Cos(Angle) * RingRadius, FMath::Sin(Angle) * RingRadius, 0.f);
 		const bool bFallen = Random.FRand() < 0.35f;
@@ -283,7 +296,7 @@ void ALostCache::Tick(float DeltaSeconds)
 		State().bDiscovered = true;
 		const ULostCacheRegistry* Registry = ULostCacheRegistry::Get(this);
 		UE_LOG(LogHearthvale, Log, TEXT("World: discovered %s (%d of %d)."), *CacheName.ToString(),
-			Registry ? Registry->CountDiscovered() : 1, PlanCaches().Num());
+			Registry ? Registry->CountDiscovered() : 1, PlanCaches().Num() + ACave::PlanCaves().Num());
 		Player->ShowMessage(FText::Format(LOCTEXT("Discovered", "You've come across the {0}. Someone left something behind here..."), CacheName), FoundColor);
 	}
 }

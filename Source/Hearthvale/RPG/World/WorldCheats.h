@@ -104,6 +104,14 @@ public:
 	UFUNCTION(Exec)
 	void SearchCache();
 
+	/** Logs every cave: its name, biome and how far off. */
+	UFUNCTION(Exec)
+	void ListCaves();
+
+	/** Teleports to just outside a cave's mouth (ListCaves), looking in. */
+	UFUNCTION(Exec)
+	void GoToCave(int32 Index = 0);
+
 	/** Sets a waypoint where the player stands, or clears the one there (as N does). */
 	UFUNCTION(Exec)
 	void Waypoint();

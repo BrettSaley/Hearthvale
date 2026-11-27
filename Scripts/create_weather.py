@@ -2,6 +2,7 @@
 
 - /Game/World/Weather/M_Rain: the rain streaks, unlit and see-through
 - /Game/World/Weather/M_Snow: the snowflakes, soft white
+- /Game/World/Weather/M_Ice: the ice on the lakes in a hard winter (AFrozenLakes)
 - Snow on the ground: /Game/Ground/M_Ground gets a SnowCover parameter (0 to 1,
   set on the landscape by the world clock) and its colour blends to snow on
   level ground as it rises (patched in place; run again after rebuilding it)
@@ -67,6 +68,13 @@ def create_materials():
     mel.connect_material_property(constant(rain, 0.28, -400, 200), "", unreal.MaterialProperty.MP_OPACITY)
     mel.recompile_material(rain)
     assets.save_loaded_asset(rain, only_if_is_dirty=False)
+
+    ice = create_material("M_Ice")
+    mel.connect_material_property(color(ice, (0.5, 0.62, 0.72), -400, 0), "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.connect_material_property(constant(ice, 0.12, -400, 200), "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mel.connect_material_property(constant(ice, 0.8, -400, 300), "", unreal.MaterialProperty.MP_SPECULAR)
+    mel.recompile_material(ice)
+    assets.save_loaded_asset(ice, only_if_is_dirty=False)
 
     snow = create_material("M_Snow")
     snow.set_editor_property("used_with_instanced_static_meshes", True)
