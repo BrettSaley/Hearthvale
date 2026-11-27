@@ -1,6 +1,8 @@
 #include "RPG/HealthComponent.h"
 #include "HearthvaleCharacter.h"
 #include "RPG/Durability.h"
+#include "RPG/HearthvaleAnims.h"
+#include "RPG/ImpactPuff.h"
 #include "RPG/EquipmentComponent.h"
 #include "RPG/Skills.h"
 #include "RPG/SkillsComponent.h"
@@ -63,7 +65,8 @@ void UHealthComponent::StartBleeding(int32 Ticks)
 			Character->ShowMessage(NSLOCTEXT("Health", "Bleeding", "You're bleeding! Bind the wound with a bandage."), FLinearColor(1.f, 0.3f, 0.3f));
 		}
 	}
-	BleedLeft += Ticks;
+	// Fresh wounds add up, but only so far.
+	BleedLeft = FMath::Min(BleedLeft + Ticks, MaxBleed);
 	UE_LOG(LogTemp, Log, TEXT("Health: bleeding, %d to go."), BleedLeft);
 }
 
@@ -95,6 +98,10 @@ int32 UHealthComponent::ApplyDamage(int32 Amount, const FText& Cause, bool bArmo
 		if (AHearthvaleCharacter* Character = Cast<AHearthvaleCharacter>(GetOwner()))
 		{
 			Character->ShowMessage(NSLOCTEXT("Health", "Blocked", "You catch the blow on your shield!"), FLinearColor(0.75f, 0.8f, 0.9f));
+			// Braced behind the shield, sparks flying.
+			FHearthvaleAnims::Play(Character, TEXT("Block"));
+			AImpactPuff::Spawn(GetWorld(), EPuffKind::Sparks, Character->GetActorLocation() + Character->GetActorForwardVector() * 50.f + FVector(0.f, 0.f, 30.f));
+			Character->Shake(0.2f);
 			FDurability::WearWorn(Character, EEquipSlot::OffHand, 2);
 		}
 		return 0;
@@ -117,6 +124,14 @@ int32 UHealthComponent::ApplyDamage(int32 Amount, const FText& Cause, bool bArmo
 	if (Taken <= 0)
 	{
 		return 0;
+	}
+	// A blow (not a fall or the cold) makes them flinch, or stagger if it's a heavy one.
+	AHearthvaleCharacter* Struck = bArmourHelps ? Cast<AHearthvaleCharacter>(GetOwner()) : nullptr;
+	if (Struck && Taken < Health)
+	{
+		FHearthvaleAnims::Play(Struck, Taken >= HeavyBlow ? FName(TEXT("Stagger")) : FHearthvaleAnims::Pick(TEXT("Flinch"), 3));
+		AImpactPuff::Spawn(GetWorld(), EPuffKind::Blood, Struck->GetActorLocation() + FVector(0.f, 0.f, 30.f), Taken >= HeavyBlow ? 1.3f : 0.8f);
+		Struck->Shake(FMath::Clamp(Taken / 6.f, 0.25f, 1.f));
 	}
 	Health -= Taken;
 	OnHealthChanged.Broadcast(Health, -Taken);

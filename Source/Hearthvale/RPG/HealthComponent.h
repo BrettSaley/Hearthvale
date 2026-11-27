@@ -77,6 +77,12 @@ public:
 	/** The chance a beast's blow opens a bleeding wound, for its base chance and the defence worn (armour makes it less likely). */
 	static float BleedChance(float BaseChance, int32 Defence);
 
+	/** A blow that takes this much or more staggers rather than just a flinch. */
+	static constexpr int32 HeavyBlow = 4;
+
+	/** The most points a wound (or several) can bleed away. */
+	static constexpr int32 MaxBleed = 8;
+
 	/** Seconds between each point bled away. */
 	static constexpr float BleedSeconds = 4.f;
 

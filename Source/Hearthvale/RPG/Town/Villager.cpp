@@ -9,6 +9,9 @@
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/Town/QuestSubsystem.h"
+#include "RPG/Town/PersonAnimator.h"
+#include "Kismet/GameplayStatics.h"
+#include "Camera/PlayerCameraManager.h"
 #include "RPG/World/WorldClock.h"
 
 #define LOCTEXT_NAMESPACE "Villager"
@@ -23,6 +26,8 @@ namespace
 	constexpr float VillagerWetEnough = 0.3f;
 	/** How far ahead (cm) they look for something in the way, at about knee height. */
 	constexpr float VillagerLookAhead = 70.f;
+	/** They don't walk closer to the player than this (cm). */
+	constexpr float VillagerPersonalSpace = 150.f;
 	constexpr float VillagerKnee = 40.f;
 	const FLinearColor VillagerSpeech(0.95f, 0.85f, 0.6f);
 	const FLinearColor VillagerWarmer(1.f, 0.6f, 0.75f);
@@ -36,6 +41,7 @@ AVillager::AVillager()
 	Bounds->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
 	Bounds->SetGenerateOverlapEvents(false);
 	RootComponent = Bounds;
+	Animator = CreateDefaultSubobject<UPersonAnimator>(TEXT("Animator"));
 }
 
 void AVillager::OnConstruction(const FTransform& Transform)
@@ -48,6 +54,7 @@ void AVillager::BeginPlay()
 {
 	Super::BeginPlay();
 	BuildLook();
+	Animator->Rig(RootComponent, TArray<UStaticMeshComponent*>(PartMeshes));
 	StopIndex = Stops.IsEmpty() ? 0 : FMath::RandHelper(Stops.Num());
 	Idle = FMath::FRandRange(0.f, VillagerLingerMax);
 }
@@ -90,6 +97,17 @@ int32 AVillager::GetToday() const
 {
 	const UWorldClock* Clock = UWorldClock::Get(this);
 	return Clock ? Clock->GetDay() : 0;
+}
+
+namespace
+{
+	/** Half a metre along the way from a spot towards a goal: where they're about to be. */
+	FVector VillagerStepToward(const FVector& From, const FVector& Goal)
+	{
+		FVector To = Goal - From;
+		To.Z = 0.f;
+		return To.GetSafeNormal() * FMath::Min(To.Size(), 50.f);
+	}
 }
 
 float AVillager::GroundAt(const FVector& Spot) const
@@ -154,6 +172,24 @@ void AVillager::Walk(float DeltaSeconds)
 	}
 	const FVector Goal = Stops[StopIndex];
 	FVector Location = GetActorLocation();
+	// The player close by: they stop rather than walk into them (and after a while, go somewhere else).
+	// (And not through the camera behind them either, where they'd fill the screen.)
+	const APlayerCameraManager* Camera = UGameplayStatics::GetPlayerCameraManager(this, 0);
+	const bool bByCamera = Camera && FVector::Dist2D(Camera->GetCameraLocation(), Location + VillagerStepToward(Location, Goal)) < VillagerPersonalSpace;
+	if (const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0))
+	{
+		if (bByCamera || FVector::Dist2D(Player->GetActorLocation(), Location) < VillagerPersonalSpace)
+		{
+			Waiting += DeltaSeconds;
+			if (Waiting > 4.f && Stops.Num() > 1)
+			{
+				Waiting = 0.f;
+				StopIndex = (StopIndex + 1) % Stops.Num();
+			}
+			return;
+		}
+	}
+	Waiting = 0.f;
 	FVector ToGoal = Goal - Location;
 	ToGoal.Z = 0.f;
 	if (ToGoal.Size() < 15.f)
@@ -247,6 +283,12 @@ void AVillager::Talk(AHearthvaleCharacter* Character)
 	const UWorldClock* Clock = UWorldClock::Get(this);
 	const int32 Today = GetToday();
 	const bool bCloser = Bond.Talk(Today);
+	// A wave hello the first time each day; after that, talking with their hands.
+	if (bCloser)
+	{
+		Animator->Wave();
+	}
+	Animator->Gesture(3.f);
 	FText Line;
 	if (Clock && Clock->IsNight() && !Definition->NightLine.IsEmpty())
 	{
@@ -297,6 +339,11 @@ bool AVillager::Gift(AHearthvaleCharacter* Character, UItemDefinition* Item)
 	}
 	Character->GetInventory()->RemoveItem(Item, 1);
 	Bond.Give(Today, bLiked);
+	Animator->Gesture(2.5f);
+	if (bLiked)
+	{
+		Animator->Wave();
+	}
 	Say(Character, bLiked ? FText::Format(LOCTEXT("Loves", "{0}! My favourite. Thank you!"), Item->DisplayName)
 		: FText::Format(LOCTEXT("Thanks", "Oh, {0}. Thank you."), Item->DisplayName.ToLower()));
 	Character->ShowMessage(FText::Format(LOCTEXT("GiftFriendship", "{0} likes you more (friendship {1}/{2})."), Definition->DisplayName,

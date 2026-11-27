@@ -9,6 +9,7 @@
 class UItemDefinition;
 class USphereComponent;
 class UStaticMeshComponent;
+class UPersonAnimator;
 
 /**
  * Someone who lives in town (see UVillagerDefinition): strolls between their
@@ -32,6 +33,7 @@ public:
 
 	UVillagerDefinition* GetDefinition() const { return Definition; }
 	const FVillagerBond& GetBond() const { return Bond; }
+	UPersonAnimator* GetAnimator() const { return Animator; }
 	void SetBond(const FVillagerBond& InBond) { Bond = InBond; }
 
 	/** A chat, and maybe a present if you're friends. */
@@ -66,7 +68,13 @@ private:
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> PartMeshes;
 
+	/** Walks, breathes, looks at you and gestures (see UPersonAnimator). */
+	UPROPERTY(VisibleAnywhere, Category = "Animation")
+	TObjectPtr<UPersonAnimator> Animator;
+
 	FVillagerBond Bond;
 	int32 StopIndex = 0;
+	/** Seconds they've stood waiting for the player to get out of the way. */
+	float Waiting = 0.f;
 	float Idle = 0.f;
 };

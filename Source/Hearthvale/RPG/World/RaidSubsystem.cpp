@@ -156,7 +156,7 @@ void URaidSubsystem::EndRaid(bool bBeaten)
 		if (Player && Old && Old->CountAlive() > 0 && !bScaredOff)
 		{
 			Player->ShowMessage(Clock && !Clock->IsNight() ? LOCTEXT("Dawn", "At first light the wolves slink back into the hills.")
-				: LOCTEXT("Sated", "Their fill of havoc had, the wolves slip away into the dark."));
+				: LOCTEXT("Sated", "Having done their damage, the wolves slip away into the dark."));
 		}
 		UE_LOG(LogTemp, Log, TEXT("Raid: over; the pack slinks off."));
 	}
