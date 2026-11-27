@@ -19,6 +19,7 @@
 #include "RPG/Town/SettlementSubsystem.h"
 #include "RPG/Town/Settler.h"
 #include "RPG/Town/Villager.h"
+#include "RPG/Town/PersonAnimator.h"
 #include "RPG/Town/QuestSubsystem.h"
 #include "RPG/Town/Companion.h"
 #include "RPG/Town/TownSubsystem.h"
@@ -1390,6 +1391,11 @@ void UHearthvaleCheatManager::ListSettlers()
 		Say(FString::Printf(TEXT("%s at (%.0f, %.0f): %s, comfort %d, hungry days %d, made %d. Chest: %s"), *Settler->GetFullName().ToString(),
 			Settler->GetActorLocation().X, Settler->GetActorLocation().Y, Troubles[static_cast<int32>(Settler->GetTrouble())],
 			Settler->GetComfort(), Settler->GetHungryDays(), Settler->GetMade(), *Chest));
+		if (const UPersonAnimator* Animator = Settler->GetAnimator())
+		{
+			Say(FString::Printf(TEXT("  limbs: left leg %.0f, right arm raised %.0f, forward %.0f, head turned %.0f"), Animator->GetLeftLegSwing(),
+				Animator->GetRightArmRaise(), Animator->GetRightArmSwing(), Animator->GetHeadYaw()));
+		}
 	}
 }
 
@@ -1421,7 +1427,8 @@ void UHearthvaleCheatManager::TalkVillager(const FString& Name)
 	}
 	const FVector Front = Villager->GetActorLocation() + Villager->GetActorForwardVector() * 160.f + FVector(0.f, 0.f, 100.f);
 	Character->TeleportTo(Front, (-Villager->GetActorForwardVector()).Rotation());
-	Villager->Talk(Character);
+	// As the player would: they stop, turn to you and talk.
+	Villager->Interact(Character);
 }
 
 void UHearthvaleCheatManager::GiftVillager(const FString& Name, FName ItemId)
@@ -1442,6 +1449,10 @@ void UHearthvaleCheatManager::ListVillagers()
 	for (const AVillager* Villager : TActorRange<AVillager>(GetWorld()))
 	{
 		const FVillagerBond& Bond = Villager->GetBond();
+		const UPersonAnimator* Animator = Villager->GetAnimator();
+		Say(FString::Printf(TEXT("  limbs: left leg %.0f, right arm raised %.0f, forward %.0f, head turned %.0f"),
+			Animator ? Animator->GetLeftLegSwing() : 0.f, Animator ? Animator->GetRightArmRaise() : 0.f,
+			Animator ? Animator->GetRightArmSwing() : 0.f, Animator ? Animator->GetHeadYaw() : 0.f));
 		Say(FString::Printf(TEXT("%s at (%.0f, %.0f, %.0f): friendship %d, talked day %d, gift day %d, present day %d (today %d)"),
 			Villager->GetDefinition() ? *Villager->GetDefinition()->GetFullName().ToString() : TEXT("?"),
 			Villager->GetActorLocation().X, Villager->GetActorLocation().Y, Villager->GetActorLocation().Z, Bond.Friendship, Bond.LastTalkDay, Bond.LastGiftDay,

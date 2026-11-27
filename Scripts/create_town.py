@@ -284,6 +284,10 @@ SETTLERS = {
 }
 
 
+# How each looks at work by their house (the rest swing an axe or pick).
+WORK_MOTIONS = {"Marlo": unreal.PersonWork.HOLD, "Sorrel": unreal.PersonWork.NONE}
+
+
 def create_settlers():
     factory = unreal.DataAssetFactory()
     factory.set_editor_property("data_asset_class", unreal.SettlerDefinition)
@@ -293,7 +297,8 @@ def create_settlers():
         for prop, value in [("display_name", unreal.Text(name)), ("title", unreal.Text(title)),
                             ("arrival", unreal.Text(arrival)), ("lines", [unreal.Text(t) for t in lines]),
                             ("job", job), ("produce", item(produce) if produce else None), ("produce_quantity", count),
-                            ("work_seconds", work), ("meal_seconds", 480.0), ("parts", person(shirt, hair, None))]:
+                            ("work_seconds", work), ("meal_seconds", 480.0), ("parts", person(shirt, hair, None)),
+                            ("work_motion", WORK_MOTIONS.get(settler_id, unreal.PersonWork.SWING))]:
             settler.set_editor_property(prop, value)
         save(settler)
         made.append(settler)
