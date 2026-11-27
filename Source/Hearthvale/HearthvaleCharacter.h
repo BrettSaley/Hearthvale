@@ -131,6 +131,19 @@ class AHearthvaleCharacter : public ACharacter
 
 	FTimerHandle AutosaveTimer;
 
+	/** Camera shake: seconds left, and how hard (0-1); the camera's resting offset. */
+	float ShakeLeft = 0.f;
+	float ShakeStrength = 0.f;
+	FVector RestingSocketOffset = FVector::ZeroVector;
+
+	/** Dying: lying where they fell until they wake (see Die), and what killed them. */
+	bool bDying = false;
+	FText DeathCause;
+	FTimerHandle WakeTimer;
+
+	/** After the death fall: wake at the bed (or the start). */
+	void Wake();
+
 protected:
 
 	/** Jump Input Action */
@@ -239,11 +252,21 @@ public:
 	bool Eat(int32 SlotIndex);
 
 	/**
-	 * Dying: the backpack (not the hotbar) spills where the character fell, and
-	 * they wake at full health at their bed, or where they first arrived.
+	 * Dying: they fall (the death animation), the backpack (not the hotbar)
+	 * spills where they fell, and a few seconds later they wake at full health
+	 * at their bed, or where they first arrived.
 	 */
 	UFUNCTION()
 	void Die(const FText& Cause);
+
+	/** Between falling and waking. */
+	bool IsDying() const { return bDying; }
+
+	/** How long (s) they lie where they fell before waking. */
+	static constexpr float DeathSeconds = 3.f;
+
+	/** Shakes the camera, harder for a heavier blow (0-1). */
+	void Shake(float Strength);
 
 	/** The boat the character's aboard, or null. */
 	UBoatComponent* GetBoat() const;

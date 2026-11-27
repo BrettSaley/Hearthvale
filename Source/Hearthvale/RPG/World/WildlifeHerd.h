@@ -130,6 +130,12 @@ public:
 	/** The trophy an alpha of a kind drops (an item ID), or None. */
 	static FName GetTrophy(EWildlifeKind InKind);
 
+	/** How long a blow's recoil, a strike's lunge, and a fall (then lying still) take (s). */
+	static constexpr float FlinchSeconds = 0.3f;
+	static constexpr float LungeSeconds = 0.4f;
+	static constexpr float CollapseSeconds = 0.8f;
+	static constexpr float LieSeconds = 1.5f;
+
 	/** The chance a boar, wolf or bear herd is led by an alpha. */
 	static constexpr float AlphaChance = 0.3f;
 	/** How much bigger an alpha is, how much tougher than its size alone makes it, and how much harder it hits. */
@@ -199,6 +205,11 @@ private:
 		float Size = 1.f;
 		/** A herd's leader, bigger and fiercer (fierce kinds only). */
 		bool bAlpha = false;
+		/** Seconds left of recoiling from a blow, and of lunging in to strike. */
+		float Flinch = 0.f;
+		float Lunge = 0.f;
+		/** Seconds since it fell, while it collapses and lies a moment before vanishing; negative when not falling. */
+		float Collapse = -1.f;
 		EMood Mood = EMood::Calm;
 		/** Seconds in the current mood. */
 		float MoodTime = 0.f;
@@ -224,6 +235,8 @@ private:
 	/** Another one turns up somewhere about home, at full health. */
 	void Revive(FAnimal& Animal);
 	void Pose(FAnimal& Animal) const;
+	/** A fallen one keels over, then lies still. */
+	void PoseFallen(FAnimal& Animal) const;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<USceneComponent>> Parts;

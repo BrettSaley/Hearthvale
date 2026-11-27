@@ -248,6 +248,10 @@ int32 AWildlifeHerd::HurtAnimal(int32 Index, int32 Damage, const AActor* Attacke
 	FAnimal& Animal = Animals[Index];
 	const int32 Taken = FMath::Min(Damage, Animal.Health);
 	Animal.Health -= Taken;
+	if (Taken > 0)
+	{
+		Animal.Flinch = FlinchSeconds;
+	}
 	if (Animal.Health <= 0)
 	{
 		Kill(Animal);
@@ -380,7 +384,13 @@ void AWildlifeHerd::Kill(FAnimal& Animal, bool bDropLoot)
 	// Raiders don't come back.
 	Animal.DeadFor = bRaiders ? 1.0e9f : FightOf(Kind).Respawn;
 	Animal.Mood = EMood::Calm;
-	Animal.Body->SetVisibility(false, true);
+	// It keels over and lies a moment (a snared one is simply gone).
+	Animal.Flinch = Animal.Lunge = 0.f;
+	Animal.Collapse = bDropLoot ? 0.f : -1.f;
+	if (!bDropLoot)
+	{
+		Animal.Body->SetVisibility(false, true);
+	}
 	if (!bDropLoot)
 	{
 		return;
@@ -412,7 +422,18 @@ void AWildlifeHerd::Kill(FAnimal& Animal, bool bDropLoot)
 void AWildlifeHerd::Revive(FAnimal& Animal)
 {
 	Animal.DeadFor = 0.f;
+	// Whoever comes back to lead is new: an alpha only now and then, not every time.
+	const bool bLeader = Animals.Num() > 0 && &Animal == &Animals[0];
+	const bool bAlphaNow = bLeader && IsFierce(Kind) && !bRaiders && Random.FRand() < AlphaChance;
+	if (Animal.bAlpha != bAlphaNow && (Animal.Size >= 1.f || Animal.bAlpha))
+	{
+		Animal.Size = Animal.bAlpha ? Animal.Size / AlphaSize : Animal.Size * AlphaSize;
+		Animal.bAlpha = bAlphaNow;
+		Animal.Body->SetRelativeScale3D(FVector(Animal.Size));
+	}
 	Animal.Health = MaxHealthFor(Animal);
+	Animal.Collapse = -1.f;
+	Animal.Flinch = Animal.Lunge = 0.f;
 	Animal.Position = FVector2D(GetActorLocation()) + FVector2D(Random.FRandRange(-0.3f, 0.3f), Random.FRandRange(-0.3f, 0.3f)) * Roam;
 	Animal.Target = Animal.Position;
 	Animal.Mood = EMood::Calm;
@@ -741,7 +762,8 @@ float AWildlifeHerd::React(FAnimal& Animal, float DeltaSeconds)
 				if (Now - Warned > 15.f)
 				{
 					Warned = Now;
-					const FText Shout = Kind == EWildlifeKind::Bear ? LOCTEXT("Bear", "A bear rears up with a roar and charges at you!")
+					const FText Shout = Animal.bAlpha ? FText::Format(LOCTEXT("AlphaCharge", "The alpha {0} comes for you!"), GetKindName(Kind))
+						: Kind == EWildlifeKind::Bear ? LOCTEXT("Bear", "A bear rears up with a roar and charges at you!")
 						: Kind == EWildlifeKind::Wolf ? LOCTEXT("Wolf", "A howl goes up: the wolf pack is coming for you!")
 						: LOCTEXT("Boar", "A boar lowers its tusks and charges!");
 					Player->ShowMessage(Shout, FLinearColor(1.f, 0.35f, 0.3f));
@@ -803,6 +825,7 @@ float AWildlifeHerd::React(FAnimal& Animal, float DeltaSeconds)
 
 void AWildlifeHerd::Strike(FAnimal& Animal)
 {
+	Animal.Lunge = LungeSeconds;
 	AHearthvaleCharacter* Player = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0));
 	if (!Player || Player->GetBoat())
 	{
@@ -883,6 +906,19 @@ void AWildlifeHerd::Tick(float DeltaSeconds)
 	{
 		if (Animal.DeadFor > 0.f)
 		{
+			if (Animal.Collapse >= 0.f)
+			{
+				Animal.Collapse += DeltaSeconds;
+				if (Animal.Collapse >= CollapseSeconds + LieSeconds)
+				{
+					Animal.Collapse = -1.f;
+					Animal.Body->SetVisibility(false, true);
+				}
+				else
+				{
+					PoseFallen(Animal);
+				}
+			}
 			Animal.DeadFor -= DeltaSeconds;
 			if (Animal.DeadFor <= 0.f)
 			{
@@ -890,6 +926,8 @@ void AWildlifeHerd::Tick(float DeltaSeconds)
 			}
 			continue;
 		}
+		Animal.Flinch = FMath::Max(0.f, Animal.Flinch - DeltaSeconds);
+		Animal.Lunge = FMath::Max(0.f, Animal.Lunge - DeltaSeconds);
 		const float Speed = React(Animal, DeltaSeconds);
 		if (Animal.Mood == EMood::Calm && Animal.Grazing > 0.f)
 		{
@@ -928,6 +966,25 @@ void AWildlifeHerd::Tick(float DeltaSeconds)
 	}
 }
 
+void AWildlifeHerd::PoseFallen(FAnimal& Animal) const
+{
+	// Over onto its side, legs going limp, then sinking a little into the grass.
+	const float Fall = FMath::Clamp(Animal.Collapse / CollapseSeconds, 0.f, 1.f);
+	const float Ease = 1.f - FMath::Square(1.f - Fall);
+	const float Ground = UWorldGenerator::GetGroundHeight(Animal.Position.X, Animal.Position.Y);
+	const float Sink = Animal.Collapse > CollapseSeconds ? 6.f * (Animal.Collapse - CollapseSeconds) / LieSeconds : 0.f;
+	Animal.Body->SetWorldLocationAndRotation(FVector(Animal.Position, Ground + 12.f * Ease * Animal.Size - Sink),
+		FRotator(0.f, Animal.Yaw, 85.f * Ease));
+	if (Animal.Head)
+	{
+		Animal.Head->SetRelativeRotation(FRotator(-20.f * Ease, 0.f, 0.f));
+	}
+	for (int32 Leg = 0; Leg < Animal.Legs.Num(); ++Leg)
+	{
+		Animal.Legs[Leg]->SetRelativeRotation(FRotator((Leg % 2 ? 15.f : -15.f) * Ease, 0.f, 0.f));
+	}
+}
+
 void AWildlifeHerd::Pose(FAnimal& Animal) const
 {
 	const FKindStats& Stats = StatsOf(Kind);
@@ -942,7 +999,13 @@ void AWildlifeHerd::Pose(FAnimal& Animal) const
 	const float Pitch = Kind == EWildlifeKind::Bear ? 50.f * Rear : -12.f * Rear;
 	const float Ground = UWorldGenerator::GetGroundHeight(Animal.Position.X, Animal.Position.Y);
 	const float Raise = Kind == EWildlifeKind::Bear ? 70.f * Rear * Animal.Size : 0.f;
-	Animal.Body->SetWorldLocationAndRotation(FVector(Animal.Position, Ground + Lift + Raise), FRotator(Pitch, Animal.Yaw, 0.f));
+	// A blow knocks it back a step, head up and twisting; a strike drives it forward and down.
+	const float Recoil = Animal.Flinch / FlinchSeconds;
+	const float Drive = Animal.Lunge > 0.f ? FMath::Sin(UE_PI * (1.f - Animal.Lunge / LungeSeconds)) : 0.f;
+	const FVector Forward = FRotator(0.f, Animal.Yaw, 0.f).Vector();
+	const FVector Shove = Forward * (Drive * 70.f - Recoil * 18.f) * Animal.Size;
+	Animal.Body->SetWorldLocationAndRotation(FVector(Animal.Position, Ground + Lift + Raise) + Shove,
+		FRotator(Pitch + Recoil * 12.f - Drive * 10.f, Animal.Yaw, Recoil * 10.f * FMath::Sin(Animal.Flinch * 40.f)));
 	if (Animal.Head)
 	{
 		// Heads down while grazing, with a nibble; up and forward when charging.
