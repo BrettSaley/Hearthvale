@@ -114,6 +114,16 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Animal")
 	int32 GetHappiness() const { return Happiness; }
 
+	/** A little hop (a happy animal now and then, or one that's just been brushed). */
+	void Hop();
+
+	/** A fluff of feathers or fleece (a hen laying). */
+	void Fluff();
+
+	/** For checks: how high it is off its feet mid-hop (cm), and how far its first leg is swung (degrees). */
+	float GetHopHeight() const { return HopHeight; }
+	float GetLegSwing() const;
+
 	/** Grooms it with the character's brush (once a day): a little happier. False if it can't be, or already has been today. */
 	bool Groom(AHearthvaleCharacter* Character);
 
@@ -179,6 +189,21 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> PartMeshes;
+
+	/** A joint at the top of each leg, so the legs swing as it walks; diagonal pairs together. */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<USceneComponent>> LegJoints;
+
+	TArray<float> LegSides;
+	void RigLegs();
+	void Animate(float DeltaSeconds, bool bMoving);
+	float GrownScale() const;
+	float HopLeft = 0.f;
+	float HopHeight = 0.f;
+	float FluffLeft = 0.f;
+	/** Seconds until a happy animal might hop for joy. */
+	float JoyWait = 8.f;
+	bool bWalkedThisFrame = false;
 
 	TWeakObjectPtr<AHearthvaleCharacter> Leader;
 	/** Which way (1 or -1) it slides along something blocking it while following. */

@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "RPG/Interactable.h"
+#include "RPG/InventoryComponent.h"
 #include "Companion.generated.h"
 
 class AGroundItem;
@@ -67,6 +68,11 @@ public:
 	/** Gives it a bite from the character's pack, towards winning it over. False if they've nothing it eats. */
 	bool Feed(AHearthvaleCharacter* Character);
 
+	/** For checks: what it's carrying back to you, its leg swing, and how far it's sat down (0 standing, 1 sitting). */
+	FItemStack GetCarried() const { return Carried; }
+	float GetLegSwing() const;
+	float GetSit() const { return Sit; }
+
 	FSavedCompanion SaveState() const;
 	void LoadState(const FSavedCompanion& Saved);
 
@@ -108,6 +114,25 @@ private:
 	float Idle = 0.f;
 
 	TWeakObjectPtr<AGroundItem> FetchTarget;
+
+	/** What it's bringing back to you, in its mouth. */
+	FItemStack Carried;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> CarryMesh;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<USceneComponent>> LegJoints;
+
+	TArray<float> LegSides;
+	void RigLegs();
+	void Animate(float DeltaSeconds);
+	/** Drops what it's carrying into the player's pack (or at their feet if it won't fit). */
+	void Deliver(AHearthvaleCharacter* Player);
+	FVector LastLocation = FVector::ZeroVector;
+	float CurrentSpeed = 0.f;
+	float Sit = 0.f;
+	float Gait = 0.f;
 	float LookAround = 0.f;
 	float LastGrowl = -1000.f;
 	float Wag = 0.f;
