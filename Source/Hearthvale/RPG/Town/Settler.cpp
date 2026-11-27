@@ -14,6 +14,7 @@
 #include "RPG/SkillsComponent.h"
 #include "RPG/Town/SettlerDefinition.h"
 #include "RPG/World/WorldClock.h"
+#include "RPG/Town/PersonAnimator.h"
 
 #define LOCTEXT_NAMESPACE "Settler"
 
@@ -35,6 +36,7 @@ ASettler::ASettler()
 	Bounds->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
 	Bounds->SetGenerateOverlapEvents(false);
 	RootComponent = Bounds;
+	Animator = CreateDefaultSubobject<UPersonAnimator>(TEXT("Animator"));
 }
 
 ASettler* ASettler::Spawn(UWorld* World, USettlerDefinition* InSettler, ABuildPiece* InBed)
@@ -67,6 +69,7 @@ void ASettler::BeginPlay()
 {
 	Super::BeginPlay();
 	BuildLook();
+	Animator->Rig(RootComponent, TArray<UStaticMeshComponent*>(PartMeshes));
 	Target = GetActorLocation();
 	Idle = FMath::FRandRange(1.f, 4.f);
 }
@@ -207,6 +210,17 @@ void ASettler::Potter(float DeltaSeconds)
 {
 	const FVector Home = Bed->GetWakeSpot() - FVector(0.f, 0.f, 100.f);
 	FVector Location = GetActorLocation();
+	// Working at their job when they're standing about, by day, with nothing wrong.
+	const UWorldClock* WorkClock = UWorldClock::Get(this);
+	const bool bWorkTime = Settler && Trouble == ESettlerTrouble::None && (!WorkClock || !WorkClock->IsNight());
+	Animator->SetWork(bWorkTime && Idle > 0.f ? Settler->WorkMotion : EPersonWork::None);
+	// Not into the player.
+	if (const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0); Player && Idle <= 0.f
+		&& FVector::Dist2D(Player->GetActorLocation(), Location) < 130.f)
+	{
+		Idle = 1.5f;
+		return;
+	}
 	if (Idle > 0.f)
 	{
 		Idle -= DeltaSeconds;
@@ -413,6 +427,7 @@ void ASettler::Interact(AHearthvaleCharacter* Character)
 		break;
 	}
 	Character->ShowMessage(FText::Format(LOCTEXT("Says", "{0}: {1}"), Settler->DisplayName, Line), SettlerSpeech);
+	Animator->Gesture(3.f);
 	// They turn to talk.
 	FVector ToCharacter = Character->GetActorLocation() - GetActorLocation();
 	ToCharacter.Z = 0.f;

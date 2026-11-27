@@ -10,6 +10,7 @@ class UItemDefinition;
 class UTraderDefinition;
 class USphereComponent;
 class UStaticMeshComponent;
+class UPersonAnimator;
 
 /**
  * Someone at a market stall (see UTraderDefinition). Turns to watch you when
@@ -79,6 +80,10 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> PartMeshes;
+
+	/** Walks, breathes, looks at you and gestures (see UPersonAnimator). */
+	UPROPERTY(VisibleAnywhere, Category = "Animation")
+	TObjectPtr<UPersonAnimator> Animator;
 
 	/** Today's sales, against the daily stock. */
 	FTraderDayState DayState;
