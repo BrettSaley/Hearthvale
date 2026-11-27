@@ -61,6 +61,9 @@ public:
 	/** The most a blow can do set against a charge, for a weapon's charge bonus. */
 	static int32 BracedHit(int32 Most, float ChargeBonus);
 
+	/** Where a shot leaves from: the bow hand. */
+	static FVector ShotFrom(const AHearthvaleCharacter* Character);
+
 	/** The action montage for a blow with a weapon (null for fists): Swing1/Swing2, Thrust, Loose or Crossbow. */
 	static FName AttackAnim(const UItemDefinition* Weapon, bool bSecondSwing);
 
