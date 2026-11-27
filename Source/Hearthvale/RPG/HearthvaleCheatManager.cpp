@@ -1070,11 +1070,11 @@ void UHearthvaleCheatManager::ListAnimals()
 	for (const AFarmAnimal* Animal : TActorRange<AFarmAnimal>(GetWorld()))
 	{
 		const FSavedFarmAnimal State = Animal->SaveState();
-		Say(FString::Printf(TEXT("%s at (%.0f, %.0f, %.0f): %s%s, fed %.0fs, produce %.0fs%s, breed %.0fs, head %.0f, happiness %d"),
+		Say(FString::Printf(TEXT("%s at (%.0f, %.0f, %.0f): %s%s, fed %.0fs, produce %.0fs%s, breed %.0fs, head %.0f, happiness %d, leg %.0f, hop %.0f"),
 			*FPaths::GetBaseFilename(State.Animal), State.Location.X, State.Location.Y, State.Location.Z,
 			State.bTame ? TEXT("tame") : TEXT("wild"), Animal->IsYoung() ? TEXT(" young") : TEXT(""),
 			State.Fed, State.Produce, State.bProduceReady ? TEXT(" (ready)") : TEXT(""), State.Breed,
-			Animal->GetHeadPitch(), Animal->GetHappiness()));
+			Animal->GetHeadPitch(), Animal->GetHappiness(), Animal->GetLegSwing(), Animal->GetHopHeight()));
 	}
 }
 
@@ -1562,6 +1562,8 @@ void UHearthvaleCheatManager::ListCompanions()
 	for (const ACompanion* Companion : TActorRange<ACompanion>(GetWorld()))
 	{
 		const FVector At = Companion->GetActorLocation();
+		Say(FString::Printf(TEXT("  pose: leg %.0f, sitting %.2f, carrying %s"), Companion->GetLegSwing(), Companion->GetSit(),
+			Companion->GetCarried().IsEmpty() ? TEXT("nothing") : *Companion->GetCarried().Item->GetName()));
 		Say(FString::Printf(TEXT("%s at (%.0f, %.0f, %.0f), %.0f cm from you: %s, loyalty %d"), *Companion->GetName().ToString(), At.X, At.Y, At.Z,
 			Character ? FVector::Dist2D(At, Character->GetActorLocation()) : 0.f,
 			!Companion->IsOwned() ? TEXT("a stray") : Companion->IsStaying() ? TEXT("staying") : TEXT("following"), Companion->GetLoyalty()));

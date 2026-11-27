@@ -7,6 +7,9 @@
 #include "Kismet/GameplayStatics.h"
 #include "LandscapeProxy.h"
 #include "RPG/GroundItem.h"
+#include "RPG/UI/HearthvaleUIStyle.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "UObject/ConstructorHelpers.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/Town/CompanionDefinition.h"
@@ -43,6 +46,15 @@ ACompanion::ACompanion()
 	Body->SetupAttachment(RootComponent);
 	Tail = CreateDefaultSubobject<USceneComponent>(TEXT("Tail"));
 	Tail->SetupAttachment(Body);
+	// What it carries back, in its mouth: a little block in the thing's colour, hidden till it's carrying.
+	CarryMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Carry"));
+	CarryMesh->SetupAttachment(Body);
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
+	CarryMesh->SetStaticMesh(Cube.Object);
+	CarryMesh->SetRelativeLocation(FVector(80.f, 0.f, 56.f));
+	CarryMesh->SetRelativeScale3D(FVector(0.14f));
+	CarryMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	CarryMesh->SetVisibility(false);
 }
 
 void ACompanion::OnConstruction(const FTransform& Transform)
@@ -55,6 +67,8 @@ void ACompanion::BeginPlay()
 {
 	Super::BeginPlay();
 	BuildLook();
+	RigLegs();
+	LastLocation = GetActorLocation();
 	Home = GetActorLocation();
 	WanderTarget = Home;
 	Idle = FMath::FRandRange(1.f, 4.f);
@@ -143,9 +157,6 @@ bool ACompanion::MoveTowards(const FVector& Spot, float Speed, float Near, float
 	Location += Move;
 	Location.Z = GroundAt(Location);
 	SetActorLocationAndRotation(Location, FMath::RInterpTo(GetActorRotation(), Move.Rotation(), DeltaSeconds, 8.f));
-	// A trot: a little bounce in its step.
-	Step += DeltaSeconds * Speed * 0.04f;
-	Body->SetRelativeLocation(FVector(0.f, 0.f, FMath::Abs(FMath::Sin(Step)) * 4.f));
 	return false;
 }
 
@@ -156,6 +167,7 @@ void ACompanion::Tick(float DeltaSeconds)
 	{
 		return;
 	}
+	Animate(DeltaSeconds);
 	// The tail wags faster the happier it is.
 	Wag += DeltaSeconds * (bOwned ? 14.f + Loyalty : 4.f);
 	Tail->SetRelativeRotation(FRotator(0.f, FMath::Sin(Wag) * (bOwned ? 35.f : 12.f), 0.f));
@@ -186,6 +198,15 @@ void ACompanion::Tick(float DeltaSeconds)
 	}
 	if (bStaying)
 	{
+		return;
+	}
+	if (!Carried.IsEmpty())
+	{
+		// Bringing it back: straight to you at a run, then into your pack.
+		if (MoveTowards(Player->GetActorLocation(), Definition->RunSpeed, CompanionHeel, DeltaSeconds))
+		{
+			Deliver(Player);
+		}
 		return;
 	}
 	if (FetchTarget.IsValid())
@@ -261,17 +282,114 @@ void ACompanion::Fetch(AHearthvaleCharacter* Player, float DeltaSeconds)
 	{
 		return;
 	}
-	// Picked up: straight into your pack, if there's room (else it leaves it be).
+	// Picked up in its mouth, if there'll be room in your pack (else it leaves it be); then it brings it back.
 	const FItemStack Stack = Item->GetStack();
 	FetchTarget.Reset();
 	if (Stack.IsEmpty() || !Player->GetInventory()->CanFit(Stack.Item, Stack.Quantity))
 	{
 		return;
 	}
-	Player->GetInventory()->AddStack(Stack);
+	Carried = Stack;
 	Item->Destroy();
-	Player->ShowMessage(FText::Format(LOCTEXT("Fetched", "{0} brings you {1} x {2}."), GetName(), Stack.Quantity, Stack.Item->DisplayName.ToLower()),
-		CompanionColor);
+	if (UMaterialInstanceDynamic* Look = CarryMesh->CreateAndSetMaterialInstanceDynamic(0))
+	{
+		Look->SetVectorParameterValue(TEXT("Color"), HearthvaleUI::CategoryColor(Stack.Item->Category));
+	}
+	CarryMesh->SetVisibility(true);
+}
+
+void ACompanion::Deliver(AHearthvaleCharacter* Player)
+{
+	if (Carried.IsEmpty() || !Player)
+	{
+		return;
+	}
+	const int32 Added = Player->GetInventory()->AddStack(Carried);
+	if (Added < Carried.Quantity)
+	{
+		AGroundItem::Spawn(GetWorld(), FItemStack{Carried.Item, Carried.Quantity - Added, Carried.Wear}, Player->GetActorLocation());
+	}
+	Player->ShowMessage(FText::Format(LOCTEXT("Fetched", "{0} drops {1} x {2} at your feet, tail going."), GetName(), Carried.Quantity,
+		Carried.Item->DisplayName.ToLower()), CompanionColor);
+	Carried = FItemStack();
+	CarryMesh->SetVisibility(false);
+}
+
+void ACompanion::RigLegs()
+{
+	for (USceneComponent* Joint : LegJoints)
+	{
+		if (Joint)
+		{
+			Joint->DestroyComponent();
+		}
+	}
+	LegJoints.Reset();
+	LegSides.Reset();
+	if (!Definition)
+	{
+		return;
+	}
+	// Legs: upright cylinders low down, off to the sides, not the tail.
+	for (int32 Index = 0; Index < Definition->Parts.Num() && Index < PartMeshes.Num(); ++Index)
+	{
+		const FNodeMeshPart& Part = Definition->Parts[Index];
+		const FVector At = Part.Transform.GetLocation();
+		const bool bTail = Definition->FirstTailPart != INDEX_NONE && Index >= Definition->FirstTailPart;
+		if (bTail || !Part.Mesh || !Part.Mesh->GetName().Contains(TEXT("Cylinder")) || At.Z > 30.f || FMath::Abs(At.Y) < 1.f
+			|| !Part.Transform.GetRotation().IsIdentity(0.01f))
+		{
+			continue;
+		}
+		const FVector Hip = At + FVector(0.f, 0.f, 50.f * Part.Transform.GetScale3D().Z);
+		USceneComponent* Joint = NewObject<USceneComponent>(this, NAME_None, RF_Transient);
+		Joint->SetupAttachment(Body);
+		Joint->SetRelativeLocation(Hip);
+		Joint->RegisterComponent();
+		PartMeshes[Index]->AttachToComponent(Joint, FAttachmentTransformRules::KeepRelativeTransform);
+		PartMeshes[Index]->SetRelativeTransform(FTransform(Part.Transform.GetRotation(), At - Hip, Part.Transform.GetScale3D()));
+		LegJoints.Add(Joint);
+		LegSides.Add(FMath::Sign(At.X) * FMath::Sign(At.Y) > 0.f ? 1.f : -1.f);
+	}
+}
+
+float ACompanion::GetLegSwing() const
+{
+	return LegJoints.IsValidIndex(0) && LegJoints[0] ? LegJoints[0]->GetRelativeRotation().Pitch : 0.f;
+}
+
+void ACompanion::Animate(float DeltaSeconds)
+{
+	if (DeltaSeconds <= 0.f)
+	{
+		return;
+	}
+	const FVector Location = GetActorLocation();
+	CurrentSpeed = FMath::FInterpTo(CurrentSpeed, FVector::Dist2D(Location, LastLocation) / DeltaSeconds, DeltaSeconds, 10.f);
+	LastLocation = Location;
+	// Legs: a trot, longer and quicker at a run.
+	const float Moving = FMath::Clamp(CurrentSpeed / 120.f, 0.f, 1.f);
+	Gait += DeltaSeconds * (6.f + CurrentSpeed * 0.02f);
+	const float Swing = FMath::Sin(Gait) * FMath::Lerp(0.f, CurrentSpeed > 450.f ? 40.f : 28.f, Moving);
+	for (int32 Index = 0; Index < LegJoints.Num(); ++Index)
+	{
+		if (LegJoints[Index])
+		{
+			LegJoints[Index]->SetRelativeRotation(FRotator(Swing * LegSides[Index], 0.f, 0.f));
+		}
+	}
+	// Told to stay: it sits, back end down. Running: it stretches out a little.
+	Sit = FMath::FInterpTo(Sit, bOwned && bStaying && Moving < 0.1f ? 1.f : 0.f, DeltaSeconds, 5.f);
+	const float Bounce = FMath::Abs(FMath::Sin(Gait)) * (CurrentSpeed > 450.f ? 7.f : 3.f) * Moving;
+	Body->SetRelativeLocationAndRotation(FVector(-6.f * Sit, 0.f, Bounce - 10.f * Sit), FRotator(22.f * Sit, 0.f, 0.f));
+	// Sitting: the back legs fold under.
+	for (int32 Index = 0; Index < LegJoints.Num(); ++Index)
+	{
+		if (LegJoints[Index] && LegJoints[Index]->GetRelativeLocation().X < 0.f && Sit > 0.01f)
+		{
+			LegJoints[Index]->SetRelativeRotation(FRotator(-70.f * Sit, 0.f, 0.f));
+		}
+	}
 }
 
 int32 ACompanion::FindFoodSlot(const AHearthvaleCharacter* Character) const

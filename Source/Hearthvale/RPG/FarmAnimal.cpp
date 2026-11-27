@@ -104,6 +104,8 @@ void AFarmAnimal::BeginPlay()
 	}
 	Yaw = GetActorRotation().Yaw;
 	Target = FVector2D(GetActorLocation());
+	RigLegs();
+	JoyWait = FMath::FRandRange(4.f, 14.f);
 	Idle = FMath::FRandRange(0.f, 3.f);
 	BuildLook();
 	UpdateScale();
@@ -157,10 +159,15 @@ bool AFarmAnimal::IsYoung() const
 	return Animal && Age >= 0.f && Age < Animal->GrowSeconds;
 }
 
-void AFarmAnimal::UpdateScale()
+float AFarmAnimal::GrownScale() const
 {
 	const float Grown = Animal && Age >= 0.f ? FMath::Clamp(Age / Animal->GrowSeconds, 0.f, 1.f) : 1.f;
-	Body->SetRelativeScale3D(FVector(FMath::Lerp(YoungScale, 1.f, Grown)));
+	return FMath::Lerp(YoungScale, 1.f, Grown);
+}
+
+void AFarmAnimal::UpdateScale()
+{
+	Body->SetRelativeScale3D(FVector(GrownScale()));
 	if (Animal && PartMeshes.IsValidIndex(Animal->ProducePart))
 	{
 		PartMeshes[Animal->ProducePart]->SetVisibility(bProduceReady);
@@ -170,8 +177,117 @@ void AFarmAnimal::UpdateScale()
 void AFarmAnimal::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	bWalkedThisFrame = false;
 	Wander(DeltaSeconds);
 	UpdateFarming(DeltaSeconds);
+	Animate(DeltaSeconds, bWalkedThisFrame);
+}
+
+void AFarmAnimal::RigLegs()
+{
+	for (USceneComponent* Joint : LegJoints)
+	{
+		if (Joint)
+		{
+			Joint->DestroyComponent();
+		}
+	}
+	LegJoints.Reset();
+	LegSides.Reset();
+	if (!Animal)
+	{
+		return;
+	}
+	// Legs: upright cylinders low down, off to the sides, not part of the head (or the fleece).
+	float Top = 0.f;
+	for (const FNodeMeshPart& Part : Animal->Parts)
+	{
+		Top = FMath::Max(Top, Part.Transform.GetLocation().Z);
+	}
+	for (int32 Index = 0; Index < Animal->Parts.Num() && Index < PartMeshes.Num(); ++Index)
+	{
+		const FNodeMeshPart& Part = Animal->Parts[Index];
+		const FVector At = Part.Transform.GetLocation();
+		const bool bHeadPart = Animal->FirstHeadPart != INDEX_NONE && Index >= Animal->FirstHeadPart;
+		if (bHeadPart || Index == Animal->ProducePart || !Part.Mesh || !Part.Mesh->GetName().Contains(TEXT("Cylinder"))
+			|| At.Z > Top * 0.45f || FMath::Abs(At.Y) < 1.f || !Part.Transform.GetRotation().IsIdentity(0.01f))
+		{
+			continue;
+		}
+		// Hung from its top (basic cylinders are 100 cm tall).
+		const FVector Hip = At + FVector(0.f, 0.f, 50.f * Part.Transform.GetScale3D().Z);
+		USceneComponent* Joint = NewObject<USceneComponent>(this, NAME_None, RF_Transient);
+		Joint->SetupAttachment(Body);
+		Joint->SetRelativeLocation(Hip);
+		Joint->RegisterComponent();
+		UStaticMeshComponent* Leg = PartMeshes[Index];
+		Leg->AttachToComponent(Joint, FAttachmentTransformRules::KeepRelativeTransform);
+		Leg->SetRelativeTransform(FTransform(Part.Transform.GetRotation(), At - Hip, Part.Transform.GetScale3D()));
+		LegJoints.Add(Joint);
+		// Front-left with back-right, front-right with back-left.
+		LegSides.Add(FMath::Sign(At.X == 0.f ? 1.f : At.X) * FMath::Sign(At.Y) > 0.f ? 1.f : -1.f);
+	}
+}
+
+float AFarmAnimal::GetLegSwing() const
+{
+	return LegJoints.IsValidIndex(0) && LegJoints[0] ? LegJoints[0]->GetRelativeRotation().Pitch : 0.f;
+}
+
+void AFarmAnimal::Hop()
+{
+	HopLeft = 0.45f;
+}
+
+void AFarmAnimal::Fluff()
+{
+	FluffLeft = 0.6f;
+}
+
+void AFarmAnimal::Animate(float DeltaSeconds, bool bMoving)
+{
+	if (!Animal)
+	{
+		return;
+	}
+	// Legs swing in a trot as it walks, and settle when it stops.
+	const float Swing = bMoving ? FMath::Sin(Step * 2.f) * 30.f : 0.f;
+	for (int32 Index = 0; Index < LegJoints.Num(); ++Index)
+	{
+		if (LegJoints[Index])
+		{
+			const float Was = LegJoints[Index]->GetRelativeRotation().Pitch;
+			LegJoints[Index]->SetRelativeRotation(FRotator(FMath::FInterpTo(Was, Swing * LegSides[Index], DeltaSeconds, 20.f), 0.f, 0.f));
+		}
+	}
+	// A happy animal hops for joy now and then, standing about.
+	JoyWait -= DeltaSeconds;
+	if (JoyWait <= 0.f)
+	{
+		JoyWait = FMath::FRandRange(6.f, 16.f);
+		if (bTame && Happiness >= HappyAt && !bMoving && !Leader.IsValid())
+		{
+			Hop();
+		}
+	}
+	HopHeight = 0.f;
+	if (HopLeft > 0.f)
+	{
+		HopLeft = FMath::Max(0.f, HopLeft - DeltaSeconds);
+		HopHeight = FMath::Sin(PI * (1.f - HopLeft / 0.45f)) * FMath::Clamp(Animal->Radius * 0.35f, 6.f, 22.f);
+		Body->AddRelativeLocation(FVector(0.f, 0.f, HopHeight));
+	}
+	// A fluff: puffed up for a moment, then back.
+	if (FluffLeft > 0.f)
+	{
+		FluffLeft = FMath::Max(0.f, FluffLeft - DeltaSeconds);
+		const float Puff = FMath::Sin(PI * (1.f - FluffLeft / 0.6f)) * 0.18f;
+		Body->SetRelativeScale3D(FVector(GrownScale() * (1.f + Puff), GrownScale() * (1.f + Puff), GrownScale() * (1.f - Puff * 0.5f)));
+		if (FluffLeft <= 0.f)
+		{
+			UpdateScale();
+		}
+	}
 }
 
 float AFarmAnimal::GroundAt(const FVector2D& Spot, float Near) const
@@ -268,6 +384,7 @@ void AFarmAnimal::Wander(float DeltaSeconds)
 					}
 					Yaw = FMath::FixedTurn(Yaw, FMath::RadiansToDegrees(FMath::Atan2(Direction.Y, Direction.X)), 540.f * DeltaSeconds);
 					Step += DeltaSeconds * FollowSpeed / 12.f;
+					bWalkedThisFrame = true;
 					Lift = Animal->Bob * FMath::Abs(FMath::Sin(Step));
 					Location = FVector(Next, GroundAt(Next, Location.Z));
 					break;
@@ -304,6 +421,7 @@ void AFarmAnimal::Wander(float DeltaSeconds)
 		{
 			Yaw = FMath::FixedTurn(Yaw, FMath::RadiansToDegrees(FMath::Atan2(ToTarget.Y, ToTarget.X)), 360.f * DeltaSeconds);
 			Step += DeltaSeconds * Speed / 12.f;
+			bWalkedThisFrame = true;
 			Lift = Animal->Bob * FMath::Abs(FMath::Sin(Step));
 			Location = FVector(Next, GroundAt(Next, Location.Z));
 		}
@@ -397,6 +515,7 @@ void AFarmAnimal::UpdateFarming(float DeltaSeconds)
 
 void AFarmAnimal::LayProduce()
 {
+	Fluff();
 	// Into the nearest nest box with room, or on the ground (where it won't keep).
 	ABuildPiece* Nest = nullptr;
 	float NestDistance = TNumericLimits<float>::Max();
@@ -702,6 +821,7 @@ bool AFarmAnimal::Groom(AHearthvaleCharacter* Character)
 		return false;
 	}
 	LastGroomDay = Today;
+	Hop();
 	const bool bWasHappy = Happiness >= HappyAt;
 	Happiness = FMath::Min(MaxHappiness, Happiness + 2);
 	Character->ShowMessage(FText::Format(LOCTEXT("Groom", "You brush the {0}. It leans into the brush. (happiness {1}/{2})"),
