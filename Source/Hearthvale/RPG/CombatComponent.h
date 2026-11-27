@@ -61,6 +61,9 @@ public:
 	/** The most a blow can do set against a charge, for a weapon's charge bonus. */
 	static int32 BracedHit(int32 Most, float ChargeBonus);
 
+	/** The action montage for a blow with a weapon (null for fists): Swing1/Swing2, Thrust, Loose or Crossbow. */
+	static FName AttackAnim(const UItemDefinition* Weapon, bool bSecondSwing);
+
 	UPROPERTY(BlueprintAssignable, Category = "Combat")
 	FOnCombatChanged OnCombatChanged;
 
@@ -74,6 +77,8 @@ private:
 	TWeakObjectPtr<AWildlifeHerd> Target;
 	int32 TargetIndex = INDEX_NONE;
 	float Elapsed = 0.f;
+	/** Sword blows alternate between two swings. */
+	bool bSecondSwing = false;
 	/** Seconds the target's been out of reach; long enough and the fight's off. */
 	float OutOfReach = 0.f;
 };
