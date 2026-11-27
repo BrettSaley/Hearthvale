@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "HearthvaleCharacter.h"
+#include "Animation/AnimInstance.h"
 #include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -245,6 +246,11 @@ void AHearthvaleCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	RestingSocketOffset = CameraBoom->SocketOffset;
+	// Action montages play in place: an attack's lunge mustn't slide the character (it'd break off gathering).
+	if (UAnimInstance* Anims = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+	{
+		Anims->SetRootMotionMode(ERootMotionMode::IgnoreRootMotion);
+	}
 	if (USkeletalMesh* Look = Appearance.LoadSynchronous())
 	{
 		GetMesh()->SetSkeletalMeshAsset(Look);

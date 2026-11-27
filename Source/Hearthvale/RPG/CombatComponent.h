@@ -70,6 +70,9 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Combat")
 	FOnCombatChanged OnCombatChanged;
 
+	/** How long (s) before a shot the bow's drawn or the crossbow shouldered. */
+	static constexpr float DrawSeconds = 0.8f;
+
 	/** Arm's length (cm), for fists and swords. */
 	static constexpr float MeleeReach = 260.f;
 
@@ -82,6 +85,8 @@ private:
 	float Elapsed = 0.f;
 	/** Sword blows alternate between two swings. */
 	bool bSecondSwing = false;
+	/** A bow's drawn (or a crossbow shouldered), ready for the shot. */
+	bool bDrawn = false;
 	/** Seconds the target's been out of reach; long enough and the fight's off. */
 	float OutOfReach = 0.f;
 };

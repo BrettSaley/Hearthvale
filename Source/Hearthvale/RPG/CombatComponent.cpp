@@ -135,8 +135,9 @@ bool UCombatComponent::StartAttack(AWildlifeHerd* Herd, int32 Index)
 	}
 	Target = Herd;
 	TargetIndex = Index;
-	// The first blow comes as soon as it's in reach.
-	Elapsed = GetAttackSeconds();
+	// The first blow comes as soon as it's in reach (a shot after drawing).
+	Elapsed = IsRanged() ? GetAttackSeconds() - DrawSeconds : GetAttackSeconds();
+	bDrawn = false;
 	OutOfReach = 0.f;
 	SetComponentTickEnabled(true);
 	OnCombatChanged.Broadcast();
@@ -185,6 +186,13 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 		return;
 	}
 	OutOfReach = 0.f;
+	// Draw the bow (or shoulder the crossbow) just before the shot.
+	const UItemDefinition* Shooter = IsRanged() ? GetWeapon() : nullptr;
+	if (Shooter && !bDrawn && Elapsed >= GetAttackSeconds() - DrawSeconds)
+	{
+		bDrawn = true;
+		FHearthvaleAnims::Play(Character, Shooter->AttackSeconds >= 4.f ? FName(TEXT("Aim")) : FName(TEXT("Draw")));
+	}
 	if (Elapsed >= GetAttackSeconds())
 	{
 		Elapsed = 0.f;
@@ -213,6 +221,7 @@ void UCombatComponent::Attack()
 	// The blow (or shot) itself.
 	FHearthvaleAnims::Play(Character, AttackAnim(Weapon, bSecondSwing));
 	bSecondSwing = !bSecondSwing;
+	bDrawn = false;
 	// Every blow or shot, landed or not, wears the weapon a little.
 	FDurability::WearCarried(Character, Weapon);
 	const ESkill Style = bRanged ? ESkill::Precision : ESkill::Might;
