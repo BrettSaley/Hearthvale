@@ -14,19 +14,19 @@ namespace
 	const TCHAR* HeldCylinder = TEXT("/Engine/BasicShapes/Cylinder.Cylinder");
 	const TCHAR* HeldCone = TEXT("/Engine/BasicShapes/Cone.Cone");
 	const TCHAR* HeldSphere = TEXT("/Engine/BasicShapes/Sphere.Sphere");
-	const TCHAR* Wood = TEXT("Planks");
-	const TCHAR* Grip = TEXT("Leather");
-	const TCHAR* String = TEXT("Straw");
+	const TCHAR* HeldWood = TEXT("Planks");
+	const TCHAR* HeldGrip = TEXT("Leather");
+	const TCHAR* HeldString = TEXT("Straw");
 
 	/** The metal an item's made of, by its name: copper, iron or steel (silversteel shows as steel). */
-	const TCHAR* MetalOf(const UItemDefinition* Item)
+	const TCHAR* HeldMetalOf(const UItemDefinition* Item)
 	{
 		const FString Id = Item->GetItemId().ToString();
 		return Id.StartsWith(TEXT("Copper")) ? TEXT("Copper") : Id.Contains(TEXT("Steel")) ? TEXT("Steel") : TEXT("Iron");
 	}
 
 	/** Wooden things (shields, bows) by name. */
-	bool IsWooden(const UItemDefinition* Item)
+	bool HeldIsWooden(const UItemDefinition* Item)
 	{
 		const FString Id = Item->GetItemId().ToString();
 		return Id.StartsWith(TEXT("Wooden")) || Id.StartsWith(TEXT("Oak")) || Id.StartsWith(TEXT("Ash")) || Id.StartsWith(TEXT("Short"));
@@ -38,10 +38,10 @@ namespace
 	 * (laid out along +X) are pitched onto Z, from the palm a little toward the
 	 * fingers. On lowerarm_l, Z points out from the arm: a shield's face.
 	 */
-	const FRotator RightGrip(90.f, 0.f, 0.f);
-	const FVector RightOffset(-9.f, -1.f, 2.f);
-	const FRotator LeftGrip(0.f, 0.f, 0.f);
-	const FVector LeftOffset(14.f, 0.f, 7.f);
+	const FRotator HeldRightGrip(90.f, 0.f, 0.f);
+	const FVector HeldRightOffset(-9.f, -1.f, 2.f);
+	const FRotator HeldLeftGrip(0.f, 0.f, 0.f);
+	const FVector HeldLeftOffset(14.f, 0.f, 7.f);
 }
 
 UHeldItemComponent::UHeldItemComponent()
@@ -95,9 +95,9 @@ void UHeldItemComponent::BeginPlay()
 	LeftArm = NewObject<USceneComponent>(GetOwner(), TEXT("LeftArmHold"));
 	LeftArm->SetupAttachment(Body, TEXT("lowerarm_l"));
 	LeftArm->RegisterComponent();
-	SetGrip(RightGrip, LeftGrip);
-	RightHand->SetRelativeLocation(RightOffset);
-	LeftArm->SetRelativeLocation(LeftOffset);
+	SetGrip(HeldRightGrip, HeldLeftGrip);
+	RightHand->SetRelativeLocation(HeldRightOffset);
+	LeftArm->SetRelativeLocation(HeldLeftOffset);
 	Character->OnHeldSlotChanged.AddUniqueDynamic(this, &UHeldItemComponent::Refresh);
 	Character->GetInventory()->OnInventoryChanged.AddUniqueDynamic(this, &UHeldItemComponent::Refresh);
 	Character->GetEquipment()->OnEquipmentChanged.AddUniqueDynamic(this, &UHeldItemComponent::Refresh);
@@ -175,19 +175,19 @@ void UHeldItemComponent::Build(USceneComponent* Pivot, const UItemDefinition* It
 		return;
 	}
 	// Laid out along +X from the grip (cm); basic shapes are 100 cm across, centred.
-	const TCHAR* Metal = MetalOf(Item);
+	const TCHAR* Metal = HeldMetalOf(Item);
 	const FRotator AlongX(-90.f, 0.f, 0.f);
 	switch (Shape)
 	{
 	case EShape::Sword:
-		AddPart(Pivot, HeldCube, Grip, FVector(0.f, 0.f, 0.f), FVector(0.14f, 0.03f, 0.03f));
+		AddPart(Pivot, HeldCube, HeldGrip, FVector(0.f, 0.f, 0.f), FVector(0.14f, 0.03f, 0.03f));
 		AddPart(Pivot, HeldSphere, Metal, FVector(-8.f, 0.f, 0.f), FVector(0.045f));
 		AddPart(Pivot, HeldCube, Metal, FVector(8.f, 0.f, 0.f), FVector(0.03f, 0.04f, 0.22f));
 		AddPart(Pivot, HeldCube, Metal, FVector(47.f, 0.f, 0.f), FVector(0.78f, 0.012f, 0.06f));
 		break;
 	case EShape::Spear:
 	case EShape::Harpoon:
-		AddPart(Pivot, HeldCube, Wood, FVector(45.f, 0.f, 0.f), FVector(2.1f, 0.03f, 0.03f));
+		AddPart(Pivot, HeldCube, HeldWood, FVector(45.f, 0.f, 0.f), FVector(2.1f, 0.03f, 0.03f));
 		AddPart(Pivot, HeldCone, Metal, FVector(158.f, 0.f, 0.f), FVector(0.06f, 0.06f, 0.22f), AlongX);
 		if (Shape == EShape::Harpoon)
 		{
@@ -195,42 +195,42 @@ void UHeldItemComponent::Build(USceneComponent* Pivot, const UItemDefinition* It
 		}
 		break;
 	case EShape::Axe:
-		AddPart(Pivot, HeldCube, Wood, FVector(20.f, 0.f, 0.f), FVector(0.68f, 0.03f, 0.03f));
+		AddPart(Pivot, HeldCube, HeldWood, FVector(20.f, 0.f, 0.f), FVector(0.68f, 0.03f, 0.03f));
 		AddPart(Pivot, HeldCube, Metal, FVector(48.f, 0.f, 7.f), FVector(0.13f, 0.025f, 0.16f));
 		break;
 	case EShape::Pickaxe:
-		AddPart(Pivot, HeldCube, Wood, FVector(20.f, 0.f, 0.f), FVector(0.68f, 0.03f, 0.03f));
+		AddPart(Pivot, HeldCube, HeldWood, FVector(20.f, 0.f, 0.f), FVector(0.68f, 0.03f, 0.03f));
 		AddPart(Pivot, HeldCube, Metal, FVector(50.f, 0.f, 0.f), FVector(0.05f, 0.035f, 0.46f));
 		AddPart(Pivot, HeldCone, Metal, FVector(50.f, 0.f, 25.f), FVector(0.04f, 0.04f, 0.08f));
 		break;
 	case EShape::Hammer:
-		AddPart(Pivot, HeldCube, Wood, FVector(14.f, 0.f, 0.f), FVector(0.48f, 0.03f, 0.03f));
+		AddPart(Pivot, HeldCube, HeldWood, FVector(14.f, 0.f, 0.f), FVector(0.48f, 0.03f, 0.03f));
 		AddPart(Pivot, HeldCube, Metal, FVector(38.f, 0.f, 0.f), FVector(0.09f, 0.17f, 0.09f));
 		break;
 	case EShape::Sickle:
-		AddPart(Pivot, HeldCube, Grip, FVector(0.f, 0.f, 0.f), FVector(0.16f, 0.03f, 0.03f));
+		AddPart(Pivot, HeldCube, HeldGrip, FVector(0.f, 0.f, 0.f), FVector(0.16f, 0.03f, 0.03f));
 		AddPart(Pivot, HeldCube, Metal, FVector(16.f, 0.f, 4.f), FVector(0.18f, 0.01f, 0.02f), FRotator(30.f, 0.f, 0.f));
 		AddPart(Pivot, HeldCube, Metal, FVector(25.f, 0.f, 13.f), FVector(0.16f, 0.01f, 0.02f), FRotator(75.f, 0.f, 0.f));
 		AddPart(Pivot, HeldCube, Metal, FVector(25.f, 0.f, 22.f), FVector(0.1f, 0.01f, 0.02f), FRotator(120.f, 0.f, 0.f));
 		break;
 	case EShape::Net:
-		AddPart(Pivot, HeldCube, Wood, FVector(25.f, 0.f, 0.f), FVector(0.8f, 0.03f, 0.03f));
-		AddPart(Pivot, HeldCylinder, String, FVector(75.f, 0.f, 0.f), FVector(0.4f, 0.4f, 0.01f), FRotator(0.f, 0.f, 90.f));
+		AddPart(Pivot, HeldCube, HeldWood, FVector(25.f, 0.f, 0.f), FVector(0.8f, 0.03f, 0.03f));
+		AddPart(Pivot, HeldCylinder, HeldString, FVector(75.f, 0.f, 0.f), FVector(0.4f, 0.4f, 0.01f), FRotator(0.f, 0.f, 90.f));
 		break;
 	case EShape::Bow:
 		// Held like a blade, the stave runs the way the thumb points; the limbs bend back towards the archer, the string on their side.
-		AddPart(Pivot, HeldCube, Grip, FVector(0.f, 0.f, 0.f), FVector(0.14f, 0.04f, 0.035f));
-		AddPart(Pivot, HeldCube, Wood, FVector(32.f, 0.f, -4.f), FVector(0.52f, 0.03f, 0.025f), FRotator(-14.f, 0.f, 0.f));
-		AddPart(Pivot, HeldCube, Wood, FVector(-32.f, 0.f, -4.f), FVector(0.52f, 0.03f, 0.025f), FRotator(14.f, 0.f, 0.f));
-		AddPart(Pivot, HeldCylinder, String, FVector(0.f, 0.f, -11.f), FVector(0.006f, 0.006f, 1.16f), AlongX);
+		AddPart(Pivot, HeldCube, HeldGrip, FVector(0.f, 0.f, 0.f), FVector(0.14f, 0.04f, 0.035f));
+		AddPart(Pivot, HeldCube, HeldWood, FVector(32.f, 0.f, -4.f), FVector(0.52f, 0.03f, 0.025f), FRotator(-14.f, 0.f, 0.f));
+		AddPart(Pivot, HeldCube, HeldWood, FVector(-32.f, 0.f, -4.f), FVector(0.52f, 0.03f, 0.025f), FRotator(14.f, 0.f, 0.f));
+		AddPart(Pivot, HeldCylinder, HeldString, FVector(0.f, 0.f, -11.f), FVector(0.006f, 0.006f, 1.16f), AlongX);
 		break;
 	case EShape::Crossbow:
-		AddPart(Pivot, HeldCube, Wood, FVector(18.f, 0.f, 0.f), FVector(0.62f, 0.05f, 0.06f));
+		AddPart(Pivot, HeldCube, HeldWood, FVector(18.f, 0.f, 0.f), FVector(0.62f, 0.05f, 0.06f));
 		AddPart(Pivot, HeldCube, Metal, FVector(44.f, 0.f, 3.f), FVector(0.04f, 0.6f, 0.03f));
-		AddPart(Pivot, HeldCylinder, String, FVector(36.f, 0.f, 3.f), FVector(0.005f, 0.005f, 0.5f), FRotator(0.f, 0.f, 90.f));
+		AddPart(Pivot, HeldCylinder, HeldString, FVector(36.f, 0.f, 3.f), FVector(0.005f, 0.005f, 0.5f), FRotator(0.f, 0.f, 90.f));
 		break;
 	case EShape::Shield:
-		AddPart(Pivot, HeldCylinder, IsWooden(Item) ? Wood : Metal, FVector(0.f, 0.f, 0.f), FVector(0.55f, 0.55f, 0.04f));
+		AddPart(Pivot, HeldCylinder, HeldIsWooden(Item) ? HeldWood : Metal, FVector(0.f, 0.f, 0.f), FVector(0.55f, 0.55f, 0.04f));
 		AddPart(Pivot, HeldSphere, Metal, FVector(0.f, 0.f, 3.f), FVector(0.1f, 0.1f, 0.05f));
 		break;
 	default:

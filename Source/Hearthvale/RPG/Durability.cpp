@@ -13,23 +13,23 @@
 
 namespace
 {
-	const FLinearColor WornColor(1.f, 0.7f, 0.35f);
-	const FLinearColor BrokeColor(1.f, 0.35f, 0.3f);
-	const FLinearColor MendedColor(0.55f, 0.9f, 0.55f);
+	const FLinearColor WearWornColor(1.f, 0.7f, 0.35f);
+	const FLinearColor WearBrokeColor(1.f, 0.35f, 0.3f);
+	const FLinearColor WearMendedColor(0.55f, 0.9f, 0.55f);
 
 	/** Says so when something's just become badly worn, or has broken. */
-	void Report(AHearthvaleCharacter* Character, const UItemDefinition* Item, int32 Wear, bool bBroke)
+	void ReportWear(AHearthvaleCharacter* Character, const UItemDefinition* Item, int32 Wear, bool bBroke)
 	{
 		const FText Name = Item->DisplayName.ToLower();
 		if (bBroke)
 		{
-			Character->ShowMessage(FText::Format(LOCTEXT("Broke", "Your {0} breaks!"), Name), BrokeColor);
+			Character->ShowMessage(FText::Format(LOCTEXT("Broke", "Your {0} breaks!"), Name), WearBrokeColor);
 			UE_LOG(LogTemp, Log, TEXT("Durability: %s broke."), *Item->GetItemId().ToString());
 		}
 		else if (FDurability::UsesLeft(Item, Wear) == FDurability::WarnAt(Item))
 		{
 			Character->ShowMessage(FText::Format(LOCTEXT("Worn", "Your {0} is badly worn. Mend it at {1} before it breaks."), Name,
-				FDurability::StationName(Item->RepairStation)), WornColor);
+				FDurability::StationName(Item->RepairStation)), WearWornColor);
 			UE_LOG(LogTemp, Log, TEXT("Durability: %s is badly worn (%d left)."), *Item->GetItemId().ToString(), FDurability::UsesLeft(Item, Wear));
 		}
 	}
@@ -64,7 +64,7 @@ void FDurability::WearCarried(AHearthvaleCharacter* Character, const UItemDefini
 		return;
 	}
 	const int32 Wear = Inventory->GetSlot(Slot).Wear + Amount;
-	Report(Character, Item, Wear, Inventory->AddWear(Slot, Amount));
+	ReportWear(Character, Item, Wear, Inventory->AddWear(Slot, Amount));
 }
 
 void FDurability::WearWorn(AHearthvaleCharacter* Character, EEquipSlot Slot, int32 Amount)
@@ -74,7 +74,7 @@ void FDurability::WearWorn(AHearthvaleCharacter* Character, EEquipSlot Slot, int
 	if (Item && Item->Durability > 0)
 	{
 		const int32 Wear = Equipment->GetWornWear(Slot) + Amount;
-		Report(Character, Item, Wear, Equipment->AddWear(Slot, Amount));
+		ReportWear(Character, Item, Wear, Equipment->AddWear(Slot, Amount));
 	}
 }
 
@@ -93,7 +93,7 @@ void FDurability::WearArmour(AHearthvaleCharacter* Character)
 		if (Item && Item->Durability > 0 && Item->DefenceBonus > 0 && !(bShieldIdle && Slot == EEquipSlot::OffHand))
 		{
 			const int32 Wear = Equipment->GetWornWear(Slot) + 1;
-			Report(Character, Item, Wear, Equipment->AddWear(Slot));
+			ReportWear(Character, Item, Wear, Equipment->AddWear(Slot));
 		}
 	}
 }
@@ -151,12 +151,12 @@ bool FDurability::Repair(AHearthvaleCharacter* Character, int32 SlotIndex)
 	const FText Name = Item->DisplayName.ToLower();
 	if (!FindStation(Character, Item->RepairStation))
 	{
-		Character->ShowMessage(FText::Format(LOCTEXT("NoStation", "You need to be at {0} to mend the {1}."), StationName(Item->RepairStation), Name), BrokeColor);
+		Character->ShowMessage(FText::Format(LOCTEXT("NoStation", "You need to be at {0} to mend the {1}."), StationName(Item->RepairStation), Name), WearBrokeColor);
 		return false;
 	}
 	if (!Inventory->HasItem(Item->RepairItem))
 	{
-		Character->ShowMessage(FText::Format(LOCTEXT("NoMaterial", "You need {0} to mend the {1}."), Item->RepairItem->DisplayName.ToLower(), Name), BrokeColor);
+		Character->ShowMessage(FText::Format(LOCTEXT("NoMaterial", "You need {0} to mend the {1}."), Item->RepairItem->DisplayName.ToLower(), Name), WearBrokeColor);
 		return false;
 	}
 	Inventory->RemoveItem(Item->RepairItem, 1);
@@ -166,7 +166,7 @@ bool FDurability::Repair(AHearthvaleCharacter* Character, int32 SlotIndex)
 	{
 		Character->GetSkills()->AddXP(ESkill::Smithing, 10 + Item->Durability / 20);
 	}
-	Character->ShowMessage(FText::Format(LOCTEXT("Mended", "You mend the {0}. It's as good as new."), Name), MendedColor);
+	Character->ShowMessage(FText::Format(LOCTEXT("Mended", "You mend the {0}. It's as good as new."), Name), WearMendedColor);
 	UE_LOG(LogTemp, Log, TEXT("Durability: mended %s with %s."), *Item->GetItemId().ToString(), *Item->RepairItem->GetItemId().ToString());
 	return true;
 }

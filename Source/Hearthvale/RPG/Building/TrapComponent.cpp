@@ -14,9 +14,9 @@
 namespace
 {
 	/** How near (cm) the player has to be to hear about a trap. */
-	constexpr float HearingRange = 4000.f;
+	constexpr float TrapHearingRange = 4000.f;
 	/** How often (s) spikes look for animals. */
-	constexpr float SpikeTick = 0.25f;
+	constexpr float TrapSpikeTick = 0.25f;
 }
 
 UTrapComponent::UTrapComponent()
@@ -44,7 +44,7 @@ void UTrapComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 		Elapsed = 0.f;
 		CheckSnare();
 	}
-	else if (Piece->Trap == ETrapKind::Spikes && Elapsed >= SpikeTick)
+	else if (Piece->Trap == ETrapKind::Spikes && Elapsed >= TrapSpikeTick)
 	{
 		Elapsed = 0.f;
 		TickSpikes();
@@ -98,7 +98,7 @@ bool UTrapComponent::CheckSnare()
 	if (Player)
 	{
 		Player->GetSkills()->AddXP(ESkill::Precision, 10);
-		if (FVector::Dist(Player->GetActorLocation(), Built->GetActorLocation()) < HearingRange)
+		if (FVector::Dist(Player->GetActorLocation(), Built->GetActorLocation()) < TrapHearingRange)
 		{
 			Player->ShowMessage(FText::Format(LOCTEXT("Caught", "Your snare catches a {0}."), Name), FLinearColor(1.f, 0.8f, 0.3f));
 		}
@@ -135,7 +135,7 @@ void UTrapComponent::TickSpikes()
 			UE_LOG(LogTemp, Log, TEXT("Traps: spikes hurt a %s for %d (%d left); worn %d / %d."), *Name.ToString(), Done,
 				Herd->GetAnimalHealth(Index), Wear, Piece->TrapUses);
 			AHearthvaleCharacter* Player = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0));
-			const bool bHeard = Player && FVector::Dist(Player->GetActorLocation(), Built->GetActorLocation()) < HearingRange;
+			const bool bHeard = Player && FVector::Dist(Player->GetActorLocation(), Built->GetActorLocation()) < TrapHearingRange;
 			if (bHeard)
 			{
 				Player->ShowMessage(Herd->IsAlive(Index)

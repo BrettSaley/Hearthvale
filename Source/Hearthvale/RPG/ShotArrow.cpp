@@ -7,7 +7,7 @@
 
 namespace
 {
-	UStaticMeshComponent* AddPiece(AActor* Owner, USceneComponent* Parent, const TCHAR* Mesh, const TCHAR* Material, const FVector& Location,
+	UStaticMeshComponent* AddArrowPiece(AActor* Owner, USceneComponent* Parent, const TCHAR* Mesh, const TCHAR* Material, const FVector& Location,
 		const FVector& Scale, const FRotator& Rotation)
 	{
 		UStaticMeshComponent* Piece = NewObject<UStaticMeshComponent>(Owner);
@@ -68,15 +68,15 @@ AShotArrow* AShotArrow::Loose(UWorld* World, const FVector& InFrom, const FVecto
 	const TCHAR* Cone = TEXT("/Engine/BasicShapes/Cone.Cone");
 	const TCHAR* Cube = TEXT("/Engine/BasicShapes/Cube.Cube");
 	const FRotator AlongX(-90.f, 0.f, 0.f);
-	AddPiece(Arrow, Arrow->RootComponent, Cylinder, TEXT("/Game/Building/MI_BuildPlanks.MI_BuildPlanks"), FVector(-Length * 0.5f, 0.f, 0.f),
+	AddArrowPiece(Arrow, Arrow->RootComponent, Cylinder, TEXT("/Game/Building/MI_BuildPlanks.MI_BuildPlanks"), FVector(-Length * 0.5f, 0.f, 0.f),
 		FVector(bBolt ? 0.04f : 0.03f, bBolt ? 0.04f : 0.03f, Length / 100.f), AlongX);
-	AddPiece(Arrow, Arrow->RootComponent, Cone, TEXT("/Game/Building/MI_BuildIron.MI_BuildIron"), FVector(3.f, 0.f, 0.f),
+	AddArrowPiece(Arrow, Arrow->RootComponent, Cone, TEXT("/Game/Building/MI_BuildIron.MI_BuildIron"), FVector(3.f, 0.f, 0.f),
 		FVector(bBolt ? 0.07f : 0.06f, bBolt ? 0.07f : 0.06f, 0.1f), AlongX);
 	if (!bBolt)
 	{
-		AddPiece(Arrow, Arrow->RootComponent, Cube, TEXT("/Game/Building/MI_BuildWool.MI_BuildWool"), FVector(-Length + 6.f, 0.f, 0.f),
+		AddArrowPiece(Arrow, Arrow->RootComponent, Cube, TEXT("/Game/Building/MI_BuildWool.MI_BuildWool"), FVector(-Length + 6.f, 0.f, 0.f),
 			FVector(0.16f, 0.008f, 0.1f), FRotator::ZeroRotator);
-		AddPiece(Arrow, Arrow->RootComponent, Cube, TEXT("/Game/Building/MI_BuildWool.MI_BuildWool"), FVector(-Length + 6.f, 0.f, 0.f),
+		AddArrowPiece(Arrow, Arrow->RootComponent, Cube, TEXT("/Game/Building/MI_BuildWool.MI_BuildWool"), FVector(-Length + 6.f, 0.f, 0.f),
 			FVector(0.16f, 0.1f, 0.008f), FRotator::ZeroRotator);
 	}
 	return Arrow;

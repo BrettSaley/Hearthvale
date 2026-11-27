@@ -17,15 +17,15 @@ namespace
 	const FLinearColor RaidColor(1.f, 0.35f, 0.3f);
 	const FLinearColor RaidWonColor(1.f, 0.8f, 0.3f);
 	/** Seconds the pack waits, howling, before it moves in. */
-	constexpr float GatherSeconds = 12.f;
+	constexpr float RaidGatherSeconds = 12.f;
 
-	AHearthvaleCharacter* GetPlayer(const UObject* Context)
+	AHearthvaleCharacter* RaidPlayer(const UObject* Context)
 	{
 		return Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(Context, 0));
 	}
 
 	/** Pieces that count as camp: built on land (not boats, crab pots or traps). */
-	bool IsCampPiece(const ABuildPiece* Built)
+	bool RaidIsCampPiece(const ABuildPiece* Built)
 	{
 		const UBuildPieceDefinition* Piece = Built ? Built->GetPiece() : nullptr;
 		return Piece && !Built->IsActorBeingDestroyed() && !Piece->IsBoat() && !Piece->bOnWater && Piece->Trap == ETrapKind::None;
@@ -65,7 +65,7 @@ bool URaidSubsystem::FindCamp(FVector& OutCentre, int32& OutPieces) const
 	OutPieces = 0;
 	for (const ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
 	{
-		if (IsCampPiece(Built))
+		if (RaidIsCampPiece(Built))
 		{
 			Sum += Built->GetActorLocation();
 			++OutPieces;
@@ -127,7 +127,7 @@ bool URaidSubsystem::StartRaid(FString& OutWhy)
 	Felled = 0;
 	Idle = 0.f;
 	bScaredOff = false;
-	if (AHearthvaleCharacter* Player = GetPlayer(this))
+	if (AHearthvaleCharacter* Player = RaidPlayer(this))
 	{
 		Player->ShowMessage(LOCTEXT("Howls", "Howls ring out in the dark, close by. A wolf pack is coming for your camp!"), RaidColor);
 	}
@@ -139,7 +139,7 @@ void URaidSubsystem::EndRaid(bool bBeaten)
 {
 	AWildlifeHerd* Old = Pack.Get();
 	Pack.Reset();
-	AHearthvaleCharacter* Player = GetPlayer(this);
+	AHearthvaleCharacter* Player = RaidPlayer(this);
 	if (bBeaten)
 	{
 		if (Player)
@@ -211,7 +211,7 @@ void URaidSubsystem::TickRaid(float DeltaTime)
 	}
 	// They gather and howl a while, then creep in on the camp.
 	Gathering += DeltaTime;
-	if (Gathering < GatherSeconds)
+	if (Gathering < RaidGatherSeconds)
 	{
 		return;
 	}
@@ -231,7 +231,7 @@ void URaidSubsystem::TickRaid(float DeltaTime)
 		return;
 	}
 	SinceBatter = 0.f;
-	AHearthvaleCharacter* Player = GetPlayer(this);
+	AHearthvaleCharacter* Player = RaidPlayer(this);
 	bool bBattered = false;
 	for (int32 Index = 0; Index < Herd->GetAnimalCount(); ++Index)
 	{
@@ -246,7 +246,7 @@ void URaidSubsystem::TickRaid(float DeltaTime)
 		{
 			const float Distance = FVector::Dist2D(Built->GetActorLocation(), At);
 			// What stands in firelight, they daren't touch.
-			if (IsCampPiece(Built) && Distance < Best && !FFirelight::IsLit(GetWorld(), Built->GetActorLocation()))
+			if (RaidIsCampPiece(Built) && Distance < Best && !FFirelight::IsLit(GetWorld(), Built->GetActorLocation()))
 			{
 				Nearest = Built;
 				Best = Distance;
