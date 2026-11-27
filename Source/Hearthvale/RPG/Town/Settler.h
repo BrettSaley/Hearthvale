@@ -119,6 +119,13 @@ protected:
 private:
 	void BuildLook();
 	void Potter(float DeltaSeconds);
+	/** Whether they can walk straight from one spot to another without going through a wall (swept at chest height). */
+	bool IsClearWay(const FVector& From, const FVector& To) const;
+	/** Where they stand about: beside the bed on whichever side isn't through a wall (on the floor). */
+	FVector GetHomeSpot() const;
+	/** The home spot, worked out every few seconds (it only changes if something's built or taken down). */
+	FVector HomeSpot = FVector::ZeroVector;
+	float HomeCheck = 0.f;
 	/** Eats if hungry and there's food; false if they're still hungry. */
 	bool Eat(UInventoryComponent* Chest);
 	void DoJob(UInventoryComponent* Chest);

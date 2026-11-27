@@ -1453,7 +1453,11 @@ void UHearthvaleCheatManager::TalkVillager(const FString& Name)
 	}
 	const FVector Front = Villager->GetActorLocation() + Villager->GetActorForwardVector() * 160.f + FVector(0.f, 0.f, 100.f);
 	Character->TeleportTo(Front, (-Villager->GetActorForwardVector()).Rotation());
-	// As the player would: they stop, turn to you and talk.
+	// As the player would: looking at them; they stop, turn to you and talk.
+	if (APlayerController* Controller = GetOuterAPlayerController())
+	{
+		Controller->SetControlRotation(FRotator(-8.f, (-Villager->GetActorForwardVector()).Rotation().Yaw, 0.f));
+	}
 	Villager->Interact(Character);
 }
 

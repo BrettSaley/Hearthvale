@@ -255,6 +255,7 @@ void ATrader::Interact(AHearthvaleCharacter* Character)
 		Say(Character, Definition->Greetings[FMath::RandHelper(Definition->Greetings.Num())]);
 		Animator->Wave();
 		Animator->Gesture(3.5f);
+		UPersonAnimator::TurnToFace(Character, this);
 	}
 	// Already talking: no calling out to you as well.
 	CallOutWait = TraderCallOutGap;

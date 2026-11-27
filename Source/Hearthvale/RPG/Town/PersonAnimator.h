@@ -40,8 +40,14 @@ public:
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-	/** A wave of the right arm, for a greeting. */
+	/** A wave of the right arm, for a greeting: big enough to read from where the camera is. */
 	void Wave();
+
+	/** How long a wave lasts (seconds). */
+	static constexpr float WaveSeconds = 2.4f;
+
+	/** Turns Who (yaw only) to face Target: the player turning to whoever they're talking to. */
+	static void TurnToFace(AActor* Who, const AActor* Target);
 
 	/** Talking with their hands for a while. */
 	void Gesture(float Seconds = 3.f);
