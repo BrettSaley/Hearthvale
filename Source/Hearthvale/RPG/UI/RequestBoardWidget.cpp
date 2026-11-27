@@ -13,6 +13,7 @@
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
 #include "RPG/Town/RequestBoard.h"
+#include "RPG/Town/TownSubsystem.h"
 #include "RPG/UI/HearthvaleUIStyle.h"
 #include "RPG/UI/MenuButtonWidget.h"
 
@@ -128,7 +129,9 @@ void URequestBoardWidget::Refresh()
 		Lines->AddChildToVerticalBox(Text)->SetPadding(FMargin(0.f, 2.f, 0.f, 4.f));
 
 		const int32 Have = Owner->GetInventory()->CountItem(Request->Item);
-		FText Pays = FText::Format(LOCTEXT("PaysCoins", "Pays {0} coins"), Request->Coins);
+		const bool bMarket = UTownSubsystem::IsMarketDayIn(Notices);
+		FText Pays = FText::Format(bMarket ? LOCTEXT("PaysCoinsMarket", "Pays {0} coins (market day)") : LOCTEXT("PaysCoins", "Pays {0} coins"),
+			FMath::RoundToInt(Request->Coins * (bMarket ? UTownSubsystem::MarketRequestBonus : 1.f)));
 		if (Request->Skill != ESkill::Count && Request->XP > 0)
 		{
 			Pays = FText::Format(LOCTEXT("PaysXP", "{0} and {1} {2} XP"), Pays, Request->XP, USkillLibrary::GetSkillName(Request->Skill));
@@ -152,8 +155,9 @@ void URequestBoardWidget::Refresh()
 		Deliver->SetDimmed(Have < Request->Quantity);
 		Row->AddChildToHorizontalBox(Deliver)->SetVerticalAlignment(VAlign_Center);
 	}
-	Footer->SetText(FText::Format(LOCTEXT("Footer", "Requests done: {0}  ·  bigger jobs go up as the town gets to know you  ·  E or X to close"),
-		State.Done));
+	const UTownSubsystem* Town = GetWorld() ? GetWorld()->GetSubsystem<UTownSubsystem>() : nullptr;
+	Footer->SetText(FText::Format(LOCTEXT("Footer", "Requests done: {0}  ·  {1}  ·  E or X to close"), State.Done,
+		Town ? Town->Describe() : FText::GetEmpty()));
 	UpdateWaits();
 }
 

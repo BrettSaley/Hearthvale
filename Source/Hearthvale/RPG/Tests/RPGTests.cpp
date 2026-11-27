@@ -3,6 +3,7 @@
 // -ExecCmds="Automation RunTests Hearthvale; Quit".
 
 #include "Misc/AutomationTest.h"
+#include "HearthvaleCharacter.h"
 #include "RPG/Building/BuildingComponent.h"
 #include "RPG/AnimalDefinition.h"
 #include "RPG/FarmAnimal.h"
@@ -29,8 +30,12 @@
 #include "RPG/Town/VillagerDefinition.h"
 #include "RPG/Town/QuestDefinition.h"
 #include "RPG/Town/CompanionDefinition.h"
+#include "RPG/Town/TownSubsystem.h"
+#include "RPG/World/WorldClock.h"
 #include "RPG/Town/TraderDefinition.h"
 #include "RPG/World/RaidSubsystem.h"
+#include "RPG/World/Firelight.h"
+#include "RPG/CraftingStationDefinition.h"
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/World/WildlifeHerd.h"
 #include "RPG/World/WorldGenerator.h"
@@ -644,6 +649,12 @@ bool FSettlersTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Bare is normal speed"), ASettler::ComfortSpeed(0), 1.f);
 	TestEqual(TEXT("Homely is twice the speed"), ASettler::ComfortSpeed(ASettler::MaxComfort), 2.f);
 	TestEqual(TEXT("No more than homely"), ASettler::ComfortSpeed(99), 2.f);
+
+	// Hunger: a fed day clears the count, hungry days add up, and enough of them and they go.
+	TestEqual(TEXT("A hungry day"), ASettler::NextHungryDays(0, false), 1);
+	TestEqual(TEXT("Another"), ASettler::NextHungryDays(1, false), 2);
+	TestEqual(TEXT("Fed again"), ASettler::NextHungryDays(1, true), 0);
+	TestTrue(TEXT("One hungry day is only a warning"), ASettler::HungryDaysToLeave > 1);
 	int32 Homely = 0;
 	for (const UBuildPieceDefinition* Piece : UBuildPieceDefinition::GetAllPieces())
 	{
@@ -747,6 +758,54 @@ bool FCompanionTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Its tail is among its parts"), Dog->Parts.IsValidIndex(Dog->FirstTailPart));
 	TestTrue(TEXT("It runs faster than it trots"), Dog->RunSpeed > Dog->Speed);
 	TestTrue(TEXT("It warns of danger further off than it fetches"), Dog->WarnRange > Dog->FetchRange);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTownRankTest, "Hearthvale.TownRank", TestFlags)
+
+bool FTownRankTest::RunTest(const FString& Parameters)
+{
+	// A camp, then a hamlet, a village and a town as its standing grows, each further off than the last.
+	TestEqual(TEXT("Nothing done: a camp"), UTownSubsystem::RankOf(0), 0);
+	for (int32 Rank = 1; Rank <= UTownSubsystem::TopRank; ++Rank)
+	{
+		const int32 At = UTownSubsystem::ScoreFor(Rank);
+		TestEqual(FString::Printf(TEXT("Rank %d at %d"), Rank, At), UTownSubsystem::RankOf(At), Rank);
+		TestEqual(FString::Printf(TEXT("Not rank %d just short of it"), Rank), UTownSubsystem::RankOf(At - 1), Rank - 1);
+		TestTrue(FString::Printf(TEXT("Rank %d is further off than the last"), Rank),
+			At - UTownSubsystem::ScoreFor(Rank - 1) >= UTownSubsystem::ScoreFor(Rank - 1) - UTownSubsystem::ScoreFor(FMath::Max(0, Rank - 2)));
+	}
+	TestEqual(TEXT("No higher than a town"), UTownSubsystem::RankOf(100000), UTownSubsystem::TopRank);
+
+	// Market day: the last day of each season. A trader who lives here pays three quarters on it; a pedlar doesn't.
+	TestFalse(TEXT("No market on the first day"), UTownSubsystem::IsMarketDay(0));
+	TestTrue(TEXT("Market on the season's last day"), UTownSubsystem::IsMarketDay(UWorldClock::DaysPerSeason - 1));
+	TestTrue(TEXT("And the next season's"), UTownSubsystem::IsMarketDay(2 * UWorldClock::DaysPerSeason - 1));
+	UTraderDefinition* Local = NewObject<UTraderDefinition>();
+	UItemDefinition* Pelt = NewObject<UItemDefinition>();
+	Pelt->Value = 40;
+	const int32 MarketDay = UWorldClock::DaysPerSeason - 1;
+	TestEqual(TEXT("Half on an ordinary day"), Local->GetSellPriceOn(Pelt, 0, 0), 20);
+	TestEqual(TEXT("Three quarters on market day"), Local->GetSellPriceOn(Pelt, 0, MarketDay), 30);
+	Local->VisitEvery = 3;
+	TestEqual(TEXT("A pedlar pays his usual"), Local->GetSellPriceOn(Pelt, 0, MarketDay), 20);
+	TestTrue(TEXT("Market prices never beat buying"), UTownSubsystem::MarketSellShare < 1.f);
+	TestFalse(TEXT("Each rank has a name"), UTownSubsystem::RankName(2).IsEmpty());
+
+	// Odile keeps some of her stock back until the town's grown.
+	const UTraderDefinition* Odile = LoadObject<UTraderDefinition>(nullptr, TEXT("/Game/Town/Traders/Odile.Odile"));
+	if (TestNotNull(TEXT("Odile exists"), Odile))
+	{
+		int32 Ranked = 0;
+		bool bStartersFree = true;
+		for (const FTraderStock& Line : Odile->Stock)
+		{
+			Ranked += Line.MinRank > 0 ? 1 : 0;
+			bStartersFree &= !(Line.Item && Line.Item->GetFName() == TEXT("PotatoSeed")) || Line.MinRank == 0;
+		}
+		TestTrue(TEXT("Some of her stock comes with the town's growth"), Ranked >= 3);
+		TestTrue(TEXT("Seeds are there from the start"), bStartersFree);
+	}
 	return true;
 }
 
@@ -1060,6 +1119,24 @@ bool FRaidsTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("A pack is 3 to 6 wolves"), URaidSubsystem::PackSize(Day) >= 3 && URaidSubsystem::PackSize(Day) <= 6);
 	}
 	TestTrue(TEXT("Packs grow"), URaidSubsystem::PackSize(12) > URaidSubsystem::PackSize(1));
+
+	// Fire keeps beasts off: torches and campfires glow, and nowhere's lit without a world.
+	TestFalse(TEXT("No world, no fire"), FFirelight::IsLit(nullptr, FVector::ZeroVector));
+	TestTrue(TEXT("Firelight reaches a few metres"), FFirelight::Radius > URaidSubsystem::BatterReach && FFirelight::Radius < 2000.f);
+	const UBuildPieceDefinition* Torch = UBuildPieceDefinition::FindPiece(TEXT("Torch"));
+	TestTrue(TEXT("A torch glows"), Torch && Torch->LightIntensity > 0.f);
+	const UBuildPieceDefinition* Campfire = UBuildPieceDefinition::FindPiece(TEXT("Campfire"));
+	TestTrue(TEXT("A campfire glows"), Campfire && Campfire->Station && Campfire->Station->LightIntensity > 0.f);
+	TestTrue(TEXT("A firelit camp is given up on in time"), URaidSubsystem::GiveUpSeconds > URaidSubsystem::BatterSeconds);
+
+	// Battered pieces are mended with a hammer.
+	for (const TCHAR* Id : {TEXT("CopperHammer"), TEXT("IronHammer")})
+	{
+		const UItemDefinition* Hammer = UItemDefinition::FindItem(Id);
+		TestTrue(FString::Printf(TEXT("%s is a hammer that wears"), Id), Hammer && Hammer->ToolType == EToolType::Hammer && Hammer->Durability > 0);
+		TestNotNull(FString::Printf(TEXT("%s is smithed"), Id), LoadObject<URecipeDefinition>(nullptr, *FString::Printf(TEXT("/Game/Crafting/Recipes/Smith%s.Smith%s"), Id, Id)));
+	}
+	TestTrue(TEXT("A swing mends a fair bit"), AHearthvaleCharacter::MendPerSwing >= URaidSubsystem::BatterDamage * 3);
 
 	// Pieces stand battering by what went into them.
 	TestEqual(TEXT("Something of nothing stands 10"), ABuildPiece::HealthFor(nullptr), 10);

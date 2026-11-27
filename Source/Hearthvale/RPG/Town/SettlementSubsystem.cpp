@@ -7,6 +7,7 @@
 #include "RPG/Building/BuildPieceDefinition.h"
 #include "RPG/Town/Settler.h"
 #include "RPG/Town/SettlerDefinition.h"
+#include "RPG/Town/TownSubsystem.h"
 
 #define LOCTEXT_NAMESPACE "Settlement"
 
@@ -133,7 +134,8 @@ void USettlementSubsystem::Tick(float DeltaTime)
 	}
 	// One at a time: word gets round that there's a house going.
 	Waited += Elapsed;
-	if (Waited >= Settlement->ArrivalSeconds)
+	// A bigger town draws people faster: half as long again quicker for each rank.
+	if (Waited >= Settlement->ArrivalSeconds / (1.f + 0.5f * UTownSubsystem::GetRankIn(this)))
 	{
 		Waited = 0.f;
 		MoveIn(Homes[0]);

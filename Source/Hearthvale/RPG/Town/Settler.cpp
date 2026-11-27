@@ -144,6 +144,36 @@ void ASettler::Tick(float DeltaSeconds)
 	// Checking in on things once a second is plenty.
 	const float Elapsed = 1.f - Check;
 	Check = 1.f;
+	// As each day turns: a day hungry is a warning, two and they're off.
+	if (const UWorldClock* Clock = UWorldClock::Get(this))
+	{
+		const int32 Today = Clock->GetDay();
+		if (CareDay < 0)
+		{
+			CareDay = Today;
+		}
+		else if (Today != CareDay)
+		{
+			CareDay = Today;
+			HungryDays = NextHungryDays(HungryDays, Fed > 0.f || (FindChest() && Eat(FindChest())));
+			const AHearthvaleCharacter* Player = Cast<AHearthvaleCharacter>(UGameplayStatics::GetPlayerPawn(this, 0));
+			if (HungryDays >= HungryDaysToLeave)
+			{
+				if (Player)
+				{
+					Player->ShowMessage(FText::Format(LOCTEXT("Starved", "{0} has gone hungry too long, and leaves Hearthvale."), GetFullName()),
+						SettlerSpeech);
+				}
+				Destroy();
+				return;
+			}
+			if (HungryDays > 0 && Player)
+			{
+				Player->ShowMessage(FText::Format(LOCTEXT("GoingHungry", "{0} went hungry yesterday. Put food in the chest by their bed, or they'll leave."),
+					Settler->DisplayName), SettlerSpeech);
+			}
+		}
+	}
 	UInventoryComponent* Chest = FindChest();
 	if (!Chest)
 	{
@@ -399,6 +429,8 @@ FSavedSettler ASettler::SaveState() const
 	Saved.Fed = Fed;
 	Saved.Work = Work;
 	Saved.Made = Made;
+	Saved.HungryDays = HungryDays;
+	Saved.CareDay = CareDay;
 	return Saved;
 }
 
@@ -420,6 +452,8 @@ ASettler* ASettler::SpawnSaved(UWorld* World, const FSavedSettler& Saved)
 		Spawned->Fed = Saved.Fed;
 		Spawned->Work = Saved.Work;
 		Spawned->Made = Saved.Made;
+		Spawned->HungryDays = Saved.HungryDays;
+		Spawned->CareDay = Saved.CareDay;
 	}
 	return Spawned;
 }

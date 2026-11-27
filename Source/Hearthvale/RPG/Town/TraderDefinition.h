@@ -29,6 +29,10 @@ struct HEARTHVALE_API FTraderStock
 	/** How many they have each day (more comes in overnight); 0 for no limit. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Trader", meta = (ClampMin = 0))
 	int32 PerDay = 0;
+
+	/** Only stocked once the town's grown this far (see UTownSubsystem: 1 a hamlet, 2 a village, 3 a town). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Trader", meta = (ClampMin = 0, ClampMax = 3))
+	int32 MinRank = 0;
 };
 
 /** What a trader's sold today. Saved as is. */

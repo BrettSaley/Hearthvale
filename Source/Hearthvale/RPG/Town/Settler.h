@@ -33,6 +33,13 @@ struct FSavedSettler
 
 	UPROPERTY()
 	int32 Made = 0;
+
+	/** Days in a row they've gone hungry (see ASettler::HungryDaysToLeave), and the last day counted. */
+	UPROPERTY()
+	int32 HungryDays = 0;
+
+	UPROPERTY()
+	int32 CareDay = -1;
 };
 
 /** Why a settler isn't working, if they aren't. */
@@ -86,6 +93,17 @@ public:
 	/** How much faster they work at a comfort: a fifth faster for each. */
 	static float ComfortSpeed(int32 Comfort) { return 1.f + 0.2f * FMath::Clamp(Comfort, 0, MaxComfort); }
 
+	/** After this many days in a row hungry, they leave. */
+	static constexpr int32 HungryDaysToLeave = 2;
+
+	/** How a day changes their run of hungry days: one more if they ended it hungry, none if fed. */
+	static int32 NextHungryDays(int32 HungryDays, bool bFed) { return bFed ? 0 : HungryDays + 1; }
+
+	int32 GetHungryDays() const { return HungryDays; }
+
+	/** Empties their belly (for testing). */
+	void Starve() { Fed = 0.f; }
+
 	/** Does Jobs rounds of work now, eating first if they need to (for testing). */
 	void WorkNow(int32 Jobs = 1);
 
@@ -113,6 +131,9 @@ private:
 	float Fed = 0.f;
 	float Work = 0.f;
 	int32 Made = 0;
+	int32 HungryDays = 0;
+	/** The last day their hunger was counted (-1 before the first). */
+	int32 CareDay = -1;
 	ESettlerTrouble Trouble = ESettlerTrouble::None;
 	/** Seconds until they next check their chest. */
 	float Check = 0.f;

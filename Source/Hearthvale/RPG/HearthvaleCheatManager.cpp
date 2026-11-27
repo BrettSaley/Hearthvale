@@ -21,6 +21,7 @@
 #include "RPG/Town/Villager.h"
 #include "RPG/Town/QuestSubsystem.h"
 #include "RPG/Town/Companion.h"
+#include "RPG/Town/TownSubsystem.h"
 #include "RPG/Town/Trader.h"
 #include "RPG/UI/RequestBoardWidget.h"
 #include "RPG/Town/TraderDefinition.h"
@@ -603,6 +604,28 @@ void UHearthvaleCheatManager::MakeAlpha(const FString& Kind)
 	Say(FString::Printf(TEXT("The %s is %d / %d"), *Nearest->GetAnimalName(0).ToString(), Nearest->GetAnimalHealth(0), Nearest->GetAnimalMaxHealth(0)));
 }
 
+void UHearthvaleCheatManager::BatterNear(int32 Amount)
+{
+	AHearthvaleCharacter* Character = GetHearthvaleCharacter();
+	ABuildPiece* Nearest = nullptr;
+	for (ABuildPiece* Built : TActorRange<ABuildPiece>(GetWorld()))
+	{
+		if (Character && (!Nearest || FVector::Dist(Built->GetActorLocation(), Character->GetActorLocation())
+			< FVector::Dist(Nearest->GetActorLocation(), Character->GetActorLocation())))
+		{
+			Nearest = Built;
+		}
+	}
+	if (!Nearest)
+	{
+		Say(TEXT("Nothing built here."));
+		return;
+	}
+	const FString Id = Nearest->GetPiece()->GetPieceId().ToString();
+	const bool bFell = Nearest->Batter(Amount);
+	Say(bFell ? FString::Printf(TEXT("%s fell."), *Id) : FString::Printf(TEXT("%s battered to %d / %d"), *Id, Nearest->GetMaxHealth() - Nearest->GetDamage(), Nearest->GetMaxHealth()));
+}
+
 void UHearthvaleCheatManager::ListWorn()
 {
 	if (const AHearthvaleCharacter* Character = GetHearthvaleCharacter())
@@ -1127,6 +1150,11 @@ void UHearthvaleCheatManager::Trade(const FString& Name)
 		{
 			continue;
 		}
+		// A travelling trader who isn't in town: only if asked for by name.
+		if (Name.IsEmpty() && !Trader->IsHere())
+		{
+			continue;
+		}
 		if (Character && (!Nearest || FVector::Dist(Trader->GetActorLocation(), Character->GetActorLocation())
 			< FVector::Dist(Nearest->GetActorLocation(), Character->GetActorLocation())))
 		{
@@ -1359,9 +1387,9 @@ void UHearthvaleCheatManager::ListSettlers()
 				}
 			}
 		}
-		Say(FString::Printf(TEXT("%s at (%.0f, %.0f): %s, comfort %d, made %d. Chest: %s"), *Settler->GetFullName().ToString(),
+		Say(FString::Printf(TEXT("%s at (%.0f, %.0f): %s, comfort %d, hungry days %d, made %d. Chest: %s"), *Settler->GetFullName().ToString(),
 			Settler->GetActorLocation().X, Settler->GetActorLocation().Y, Troubles[static_cast<int32>(Settler->GetTrouble())],
-			Settler->GetComfort(), Settler->GetMade(), *Chest));
+			Settler->GetComfort(), Settler->GetHungryDays(), Settler->GetMade(), *Chest));
 	}
 }
 
@@ -1553,5 +1581,23 @@ void UHearthvaleCheatManager::Furnish()
 		++Furnished;
 	}
 	Say(FString::Printf(TEXT("Furnished %d house(s)."), Furnished));
+	ListSettlers();
+}
+
+void UHearthvaleCheatManager::Town()
+{
+	if (const UTownSubsystem* TownState = GetWorld()->GetSubsystem<UTownSubsystem>())
+	{
+		Say(FString::Printf(TEXT("%s, rank %d (announced %d)."), *TownState->Describe().ToString(), TownState->GetRank(),
+			TownState->GetAnnouncedRank()));
+	}
+}
+
+void UHearthvaleCheatManager::StarveSettlers()
+{
+	for (ASettler* Settler : TActorRange<ASettler>(GetWorld()))
+	{
+		Settler->Starve();
+	}
 	ListSettlers();
 }

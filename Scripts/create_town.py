@@ -151,6 +151,7 @@ def cart():
 
 
 # --- Traders: ID: (name, title, greetings, call-outs, stock [(item or "@animal", price or 0, how many a day or 0)], markup, extras) ---
+# A stock line can end with the town rank it needs (1 a hamlet, 2 a village, 3 a town); see UTownSubsystem.
 # Extras: a travelling trader's visit days and what he's after, and their look ("look": shirt, hair, apron; "stall": "cart").
 # She's open by day; at night she goes home and the stall is shut.
 
@@ -164,7 +165,8 @@ TRADERS = {
                "Fine day for the market!"],
               [("PotatoSeed", 0, 0), ("OnionSeed", 0, 0), ("CabbageSeed", 0, 0), ("PumpkinSeed", 0, 0), ("Bucket", 0, 2), ("Brush", 0, 3), ("Bait", 0, 0),
                ("CopperAxe", 0, 2), ("CopperPickaxe", 0, 2), ("CopperSickle", 0, 2),
-               ("@Chicken", 40, 2), ("@Sheep", 120, 1), ("@Pig", 160, 1), ("@Cow", 260, 1)],
+               ("@Chicken", 40, 2), ("@Sheep", 120, 1), ("@Pig", 160, 1, 1), ("@Cow", 260, 1, 1),
+               ("IronAxe", 0, 1, 2), ("IronPickaxe", 0, 1, 2), ("IronSickle", 0, 1, 2), ("SteelSickle", 0, 1, 3)],
               1.5, {}),
     "Pell": ("Pell", "Pedlar",
              ["Only here today, friend! What catches your eye?",
@@ -187,7 +189,7 @@ def create_traders():
     for trader_id, (name, title, greetings, callouts, stock, markup, extras) in TRADERS.items():
         trader, _ = create(trader_id, "/Game/Town/Traders", unreal.TraderDefinition, factory)
         lines = []
-        for what, price, per_day in stock:
+        for what, price, per_day, *min_rank in stock:
             line = unreal.TraderStock()
             if what.startswith("@"):
                 line.set_editor_property("animal", animal(what[1:]))
@@ -195,6 +197,7 @@ def create_traders():
                 line.set_editor_property("item", item(what))
             line.set_editor_property("price", price)
             line.set_editor_property("per_day", per_day)
+            line.set_editor_property("min_rank", min_rank[0] if min_rank else 0)
             lines.append(line)
         for prop, value in [("display_name", unreal.Text(name)), ("title", unreal.Text(title)),
                             ("greetings", [unreal.Text(t) for t in greetings]),

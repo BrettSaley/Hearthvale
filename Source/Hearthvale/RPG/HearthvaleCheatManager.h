@@ -229,6 +229,10 @@ public:
 	UFUNCTION(Exec)
 	void MakeAlpha(const FString& Kind);
 
+	/** Batters the nearest build piece by Amount, as raiders would (BatterNear 10). */
+	UFUNCTION(Exec)
+	void BatterNear(int32 Amount = 10);
+
 	/** Lists what's worn and the total defence. */
 	UFUNCTION(Exec)
 	void ListWorn();
@@ -329,6 +333,10 @@ public:
 	UFUNCTION(Exec)
 	void Furnish();
 
+	/** Makes every settler hungry now (for testing their leaving). */
+	UFUNCTION(Exec)
+	void StarveSettlers();
+
 	/** Walks up to a villager (TalkVillager Bryn; the nearest if none) and talks to them. */
 	UFUNCTION(Exec)
 	void TalkVillager(const FString& Name = TEXT(""));
@@ -368,6 +376,10 @@ public:
 	/** Logs every companion animal: whose it is, what it's doing and where. */
 	UFUNCTION(Exec)
 	void ListCompanions();
+
+	/** Logs the town's standing, its rank, and what makes it up. */
+	UFUNCTION(Exec)
+	void Town();
 
 private:
 	AHearthvaleCharacter* GetHearthvaleCharacter() const;

@@ -68,7 +68,8 @@ struct HEARTHVALE_API FRequestBoardState
 	void Advance(const URequestBoardDefinition& Board, float Seconds);
 
 	/** Delivers the request in a spot from the inventory, paying coins and XP. False (changing nothing) if the things aren't there. */
-	bool Deliver(const URequestBoardDefinition& Board, int32 Spot, UInventoryComponent* Inventory, USkillsComponent* Skills);
+	bool Deliver(const URequestBoardDefinition& Board, int32 Spot, UInventoryComponent* Inventory, USkillsComponent* Skills,
+		float CoinMultiplier = 1.f);
 
 	/** The request in a spot, or null if it's empty. */
 	const FTownRequest* GetRequest(const URequestBoardDefinition& Board, int32 Spot) const;

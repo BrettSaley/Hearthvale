@@ -110,6 +110,13 @@ int32 ABuildPiece::HealthFor(const UBuildPieceDefinition* InPiece)
 	return FMath::Min(10 + Things * 5, 200);
 }
 
+int32 ABuildPiece::Mend(int32 Amount)
+{
+	const int32 Mended = FMath::Clamp(Amount, 0, Damage);
+	Damage -= Mended;
+	return Mended;
+}
+
 bool ABuildPiece::Batter(int32 Amount)
 {
 	if (Amount <= 0 || IsActorBeingDestroyed())

@@ -61,7 +61,8 @@ void FRequestBoardState::Advance(const URequestBoardDefinition& Board, float Sec
 	}
 }
 
-bool FRequestBoardState::Deliver(const URequestBoardDefinition& Board, int32 Spot, UInventoryComponent* Inventory, USkillsComponent* Skills)
+bool FRequestBoardState::Deliver(const URequestBoardDefinition& Board, int32 Spot, UInventoryComponent* Inventory, USkillsComponent* Skills,
+	float CoinMultiplier)
 {
 	const FTownRequest* Request = GetRequest(Board, Spot);
 	if (!Request || !Request->Item || !Inventory || !Inventory->HasItem(Request->Item, Request->Quantity))
@@ -69,10 +70,11 @@ bool FRequestBoardState::Deliver(const URequestBoardDefinition& Board, int32 Spo
 		return false;
 	}
 	Inventory->RemoveItem(Request->Item, Request->Quantity);
-	if (Board.Currency && Request->Coins > 0)
+	const int32 Coins = FMath::RoundToInt(Request->Coins * CoinMultiplier);
+	if (Board.Currency && Coins > 0)
 	{
-		const int32 Paid = Inventory->AddItem(Board.Currency, Request->Coins);
-		if (Paid < Request->Coins)
+		const int32 Paid = Inventory->AddItem(Board.Currency, Coins);
+		if (Paid < Coins)
 		{
 			// No room for the coins: hand the things back.
 			Inventory->RemoveItem(Board.Currency, Paid);
