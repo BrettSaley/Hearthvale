@@ -263,6 +263,7 @@ void AVillager::Interact(AHearthvaleCharacter* Character)
 	FVector ToCharacter = Character->GetActorLocation() - GetActorLocation();
 	ToCharacter.Z = 0.f;
 	SetActorRotation(ToCharacter.Rotation());
+	UPersonAnimator::TurnToFace(Character, this);
 	Idle = FMath::Max(Idle, 5.f);
 	// A quest of theirs to take on or finish comes first.
 	if (UQuestSubsystem* Quests = GetWorld()->GetSubsystem<UQuestSubsystem>(); Quests && Quests->HandleVillager(Character, this))

@@ -84,7 +84,21 @@ void UPersonAnimator::Rig(USceneComponent* Root, const TArray<UStaticMeshCompone
 
 void UPersonAnimator::Wave()
 {
-	WaveLeft = 1.6f;
+	WaveLeft = WaveSeconds;
+}
+
+void UPersonAnimator::TurnToFace(AActor* Who, const AActor* Target)
+{
+	if (!Who || !Target)
+	{
+		return;
+	}
+	FVector To = Target->GetActorLocation() - Who->GetActorLocation();
+	To.Z = 0.f;
+	if (!To.IsNearlyZero())
+	{
+		Who->SetActorRotation(FRotator(0.f, To.Rotation().Yaw, 0.f));
+	}
 }
 
 void UPersonAnimator::Gesture(float Seconds)
@@ -149,8 +163,6 @@ void UPersonAnimator::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 	Shift = FMath::FInterpTo(Shift, ShiftTarget * (1.f - Walk), DeltaTime, 2.f);
 	const float Breath = FMath::Sin(Clock * 1.7f);
 	const float Bob = FMath::Abs(FMath::Sin(Stride)) * 3.f * Walk;
-	Body->SetRelativeLocationAndRotation(FVector(0.f, Shift * 1.5f, Bob + Breath * 0.4f * (1.f - Walk)),
-		FRotator(0.f, 0.f, Shift * 2.5f));
 
 	// Work: a swing (chopping, digging) or arms held out (a rod). A positive pitch swings a hanging arm forwards.
 	if (Work == EPersonWork::Swing && Walk < 0.2f)
@@ -173,15 +185,19 @@ void UPersonAnimator::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 		RightArmPitch += (35.f + FMath::Sin(Clock * 3.1f) * 18.f) * Amount;
 		LeftArmPitch += (20.f + FMath::Sin(Clock * 2.3f + 1.f) * 12.f) * Amount;
 	}
-	// A wave: the right arm up out to the side, hand waggling.
+	// A wave: the right arm right up beside the head, swinging side to side, leaning into it a little.
+	float Lean = 0.f;
 	if (WaveLeft > 0.f)
 	{
 		WaveLeft -= DeltaTime;
-		const float Up = FMath::Clamp(FMath::Min(1.6f - WaveLeft, WaveLeft) * 5.f, 0.f, 1.f);
-		// A positive roll swings the right arm out and up its side.
-		RightArmRoll = Up * (150.f + FMath::Sin(Clock * 14.f) * 15.f);
-		RightArmPitch *= 1.f - Up;
+		const float Up = FMath::Clamp(FMath::Min(WaveSeconds - WaveLeft, WaveLeft) * 4.f, 0.f, 1.f);
+		// A positive roll swings the right arm out and up its side; past 160 it's overhead.
+		RightArmRoll = Up * (160.f + FMath::Sin(Clock * 9.f) * 25.f);
+		RightArmPitch = FMath::Lerp(RightArmPitch, 15.f, Up);
+		Lean = Up * -6.f;
 	}
+	Body->SetRelativeLocationAndRotation(FVector(0.f, Shift * 1.5f, Bob + Breath * 0.4f * (1.f - Walk)),
+		FRotator(0.f, 0.f, Shift * 2.5f + Lean));
 	// Arms hang a touch out from the sides.
 	LeftShoulder->SetRelativeRotation(FRotator(LeftArmPitch, 0.f, LeftArmRoll - 4.f));
 	RightShoulder->SetRelativeRotation(FRotator(RightArmPitch, 0.f, RightArmRoll + 4.f));

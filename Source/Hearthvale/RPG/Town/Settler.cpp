@@ -45,8 +45,8 @@ ASettler* ASettler::Spawn(UWorld* World, USettlerDefinition* InSettler, ABuildPi
 	{
 		return nullptr;
 	}
-	const FVector Feet = InBed->GetWakeSpot() - FVector(0.f, 0.f, 100.f);
-	const FTransform Transform(InBed->GetActorRotation(), Feet);
+	// Spawned on the bed itself; they step off it to whichever side is clear as they start pottering.
+	const FTransform Transform(InBed->GetActorRotation(), InBed->GetActorLocation());
 	ASettler* Spawned = World->SpawnActorDeferred<ASettler>(StaticClass(), Transform, nullptr, nullptr,
 		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 	if (Spawned)
@@ -206,9 +206,42 @@ void ASettler::Tick(float DeltaSeconds)
 	}
 }
 
+bool ASettler::IsClearWay(const FVector& From, const FVector& To) const
+{
+	// Above beds and tables, below the top of a wall.
+	const FVector Chest(0.f, 0.f, 110.f);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(SettlerWay), false, this);
+	FHitResult Hit;
+	if (!GetWorld()->SweepSingleByChannel(Hit, From + Chest, To + Chest, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(25.f), Params))
+	{
+		return true;
+	}
+	return Hit.GetActor() && Hit.GetActor()->IsA<APawn>();
+}
+
+FVector ASettler::GetHomeSpot() const
+{
+	const FVector BedAt = Bed->GetActorLocation();
+	// Beside it (where the player wakes), else the other side, else its foot: whichever's inside the house.
+	for (const FVector& Side : {Bed->GetActorRightVector() * 110.f, Bed->GetActorRightVector() * -110.f, Bed->GetActorForwardVector() * -150.f})
+	{
+		if (IsClearWay(BedAt, BedAt + Side))
+		{
+			return BedAt + Side;
+		}
+	}
+	return BedAt;
+}
+
 void ASettler::Potter(float DeltaSeconds)
 {
-	const FVector Home = Bed->GetWakeSpot() - FVector(0.f, 0.f, 100.f);
+	HomeCheck -= DeltaSeconds;
+	if (HomeCheck <= 0.f)
+	{
+		HomeCheck = 5.f;
+		HomeSpot = GetHomeSpot();
+	}
+	const FVector Home = HomeSpot;
 	FVector Location = GetActorLocation();
 	// Working at their job when they're standing about, by day, with nothing wrong.
 	const UWorldClock* WorkClock = UWorldClock::Get(this);
@@ -226,8 +259,17 @@ void ASettler::Potter(float DeltaSeconds)
 		Idle -= DeltaSeconds;
 		if (Idle <= 0.f)
 		{
-			const FVector2D Step = FMath::RandPointInCircle(SettlerPotterRange);
-			Target = Home + FVector(Step, 0.f);
+			// Somewhere near the bed they can walk to without going through a wall; else stay put.
+			Target = Location;
+			for (int32 Try = 0; Try < 8; ++Try)
+			{
+				const FVector Spot = Home + FVector(FMath::RandPointInCircle(SettlerPotterRange), 0.f);
+				if (IsClearWay(Location, Spot))
+				{
+					Target = Spot;
+					break;
+				}
+			}
 		}
 		return;
 	}
@@ -239,6 +281,12 @@ void ASettler::Potter(float DeltaSeconds)
 		return;
 	}
 	const FVector Move = ToTarget.GetSafeNormal() * FMath::Min(ToTarget.Size(), SettlerPotterSpeed * DeltaSeconds);
+	// Something in the way after all (a piece built since): stop and think again.
+	if (!IsClearWay(Location, Location + ToTarget.GetSafeNormal() * 40.f))
+	{
+		Idle = FMath::FRandRange(1.f, 3.f);
+		return;
+	}
 	// Stand on the floor of the house (or the ground) where they are.
 	Location += Move;
 	Location.Z = Home.Z;
@@ -432,6 +480,7 @@ void ASettler::Interact(AHearthvaleCharacter* Character)
 	FVector ToCharacter = Character->GetActorLocation() - GetActorLocation();
 	ToCharacter.Z = 0.f;
 	SetActorRotation(ToCharacter.Rotation());
+	UPersonAnimator::TurnToFace(Character, this);
 	Idle = FMath::Max(Idle, 4.f);
 	Target = GetActorLocation();
 }
