@@ -1,5 +1,7 @@
 #include "RPG/CombatComponent.h"
 #include "RPG/Durability.h"
+#include "RPG/HearthvaleAnims.h"
+#include "RPG/ImpactPuff.h"
 #include "HearthvaleCharacter.h"
 #include "RPG/EquipmentComponent.h"
 #include "RPG/GatheringComponent.h"
@@ -34,6 +36,20 @@ AHearthvaleCharacter* UCombatComponent::GetCharacter() const
 float UCombatComponent::HitChance(int32 Accuracy, int32 Defence)
 {
 	return FMath::Clamp(0.55f + (Accuracy - Defence * 1.5f) / 100.f, 0.15f, 0.95f);
+}
+
+FName UCombatComponent::AttackAnim(const UItemDefinition* Weapon, bool bSecondSwing)
+{
+	if (Weapon && Weapon->AttackRange > 0.f)
+	{
+		// Crossbows are the slow, heavy shooters.
+		return Weapon->AttackSeconds >= 4.f ? FName(TEXT("Crossbow")) : FName(TEXT("Loose"));
+	}
+	if (Weapon && Weapon->MeleeReach > 0.f)
+	{
+		return TEXT("Thrust");
+	}
+	return bSecondSwing ? FName(TEXT("Swing2")) : FName(TEXT("Swing1"));
 }
 
 int32 UCombatComponent::BracedHit(int32 Most, float ChargeBonus)
@@ -185,6 +201,9 @@ void UCombatComponent::Attack()
 		}
 		Character->GetInventory()->RemoveItem(Weapon->Ammo, 1);
 	}
+	// The blow (or shot) itself.
+	FHearthvaleAnims::Play(Character, AttackAnim(Weapon, bSecondSwing));
+	bSecondSwing = !bSecondSwing;
 	// Every blow or shot, landed or not, wears the weapon a little.
 	FDurability::WearCarried(Character, Weapon);
 	const ESkill Style = bRanged ? ESkill::Precision : ESkill::Might;
@@ -196,6 +215,7 @@ void UCombatComponent::Attack()
 	if (FMath::FRand() >= HitChance(Accuracy, AWildlifeHerd::GetDefence(Kind)))
 	{
 		UE_LOG(LogTemp, Log, TEXT("Combat: missed the %s."), *Name.ToString());
+		AImpactPuff::Spawn(GetWorld(), EPuffKind::Dust, Herd->GetAnimalLocation(TargetIndex) + FVector(0.f, 0.f, 15.f));
 		// A miss still startles it.
 		Herd->HurtAnimal(TargetIndex, 0, Character);
 		return;
@@ -210,6 +230,12 @@ void UCombatComponent::Attack()
 	}
 	const int32 Rolled = FMath::RandRange(bBraced ? Most / 2 : 1, Most);
 	const int32 Done = Herd->HurtAnimal(TargetIndex, Rolled, Character);
+	// Blood where it lands; a heavy blow jolts the view.
+	AImpactPuff::Spawn(GetWorld(), EPuffKind::Blood, Herd->GetAnimalLocation(TargetIndex) + FVector(0.f, 0.f, 50.f), FMath::Clamp(Done / 6.f, 0.6f, 1.6f));
+	if (Done >= 8 || bBraced)
+	{
+		Character->Shake(0.35f);
+	}
 	UE_LOG(LogTemp, Log, TEXT("Combat: hit the %s for %d (%d left)%s."), *Name.ToString(), Done, Herd->GetAnimalHealth(TargetIndex),
 		bBraced ? TEXT(", braced") : TEXT(""));
 	// Each point of damage trains the style, and a little Vitality.

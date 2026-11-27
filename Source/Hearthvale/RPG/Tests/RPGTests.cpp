@@ -16,6 +16,8 @@
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/GatheringComponent.h"
 #include "RPG/CombatComponent.h"
+#include "RPG/HearthvaleAnims.h"
+#include "Animation/AnimMontage.h"
 #include "RPG/Durability.h"
 #include "RPG/EquipmentComponent.h"
 #include "RPG/HealthComponent.h"
@@ -1289,6 +1291,37 @@ bool FAlphaTest::RunTest(const FString& Parameters)
 		TestTrue(FString::Printf(TEXT("%s helps more than the one before"), Id), Ring && Ring->EquipSlot == EEquipSlot::Ring && Total > Last);
 		Last = Total;
 	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAnimationsTest, "Hearthvale.Animations", TestFlags)
+
+bool FAnimationsTest::RunTest(const FString& Parameters)
+{
+	// Every action montage the code plays has been made.
+	for (const TCHAR* Name : {TEXT("Swing1"), TEXT("Swing2"), TEXT("Thrust"), TEXT("Loose"), TEXT("Crossbow"), TEXT("Flinch1"), TEXT("Flinch2"),
+		TEXT("Flinch3"), TEXT("Stagger"), TEXT("Block"), TEXT("Death1"), TEXT("Death2"), TEXT("Death3"), TEXT("Chop")})
+	{
+		TestNotNull(FString::Printf(TEXT("AM_%s exists"), Name), FHearthvaleAnims::Find(Name));
+	}
+	const UAnimMontage* Death = FHearthvaleAnims::Find(TEXT("Death1"));
+	TestTrue(TEXT("A death holds its last pose"), Death && !Death->bEnableAutoBlendOut);
+
+	// Each weapon swings its own way.
+	TestEqual(TEXT("Fists swing"), UCombatComponent::AttackAnim(nullptr, false), FName(TEXT("Swing1")));
+	TestEqual(TEXT("...and swing back"), UCombatComponent::AttackAnim(nullptr, true), FName(TEXT("Swing2")));
+	TestEqual(TEXT("A spear thrusts"), UCombatComponent::AttackAnim(UItemDefinition::FindItem(TEXT("IronSpear")), false), FName(TEXT("Thrust")));
+	TestEqual(TEXT("A bow looses"), UCombatComponent::AttackAnim(UItemDefinition::FindItem(TEXT("Shortbow")), false), FName(TEXT("Loose")));
+	TestEqual(TEXT("A crossbow shoots"), UCombatComponent::AttackAnim(UItemDefinition::FindItem(TEXT("Crossbow")), false), FName(TEXT("Crossbow")));
+
+	// Trees and rocks are swung at.
+	const UGatheringNodeDefinition* Tree = LoadObject<UGatheringNodeDefinition>(nullptr, TEXT("/Game/Gathering/Nodes/Tree.Tree"));
+	TestTrue(TEXT("Felling a tree swings"), Tree && Tree->GatherMontage != nullptr);
+
+	// The animals' moves are quick, and a fallen one lies a moment.
+	TestTrue(TEXT("Quick recoil and lunge"), AWildlifeHerd::FlinchSeconds < 0.5f && AWildlifeHerd::LungeSeconds < 0.6f);
+	TestTrue(TEXT("Fallen ones are gone before they come back"), AWildlifeHerd::CollapseSeconds + AWildlifeHerd::LieSeconds < 60.f);
+	TestTrue(TEXT("Wounds bleed only so far"), UHealthComponent::MaxBleed > 0 && UHealthComponent::MaxBleed <= 10);
 	return true;
 }
 

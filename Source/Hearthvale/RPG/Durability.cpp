@@ -3,6 +3,7 @@
 #include "HearthvaleCharacter.h"
 #include "RPG/CraftingStation.h"
 #include "RPG/CraftingStationDefinition.h"
+#include "RPG/CombatComponent.h"
 #include "RPG/EquipmentComponent.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/ItemDefinition.h"
@@ -84,10 +85,12 @@ void FDurability::WearArmour(AHearthvaleCharacter* Character)
 	{
 		return;
 	}
+	// A shield takes no part with a bow in both hands, so it doesn't wear either.
+	const bool bShieldIdle = Character->GetCombat() && Character->GetCombat()->IsRanged();
 	for (EEquipSlot Slot : UEquipmentComponent::GetSlotOrder())
 	{
 		const UItemDefinition* Item = Equipment->GetWorn(Slot);
-		if (Item && Item->Durability > 0 && Item->DefenceBonus > 0)
+		if (Item && Item->Durability > 0 && Item->DefenceBonus > 0 && !(bShieldIdle && Slot == EEquipSlot::OffHand))
 		{
 			const int32 Wear = Equipment->GetWornWear(Slot) + 1;
 			Report(Character, Item, Wear, Equipment->AddWear(Slot));

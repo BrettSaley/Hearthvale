@@ -30,6 +30,8 @@
 #include "RPG/GroundItem.h"
 #include "RPG/CombatComponent.h"
 #include "RPG/Durability.h"
+#include "RPG/HearthvaleAnims.h"
+#include "RPG/ImpactPuff.h"
 #include "RPG/EquipmentComponent.h"
 #include "RPG/HealthComponent.h"
 #include "RPG/HearthvaleHUD.h"
@@ -239,6 +241,7 @@ void AHearthvaleCharacter::PossessedBy(AController* NewController)
 void AHearthvaleCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	RestingSocketOffset = CameraBoom->SocketOffset;
 	if (USkeletalMesh* Look = Appearance.LoadSynchronous())
 	{
 		GetMesh()->SetSkeletalMeshAsset(Look);
@@ -261,6 +264,13 @@ void AHearthvaleCharacter::SetBoat(UBoatComponent* InBoat)
 void AHearthvaleCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	// A heavy blow jolts the camera, dying away quickly.
+	if (ShakeLeft > 0.f)
+	{
+		ShakeLeft -= DeltaSeconds;
+		const float Amount = ShakeLeft > 0.f ? 14.f * ShakeStrength * ShakeLeft / 0.35f : 0.f;
+		CameraBoom->SocketOffset = RestingSocketOffset + FVector(0.f, FMath::FRandRange(-1.f, 1.f), FMath::FRandRange(-1.f, 1.f)) * Amount;
+	}
 	if (GetCharacterMovement()->IsFalling())
 	{
 		FallSpeed = FMath::Min(FallSpeed, static_cast<float>(GetVelocity().Z));
@@ -382,6 +392,8 @@ bool AHearthvaleCharacter::MendNearby()
 		Inventory->RemoveItem(Material, 1);
 	}
 	Worst->Mend(MendPerSwing);
+	FHearthvaleAnims::Play(this, TEXT("Chop"));
+	AImpactPuff::Spawn(GetWorld(), EPuffKind::Dust, Worst->GetActorLocation() + FVector(0.f, 0.f, 80.f));
 	FDurability::WearCarried(this, Hammer);
 	ShowMessage(FText::Format(NSLOCTEXT("Hearthvale", "Mended", "You mend the {0} ({1} / {2})."), Name,
 		Worst->GetMaxHealth() - Worst->GetDamage(), Worst->GetMaxHealth()), FLinearColor(0.55f, 1.f, 0.55f));
@@ -411,8 +423,18 @@ bool AHearthvaleCharacter::UseBandage(int32 SlotIndex)
 	return true;
 }
 
+void AHearthvaleCharacter::Shake(float Strength)
+{
+	ShakeStrength = FMath::Max(ShakeLeft > 0.f ? ShakeStrength : 0.f, FMath::Clamp(Strength, 0.f, 1.f));
+	ShakeLeft = 0.35f;
+}
+
 void AHearthvaleCharacter::Die(const FText& Cause)
 {
+	if (bDying)
+	{
+		return;
+	}
 	StopActions();
 	if (UBoatComponent* InBoat = Boat.Get())
 	{
@@ -436,6 +458,35 @@ void AHearthvaleCharacter::Die(const FText& Cause)
 		Inventory->RemoveFromSlot(Slot, Stack.Quantity);
 		++Spilled;
 	}
+	if (Spilled > 0)
+	{
+		ShowMessage(FText::Format(NSLOCTEXT("Hearthvale", "Spilled", "Your pack spilled where you fell: you have {0} minutes to go back for it."),
+			FMath::RoundToInt32(SpilledSeconds / 60.f)), FLinearColor(1.f, 0.8f, 0.3f));
+	}
+	UE_LOG(LogHearthvale, Log, TEXT("Died (%s); %d stacks spilled."), *Cause.ToString(), Spilled);
+
+	// They fall, and lie a moment, before waking.
+	bDying = true;
+	DeathCause = Cause;
+	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+	{
+		DisableInput(PlayerController);
+	}
+	GetCharacterMovement()->StopMovementImmediately();
+	FHearthvaleAnims::Play(this, FHearthvaleAnims::Pick(TEXT("Death"), 3));
+	Shake(1.f);
+	GetWorldTimerManager().SetTimer(WakeTimer, this, &AHearthvaleCharacter::Wake, DeathSeconds, false);
+}
+
+void AHearthvaleCharacter::Wake()
+{
+	bDying = false;
+	StopAnimMontage();
+	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+	{
+		EnableInput(PlayerController);
+	}
+	const FText Cause = DeathCause;
 
 	// They wake at their bed, or where they first arrived.
 	const ABuildPiece* Bed = nullptr;
@@ -446,35 +497,30 @@ void AHearthvaleCharacter::Die(const FText& Cause)
 			Bed = Built;
 		}
 	}
-	FVector Wake = GetActorLocation();
+	FVector WakeAt = GetActorLocation();
 	FRotator Facing = GetActorRotation();
 	if (Bed)
 	{
-		Wake = Bed->GetWakeSpot();
+		WakeAt = Bed->GetWakeSpot();
 		Facing = FRotator(0.f, Bed->GetActorRotation().Yaw - 90.f, 0.f);
 	}
 	else if (AGameModeBase* Mode = GetWorld()->GetAuthGameMode())
 	{
 		if (const AActor* Start = Mode->FindPlayerStart(GetController()))
 		{
-			Wake = Start->GetActorLocation();
+			WakeAt = Start->GetActorLocation();
 			Facing = Start->GetActorRotation();
 		}
 	}
-	TeleportTo(Wake, Facing, false, true);
+	TeleportTo(WakeAt, Facing, false, true);
 	GetCharacterMovement()->StopMovementImmediately();
 	FallSpeed = 0.f;
-	LastWadeable = Wake;
+	LastWadeable = WakeAt;
 	Health->Restore();
 	ShowMessage(FText::Format(NSLOCTEXT("Hearthvale", "Died", "You were killed by {0}. You wake, aching, {1}."), Cause,
 		Bed ? NSLOCTEXT("Hearthvale", "InBed", "in your bed") : NSLOCTEXT("Hearthvale", "AtStart", "where you first arrived")),
 		FLinearColor(1.f, 0.35f, 0.3f));
-	if (Spilled > 0)
-	{
-		ShowMessage(FText::Format(NSLOCTEXT("Hearthvale", "Spilled", "Your pack spilled where you fell: you have {0} minutes to go back for it."),
-			FMath::RoundToInt32(SpilledSeconds / 60.f)), FLinearColor(1.f, 0.8f, 0.3f));
-	}
-	UE_LOG(LogHearthvale, Log, TEXT("Died (%s); woke at %s, %d stacks spilled."), *Cause.ToString(), *Wake.ToCompactString(), Spilled);
+	UE_LOG(LogHearthvale, Log, TEXT("Woke at %s after dying (%s)."), *WakeAt.ToCompactString(), *Cause.ToString());
 	SaveProgress();
 }
 
