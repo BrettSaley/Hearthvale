@@ -22,6 +22,7 @@ class UBoatComponent;
 class UHealthComponent;
 class UCombatComponent;
 class UEquipmentComponent;
+class UHeldItemComponent;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
@@ -72,6 +73,10 @@ class AHearthvaleCharacter : public ACharacter
 	/** Fights wild animals */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCombatComponent> Combat;
+
+	/** Shows the held tool or weapon in the hand, and a worn shield on the arm */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UHeldItemComponent> HeldItem;
 
 	/** Armour and the like being worn */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
@@ -234,6 +239,8 @@ public:
 	FORCEINLINE UCombatComponent* GetCombat() const { return Combat; }
 
 	FORCEINLINE UEquipmentComponent* GetEquipment() const { return Equipment; }
+
+	FORCEINLINE UHeldItemComponent* GetHeldItemVisual() const { return HeldItem; }
 
 	/** Mends the most battered piece within reach with the hammer held, for one of what it's built from; false (with a message) if it can't. */
 	UFUNCTION(BlueprintCallable, Category="RPG")

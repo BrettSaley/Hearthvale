@@ -31,6 +31,7 @@
 #include "RPG/CombatComponent.h"
 #include "RPG/Durability.h"
 #include "RPG/HearthvaleAnims.h"
+#include "RPG/HeldItemComponent.h"
 #include "RPG/ImpactPuff.h"
 #include "RPG/EquipmentComponent.h"
 #include "RPG/HealthComponent.h"
@@ -86,6 +87,8 @@ AHearthvaleCharacter::AHearthvaleCharacter()
 	Health = CreateDefaultSubobject<UHealthComponent>(TEXT("Health"));
 	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("Combat"));
 	Equipment = CreateDefaultSubobject<UEquipmentComponent>(TEXT("Equipment"));
+	HeldItem = CreateDefaultSubobject<UHeldItemComponent>(TEXT("HeldItem"));
+	HeldItem->SetupAttachment(GetMesh());
 	static ConstructorHelpers::FObjectFinder<UInputAction> InteractActionAsset(TEXT("/Game/Input/Actions/IA_Interact.IA_Interact"));
 	InteractAction = InteractActionAsset.Object;
 	static ConstructorHelpers::FObjectFinder<UInputAction> UseItemActionAsset(TEXT("/Game/Input/Actions/IA_UseItem.IA_UseItem"));

@@ -35,6 +35,7 @@
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/CombatComponent.h"
 #include "RPG/Durability.h"
+#include "RPG/HeldItemComponent.h"
 #include "RPG/EquipmentComponent.h"
 #include "RPG/HealthComponent.h"
 #include "RPG/InventoryComponent.h"
@@ -624,6 +625,31 @@ void UHearthvaleCheatManager::BatterNear(int32 Amount)
 	const FString Id = Nearest->GetPiece()->GetPieceId().ToString();
 	const bool bFell = Nearest->Batter(Amount);
 	Say(bFell ? FString::Printf(TEXT("%s fell."), *Id) : FString::Printf(TEXT("%s battered to %d / %d"), *Id, Nearest->GetMaxHealth() - Nearest->GetDamage(), Nearest->GetMaxHealth()));
+}
+
+void UHearthvaleCheatManager::HeldGrip(float RightPitch, float RightYaw, float RightRoll, float LeftPitch, float LeftYaw, float LeftRoll)
+{
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		Character->GetHeldItemVisual()->SetGrip(FRotator(RightPitch, RightYaw, RightRoll), FRotator(LeftPitch, LeftYaw, LeftRoll));
+		Say(FString::Printf(TEXT("Grip %.0f %.0f %.0f / %.0f %.0f %.0f; %d parts"), RightPitch, RightYaw, RightRoll, LeftPitch, LeftYaw, LeftRoll,
+			Character->GetHeldItemVisual()->CountParts()));
+	}
+}
+
+void UHearthvaleCheatManager::HandAxes(FName Bone)
+{
+	if (AHearthvaleCharacter* Character = GetHearthvaleCharacter())
+	{
+		const FTransform Hand = Character->GetMesh()->GetSocketTransform(Bone);
+		const FVector Fwd = Character->GetActorForwardVector(), Right = Character->GetActorRightVector(), Up = FVector::UpVector;
+		auto Describe = [&](const FVector& Axis)
+		{
+			return FString::Printf(TEXT("fwd %.2f right %.2f up %.2f"), Axis | Fwd, Axis | Right, Axis | Up);
+		};
+		Say(FString::Printf(TEXT("%s X: %s | Y: %s | Z: %s"), *Bone.ToString(), *Describe(Hand.GetUnitAxis(EAxis::X)),
+			*Describe(Hand.GetUnitAxis(EAxis::Y)), *Describe(Hand.GetUnitAxis(EAxis::Z))));
+	}
 }
 
 void UHearthvaleCheatManager::ListWorn()
