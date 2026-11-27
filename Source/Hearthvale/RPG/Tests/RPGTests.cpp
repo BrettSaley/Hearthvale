@@ -1301,7 +1301,7 @@ bool FAnimationsTest::RunTest(const FString& Parameters)
 {
 	// Every action montage the code plays has been made.
 	for (const TCHAR* Name : {TEXT("Swing1"), TEXT("Swing2"), TEXT("Thrust"), TEXT("Loose"), TEXT("Crossbow"), TEXT("Flinch1"), TEXT("Flinch2"),
-		TEXT("Flinch3"), TEXT("Stagger"), TEXT("Block"), TEXT("Death1"), TEXT("Death2"), TEXT("Death3"), TEXT("Chop")})
+		TEXT("Flinch3"), TEXT("Stagger"), TEXT("Block"), TEXT("Death1"), TEXT("Death2"), TEXT("Death3"), TEXT("Chop"), TEXT("Draw"), TEXT("Aim")})
 	{
 		TestNotNull(FString::Printf(TEXT("AM_%s exists"), Name), FHearthvaleAnims::Find(Name));
 	}
