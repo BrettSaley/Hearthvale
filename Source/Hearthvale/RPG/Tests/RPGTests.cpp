@@ -17,6 +17,7 @@
 #include "RPG/GatheringComponent.h"
 #include "RPG/CombatComponent.h"
 #include "RPG/HearthvaleAnims.h"
+#include "RPG/HeldItemComponent.h"
 #include "Animation/AnimMontage.h"
 #include "RPG/Durability.h"
 #include "RPG/EquipmentComponent.h"
@@ -1300,7 +1301,7 @@ bool FAnimationsTest::RunTest(const FString& Parameters)
 {
 	// Every action montage the code plays has been made.
 	for (const TCHAR* Name : {TEXT("Swing1"), TEXT("Swing2"), TEXT("Thrust"), TEXT("Loose"), TEXT("Crossbow"), TEXT("Flinch1"), TEXT("Flinch2"),
-		TEXT("Flinch3"), TEXT("Stagger"), TEXT("Block"), TEXT("Death1"), TEXT("Death2"), TEXT("Death3"), TEXT("Chop")})
+		TEXT("Flinch3"), TEXT("Stagger"), TEXT("Block"), TEXT("Death1"), TEXT("Death2"), TEXT("Death3"), TEXT("Chop"), TEXT("Draw"), TEXT("Aim")})
 	{
 		TestNotNull(FString::Printf(TEXT("AM_%s exists"), Name), FHearthvaleAnims::Find(Name));
 	}
@@ -1322,6 +1323,17 @@ bool FAnimationsTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Quick recoil and lunge"), AWildlifeHerd::FlinchSeconds < 0.5f && AWildlifeHerd::LungeSeconds < 0.6f);
 	TestTrue(TEXT("Fallen ones are gone before they come back"), AWildlifeHerd::CollapseSeconds + AWildlifeHerd::LieSeconds < 60.f);
 	TestTrue(TEXT("Wounds bleed only so far"), UHealthComponent::MaxBleed > 0 && UHealthComponent::MaxBleed <= 10);
+
+	// What's held shows as its own shape.
+	using EShape = UHeldItemComponent::EShape;
+	const TPair<const TCHAR*, EShape> Held[] = {{TEXT("IronSword"), EShape::Sword}, {TEXT("SteelSpear"), EShape::Spear}, {TEXT("Shortbow"), EShape::Bow},
+		{TEXT("Crossbow"), EShape::Crossbow}, {TEXT("CopperAxe"), EShape::Axe}, {TEXT("IronPickaxe"), EShape::Pickaxe}, {TEXT("CopperHammer"), EShape::Hammer},
+		{TEXT("IronShield"), EShape::Shield}, {TEXT("FishingNet"), EShape::Net}, {TEXT("IronHarpoon"), EShape::Harpoon}};
+	for (const TPair<const TCHAR*, EShape>& Each : Held)
+	{
+		TestTrue(FString::Printf(TEXT("%s shows as its shape"), Each.Key), UHeldItemComponent::ShapeOf(UItemDefinition::FindItem(Each.Key)) == Each.Value);
+	}
+	TestTrue(TEXT("Logs aren't shown in hand"), UHeldItemComponent::ShapeOf(UItemDefinition::FindItem(TEXT("Logs"))) == EShape::None);
 	return true;
 }
 

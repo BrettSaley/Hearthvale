@@ -64,9 +64,9 @@ public:
 	/** Whether the skills meet every one of an item's requirements. */
 	static bool MeetsRequirements(const UItemDefinition* Item, const USkillsComponent* Skills);
 
-	/** How far the player can drift from where they started before gathering stops. */
+	/** How far the player can drift from where they started before gathering stops (turning to face the work against a trunk nudges them a little). */
 	UPROPERTY(EditDefaultsOnly, Category = "Gathering")
-	float MaxDrift = 40.f;
+	float MaxDrift = 120.f;
 
 	/** Where a gathered item goes: the backpack, else the hold of the boat the character's in; null if neither has room. */
 	UInventoryComponent* FindRoom(const UItemDefinition* Item) const;

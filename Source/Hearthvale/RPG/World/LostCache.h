@@ -93,6 +93,8 @@ public:
 	static const TArray<FCacheSpot>& PlanCaches();
 	/** Places them all; how many. */
 	static int32 SpawnAll(UWorld* World);
+	/** Places one cache: its number (for the save), where, its loot's biome and its name; bJustChest leaves out the ring of stones. */
+	static ALostCache* SpawnOne(UWorld* World, int32 InIndex, const FTransform& Transform, EBiome InBiome, const FText& InName, bool bJustChest = false);
 	/** A name from a biome's list ("Overgrown shrine"). */
 	static FText NameFor(EBiome Biome, int32 Index);
 
@@ -123,6 +125,7 @@ private:
 	TObjectPtr<UStaticMeshComponent> Lid;
 
 	int32 Index = 0;
+	bool bJustChest = false;
 	EBiome Biome = EBiome::Meadows;
 	FText CacheName;
 	float DiscoverTimer = 0.f;

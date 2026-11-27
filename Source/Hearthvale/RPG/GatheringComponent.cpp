@@ -147,6 +147,11 @@ void UGatheringComponent::StopGathering()
 	}
 	CurrentSource = nullptr;
 	SetComponentTickEnabled(false);
+	// Stop mid-swing rather than finishing a blow at nothing.
+	if (AHearthvaleCharacter* Character = GetCharacter(); Character && Character->GetMesh() && Character->GetMesh()->GetAnimInstance())
+	{
+		Character->GetMesh()->GetAnimInstance()->Montage_Stop(0.2f);
+	}
 	OnGatheringChanged.Broadcast();
 }
 
@@ -186,6 +191,18 @@ void UGatheringComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 		StopGathering();
 		return;
 	}
+	// Face the work, and keep swinging at it the whole time (not just once an attempt).
+	FVector ToSource = CurrentSource->GetActorLocation() - Character->GetActorLocation();
+	ToSource.Z = 0.f;
+	if (!ToSource.IsNearlyZero())
+	{
+		Character->SetActorRotation(FMath::RInterpTo(Character->GetActorRotation(), ToSource.Rotation(), DeltaTime, 10.f));
+	}
+	UAnimInstance* Anims = Character->GetMesh() ? Character->GetMesh()->GetAnimInstance() : nullptr;
+	if (Info.Montage && Anims && !Anims->Montage_IsPlaying(Info.Montage))
+	{
+		Character->PlayAnimMontage(Info.Montage);
+	}
 	Elapsed += DeltaTime;
 	if (Elapsed >= Info.AttemptInterval)
 	{
@@ -206,10 +223,6 @@ void UGatheringComponent::Attempt()
 	{
 		StopGathering();
 		return;
-	}
-	if (Info.Montage)
-	{
-		Character->PlayAnimMontage(Info.Montage);
 	}
 	const int32 Level = Skills->GetLevel(Info.Skill);
 	float Chance = SuccessChance(Level, Info.RequiredLevel, ToolPower, Info.Difficulty) + USkillUnlocks::GetPerk(Info.Skill, Level, ESkillPerk::Success);

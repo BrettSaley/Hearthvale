@@ -2,6 +2,8 @@
 #include "RPG/Durability.h"
 #include "RPG/HearthvaleAnims.h"
 #include "RPG/ImpactPuff.h"
+#include "RPG/ShotArrow.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "HearthvaleCharacter.h"
 #include "RPG/EquipmentComponent.h"
 #include "RPG/GatheringComponent.h"
@@ -36,6 +38,13 @@ AHearthvaleCharacter* UCombatComponent::GetCharacter() const
 float UCombatComponent::HitChance(int32 Accuracy, int32 Defence)
 {
 	return FMath::Clamp(0.55f + (Accuracy - Defence * 1.5f) / 100.f, 0.15f, 0.95f);
+}
+
+FVector UCombatComponent::ShotFrom(const AHearthvaleCharacter* Character)
+{
+	// From the bow hand, a little ahead.
+	const FVector Hand = Character->GetMesh()->GetSocketLocation(TEXT("hand_r"));
+	return Hand + Character->GetActorForwardVector() * 40.f;
 }
 
 FName UCombatComponent::AttackAnim(const UItemDefinition* Weapon, bool bSecondSwing)
@@ -126,8 +135,9 @@ bool UCombatComponent::StartAttack(AWildlifeHerd* Herd, int32 Index)
 	}
 	Target = Herd;
 	TargetIndex = Index;
-	// The first blow comes as soon as it's in reach.
-	Elapsed = GetAttackSeconds();
+	// The first blow comes as soon as it's in reach (a shot after drawing).
+	Elapsed = IsRanged() ? GetAttackSeconds() - DrawSeconds : GetAttackSeconds();
+	bDrawn = false;
 	OutOfReach = 0.f;
 	SetComponentTickEnabled(true);
 	OnCombatChanged.Broadcast();
@@ -176,6 +186,13 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 		return;
 	}
 	OutOfReach = 0.f;
+	// Draw the bow (or shoulder the crossbow) just before the shot.
+	const UItemDefinition* Shooter = IsRanged() ? GetWeapon() : nullptr;
+	if (Shooter && !bDrawn && Elapsed >= GetAttackSeconds() - DrawSeconds)
+	{
+		bDrawn = true;
+		FHearthvaleAnims::Play(Character, Shooter->AttackSeconds >= 4.f ? FName(TEXT("Aim")) : FName(TEXT("Draw")));
+	}
 	if (Elapsed >= GetAttackSeconds())
 	{
 		Elapsed = 0.f;
@@ -204,6 +221,7 @@ void UCombatComponent::Attack()
 	// The blow (or shot) itself.
 	FHearthvaleAnims::Play(Character, AttackAnim(Weapon, bSecondSwing));
 	bSecondSwing = !bSecondSwing;
+	bDrawn = false;
 	// Every blow or shot, landed or not, wears the weapon a little.
 	FDurability::WearCarried(Character, Weapon);
 	const ESkill Style = bRanged ? ESkill::Precision : ESkill::Might;
@@ -215,7 +233,17 @@ void UCombatComponent::Attack()
 	if (FMath::FRand() >= HitChance(Accuracy, AWildlifeHerd::GetDefence(Kind)))
 	{
 		UE_LOG(LogTemp, Log, TEXT("Combat: missed the %s."), *Name.ToString());
-		AImpactPuff::Spawn(GetWorld(), EPuffKind::Dust, Herd->GetAnimalLocation(TargetIndex) + FVector(0.f, 0.f, 15.f));
+		const FVector Near = Herd->GetAnimalLocation(TargetIndex);
+		if (bRanged)
+		{
+			// The shot goes wide and sticks in the ground nearby.
+			const FVector Wide = Near + FVector(FMath::FRandRange(-150.f, 150.f), FMath::FRandRange(-150.f, 150.f), 0.f);
+			AShotArrow::Loose(GetWorld(), ShotFrom(Character), FVector(Wide.X, Wide.Y, Near.Z), Weapon->AttackSeconds >= 4.f, false);
+		}
+		else
+		{
+			AImpactPuff::Spawn(GetWorld(), EPuffKind::Dust, Near + FVector(0.f, 0.f, 15.f));
+		}
 		// A miss still startles it.
 		Herd->HurtAnimal(TargetIndex, 0, Character);
 		return;
@@ -230,8 +258,16 @@ void UCombatComponent::Attack()
 	}
 	const int32 Rolled = FMath::RandRange(bBraced ? Most / 2 : 1, Most);
 	const int32 Done = Herd->HurtAnimal(TargetIndex, Rolled, Character);
-	// Blood where it lands; a heavy blow jolts the view.
-	AImpactPuff::Spawn(GetWorld(), EPuffKind::Blood, Herd->GetAnimalLocation(TargetIndex) + FVector(0.f, 0.f, 50.f), FMath::Clamp(Done / 6.f, 0.6f, 1.6f));
+	// Blood where it lands (a shot shows it flying there first); a heavy blow jolts the view.
+	const FVector Struck = Herd->GetAnimalLocation(TargetIndex) + FVector(0.f, 0.f, 50.f);
+	if (bRanged)
+	{
+		AShotArrow::Loose(GetWorld(), ShotFrom(Character), Struck, Weapon->AttackSeconds >= 4.f, true, FMath::Clamp(Done / 6.f, 0.6f, 1.6f));
+	}
+	else
+	{
+		AImpactPuff::Spawn(GetWorld(), EPuffKind::Blood, Struck, FMath::Clamp(Done / 6.f, 0.6f, 1.6f));
+	}
 	if (Done >= 8 || bBraced)
 	{
 		Character->Shake(0.35f);
