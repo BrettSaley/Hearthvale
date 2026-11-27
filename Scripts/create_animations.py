@@ -46,14 +46,15 @@ MONTAGES = {
 
 def make_montage(name, source, rate, hold):
     path = f"{FOLDER}/AM_{name}"
-    if assets.does_asset_exist(path):
-        assets.delete_asset(path)
-    sequence = unreal.load_asset(f"{ANIMS}/{source}")
-    if sequence is None:
-        raise RuntimeError(f"No animation {source}.")
-    factory = unreal.AnimMontageFactory()
-    factory.set_editor_property("source_animation", sequence)
-    montage = asset_tools.create_asset(f"AM_{name}", FOLDER, unreal.AnimMontage, factory)
+    # Already made (and maybe used by the gathering nodes, so it can't be deleted): just update it.
+    montage = unreal.load_asset(path) if assets.does_asset_exist(path) else None
+    if montage is None:
+        sequence = unreal.load_asset(f"{ANIMS}/{source}")
+        if sequence is None:
+            raise RuntimeError(f"No animation {source}.")
+        factory = unreal.AnimMontageFactory()
+        factory.set_editor_property("source_animation", sequence)
+        montage = asset_tools.create_asset(f"AM_{name}", FOLDER, unreal.AnimMontage, factory)
     montage.set_editor_property("rate_scale", rate)
     if hold:
         montage.set_editor_property("enable_auto_blend_out", False)
