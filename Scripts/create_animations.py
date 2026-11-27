@@ -6,6 +6,7 @@ made from the mannequin animations that come with the project, in
 
 - Swing1/Swing2: sword and fist blows, alternating
 - Thrust: a spear's lunge
+- Draw/Aim: drawing a bow, shouldering a crossbow, held until the shot
 - Loose: a bow shot; Crossbow: a crossbow shot
 - Flinch1-3: a light hit; Stagger: a heavy one; Block: catching a blow on a shield
 - Death1-3: falling (held at the end until they wake)
@@ -41,6 +42,8 @@ MONTAGES = {
     "Death2": ("Death/MM_Death_Front_02", 1.0, True),
     "Death3": ("Death/MM_Death_Back_01", 1.0, True),
     "Chop": ("Unarmed/Attack/MM_Attack_01", 0.9, False),
+    "Draw": ("Pistol/MM_Pistol_Equip", 1.2, True),
+    "Aim": ("Rifle/MM_Rifle_Equip", 1.2, True),
 }
 
 

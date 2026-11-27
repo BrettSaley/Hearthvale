@@ -233,6 +233,14 @@ public:
 	UFUNCTION(Exec)
 	void BatterNear(int32 Amount = 10);
 
+	/** Turns the hands' grip on held things (pitch yaw roll, right then left), for fitting them by eye. */
+	UFUNCTION(Exec)
+	void HeldGrip(float RightPitch, float RightYaw, float RightRoll, float LeftPitch = 0.f, float LeftYaw = 90.f, float LeftRoll = 0.f);
+
+	/** Says which way a bone's axes point, against the character's forward, right and up (HandAxes hand_r). */
+	UFUNCTION(Exec)
+	void HandAxes(FName Bone = TEXT("hand_r"));
+
 	/** Lists what's worn and the total defence. */
 	UFUNCTION(Exec)
 	void ListWorn();
