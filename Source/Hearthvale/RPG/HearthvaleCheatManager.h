@@ -241,6 +241,10 @@ public:
 	UFUNCTION(Exec)
 	void HandAxes(FName Bone = TEXT("hand_r"));
 
+	/** Takes a screenshot of the next arrow or bolt in flight (ShotArrow arrow_mid). */
+	UFUNCTION(Exec)
+	void ShotArrow(const FString& Name);
+
 	/** Lists what's worn and the total defence. */
 	UFUNCTION(Exec)
 	void ListWorn();

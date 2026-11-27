@@ -37,6 +37,7 @@
 #include "RPG/CombatComponent.h"
 #include "RPG/Durability.h"
 #include "RPG/HeldItemComponent.h"
+#include "RPG/ShotArrow.h"
 #include "RPG/EquipmentComponent.h"
 #include "RPG/HealthComponent.h"
 #include "RPG/InventoryComponent.h"
@@ -651,6 +652,12 @@ void UHearthvaleCheatManager::HandAxes(FName Bone)
 		Say(FString::Printf(TEXT("%s X: %s | Y: %s | Z: %s"), *Bone.ToString(), *Describe(Hand.GetUnitAxis(EAxis::X)),
 			*Describe(Hand.GetUnitAxis(EAxis::Y)), *Describe(Hand.GetUnitAxis(EAxis::Z))));
 	}
+}
+
+void UHearthvaleCheatManager::ShotArrow(const FString& Name)
+{
+	AShotArrow::ShotName = Name.IsEmpty() ? FString(TEXT("Arrow")) : Name;
+	Say(FString::Printf(TEXT("The next shot will be pictured as %s."), *AShotArrow::ShotName));
 }
 
 void UHearthvaleCheatManager::ListWorn()
