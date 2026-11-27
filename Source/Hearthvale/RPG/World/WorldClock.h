@@ -174,4 +174,5 @@ private:
 	/** Skipping ahead (a season jump): the weather on the way isn't worth announcing. */
 	bool bJumping = false;
 	TWeakObjectPtr<AWeatherEffects> Effects;
+	TWeakObjectPtr<class AFrozenLakes> Lakes;
 };

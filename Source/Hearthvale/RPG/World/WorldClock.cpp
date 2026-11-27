@@ -17,6 +17,7 @@
 #include "RPG/FarmPatch.h"
 #include "RPG/Building/BuildPiece.h"
 #include "RPG/World/FallenStar.h"
+#include "RPG/World/FrozenLakes.h"
 #include "RPG/World/HungerComponent.h"
 #include "RPG/World/WarmthComponent.h"
 #include "RPG/World/WeatherEffects.h"
@@ -70,6 +71,11 @@ void UWorldClock::OnWorldBeginPlay(UWorld& InWorld)
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	Effects = InWorld.SpawnActor<AWeatherEffects>(Params);
+	// Lakes to freeze, on the island (a world with a landscape).
+	if (TActorIterator<ALandscapeProxy>(&InWorld))
+	{
+		Lakes = InWorld.SpawnActor<AFrozenLakes>(Params);
+	}
 	Precipitation = TargetPrecipitation(Weather);
 	Overcast = TargetOvercast(Weather);
 	ApplySky();
@@ -381,6 +387,17 @@ void UWorldClock::ApplySky()
 		Sky->Show(this, Daylight);
 	}
 	ApplySnow();
+	// Hard winter freezes the lakes; the thaw breaks them up.
+	if (AFrozenLakes* Ice = Lakes.Get())
+	{
+		const bool bFreeze = AFrozenLakes::ShouldFreeze(SnowCover, Ice->IsFrozen());
+		if (bFreeze != Ice->IsFrozen())
+		{
+			Ice->SetFrozen(bFreeze);
+			Announce(bFreeze ? LOCTEXT("Frozen", "The lakes have frozen over: you can walk across them, and fish through the ice.")
+				: LOCTEXT("Thawed", "The ice on the lakes cracks and breaks up."));
+		}
+	}
 }
 
 void UWorldClock::SetSnowCover(float Cover)

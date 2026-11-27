@@ -2,6 +2,7 @@
 
 - /Game/World/Exploration/M_RuinStone: weathered grey stone for the ruins' standing stones
 - /Game/World/Exploration/M_CacheWood: dark old wood for the chests left in them
+- /Game/World/Exploration/M_CaveRock: rough dark stone for the caves (ACave)
 
 The caches themselves aren't in the level: the game places them where
 ALostCache::PlanCaches says when it starts on the island. Without these
@@ -22,6 +23,7 @@ FOLDER = "/Game/World/Exploration"
 MATERIALS = {
     "M_RuinStone": ((0.075, 0.075, 0.068), 0.9),
     "M_CacheWood": ((0.09, 0.05, 0.025), 0.75),
+    "M_CaveRock": ((0.055, 0.05, 0.045), 0.95),
 }
 
 
