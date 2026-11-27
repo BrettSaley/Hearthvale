@@ -27,8 +27,11 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 
 	/** How fast (cm/s) it flies, and how long (s) a miss stays stuck in the ground. */
-	static constexpr float Speed = 3500.f;
+	static constexpr float Speed = 2800.f;
 	static constexpr float StuckSeconds = 4.f;
+
+	/** Cheats: the name of a screenshot to take of the next arrow early in its flight (empty for none). */
+	static FString ShotName;
 
 	/** Where it is a fraction (0-1) of the way along a flight from From to To: a gentle arc. */
 	static FVector PointAlong(const FVector& From, const FVector& To, float Fraction);

@@ -2,6 +2,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "UnrealClient.h"
 #include "Materials/MaterialInterface.h"
 
 namespace
@@ -24,6 +25,8 @@ namespace
 		return Piece;
 	}
 }
+
+FString AShotArrow::ShotName;
 
 AShotArrow::AShotArrow()
 {
@@ -59,21 +62,22 @@ AShotArrow* AShotArrow::Loose(UWorld* World, const FVector& InFrom, const FVecto
 	Arrow->Strength = InStrength;
 	Arrow->Flight = FMath::Max(0.08f, FVector::Dist(InFrom, InTo) / Speed);
 	// Along +X: a shaft, a head and (arrows) fletching.
-	const float Length = bBolt ? 40.f : 70.f;
+	// A touch larger than life, so it reads in flight.
+	const float Length = bBolt ? 55.f : 95.f;
 	const TCHAR* Cylinder = TEXT("/Engine/BasicShapes/Cylinder.Cylinder");
 	const TCHAR* Cone = TEXT("/Engine/BasicShapes/Cone.Cone");
 	const TCHAR* Cube = TEXT("/Engine/BasicShapes/Cube.Cube");
 	const FRotator AlongX(-90.f, 0.f, 0.f);
 	AddPiece(Arrow, Arrow->RootComponent, Cylinder, TEXT("/Game/Building/MI_BuildPlanks.MI_BuildPlanks"), FVector(-Length * 0.5f, 0.f, 0.f),
-		FVector(bBolt ? 0.016f : 0.01f, bBolt ? 0.016f : 0.01f, Length / 100.f), AlongX);
+		FVector(bBolt ? 0.04f : 0.03f, bBolt ? 0.04f : 0.03f, Length / 100.f), AlongX);
 	AddPiece(Arrow, Arrow->RootComponent, Cone, TEXT("/Game/Building/MI_BuildIron.MI_BuildIron"), FVector(3.f, 0.f, 0.f),
-		FVector(bBolt ? 0.035f : 0.025f, bBolt ? 0.035f : 0.025f, 0.06f), AlongX);
+		FVector(bBolt ? 0.07f : 0.06f, bBolt ? 0.07f : 0.06f, 0.1f), AlongX);
 	if (!bBolt)
 	{
 		AddPiece(Arrow, Arrow->RootComponent, Cube, TEXT("/Game/Building/MI_BuildWool.MI_BuildWool"), FVector(-Length + 6.f, 0.f, 0.f),
-			FVector(0.1f, 0.005f, 0.04f), FRotator::ZeroRotator);
+			FVector(0.16f, 0.008f, 0.1f), FRotator::ZeroRotator);
 		AddPiece(Arrow, Arrow->RootComponent, Cube, TEXT("/Game/Building/MI_BuildWool.MI_BuildWool"), FVector(-Length + 6.f, 0.f, 0.f),
-			FVector(0.1f, 0.04f, 0.005f), FRotator::ZeroRotator);
+			FVector(0.16f, 0.1f, 0.008f), FRotator::ZeroRotator);
 	}
 	return Arrow;
 }
@@ -91,6 +95,12 @@ void AShotArrow::Tick(float DeltaSeconds)
 		return;
 	}
 	const float T = Age / Flight;
+	// (Cheats: a picture of the next arrow mid-flight.)
+	if (!ShotName.IsEmpty() && T >= 0.15f)
+	{
+		FScreenshotRequest::RequestScreenshot(ShotName, true, false);
+		ShotName.Reset();
+	}
 	const FVector Here = PointAlong(From, To, T);
 	const FVector Ahead = PointAlong(From, To, T + 0.02f);
 	SetActorLocationAndRotation(Here, (Ahead - Here).GetSafeNormal().Rotation());

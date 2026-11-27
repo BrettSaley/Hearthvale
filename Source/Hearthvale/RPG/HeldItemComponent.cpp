@@ -218,14 +218,12 @@ void UHeldItemComponent::Build(USceneComponent* Pivot, const UItemDefinition* It
 		AddPart(Pivot, HeldCylinder, String, FVector(75.f, 0.f, 0.f), FVector(0.4f, 0.4f, 0.01f), FRotator(0.f, 0.f, 90.f));
 		break;
 	case EShape::Bow:
-	{
-		const TCHAR* Limbs = Wood;
-		AddPart(Pivot, HeldCube, Grip, FVector(0.f, 0.f, 0.f), FVector(0.03f, 0.04f, 0.14f));
-		AddPart(Pivot, HeldCube, Limbs, FVector(4.f, 0.f, 30.f), FVector(0.025f, 0.03f, 0.5f), FRotator(-12.f, 0.f, 0.f));
-		AddPart(Pivot, HeldCube, Limbs, FVector(4.f, 0.f, -30.f), FVector(0.025f, 0.03f, 0.5f), FRotator(12.f, 0.f, 0.f));
-		AddPart(Pivot, HeldCylinder, String, FVector(-2.f, 0.f, 0.f), FVector(0.005f, 0.005f, 1.04f));
+		// Held like a blade, the stave runs the way the thumb points; the limbs bend back towards the archer, the string on their side.
+		AddPart(Pivot, HeldCube, Grip, FVector(0.f, 0.f, 0.f), FVector(0.14f, 0.04f, 0.035f));
+		AddPart(Pivot, HeldCube, Wood, FVector(32.f, 0.f, -4.f), FVector(0.52f, 0.03f, 0.025f), FRotator(-14.f, 0.f, 0.f));
+		AddPart(Pivot, HeldCube, Wood, FVector(-32.f, 0.f, -4.f), FVector(0.52f, 0.03f, 0.025f), FRotator(14.f, 0.f, 0.f));
+		AddPart(Pivot, HeldCylinder, String, FVector(0.f, 0.f, -11.f), FVector(0.006f, 0.006f, 1.16f), AlongX);
 		break;
-	}
 	case EShape::Crossbow:
 		AddPart(Pivot, HeldCube, Wood, FVector(18.f, 0.f, 0.f), FVector(0.62f, 0.05f, 0.06f));
 		AddPart(Pivot, HeldCube, Metal, FVector(44.f, 0.f, 3.f), FVector(0.04f, 0.6f, 0.03f));
