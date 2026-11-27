@@ -8,6 +8,7 @@
 #include "RPG/CraftingStationDefinition.h"
 #include "RPG/HealthComponent.h"
 #include "RPG/RecipeDefinition.h"
+#include "RPG/World/Cave.h"
 #include "RPG/World/HungerComponent.h"
 #include "RPG/World/WorldClock.h"
 #include "RPG/World/WorldGenerator.h"
@@ -136,7 +137,13 @@ void UWarmthComponent::Measure()
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(WarmthShelter), false, Character);
 	FHitResult Hit;
 	Conditions.bSheltered = World->LineTraceSingleByChannel(Hit, At, At + FVector(0.f, 0.f, ShelterReach), ECC_Visibility, Params);
-	if (Conditions.bSheltered)
+	// A cave's chamber is a room, whatever the rays say through its wide mouth.
+	if (ACave::IsInside(World, At))
+	{
+		Conditions.bSheltered = true;
+		Conditions.bIndoors = true;
+	}
+	else if (Conditions.bSheltered)
 	{
 		// Indoors: walls close by in most directions round you.
 		constexpr int32 Directions = 8;

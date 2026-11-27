@@ -50,8 +50,16 @@ public:
 	/** A spot just outside the mouth, looking in (for the GoToCave cheat). */
 	FVector GetMouth() const;
 
+	/** Whether a spot is within a planned cave's footprint (its chamber, walls, boulders and a margin): kept clear of plants and trees. */
+	static bool InAnyFootprint(const FVector& Location);
+
+	/** Whether a spot is inside any cave's chamber (it counts as indoors). */
+	static bool IsInside(const UWorld* World, const FVector& Location);
+
 private:
 	void Build();
+	/** Clears the forest out of the cave and its mouth: scenery instances, and trees and rocks to gather. */
+	void ClearFootprint();
 	void Furnish(int32 Index);
 
 	UPROPERTY(VisibleAnywhere, Category = "Cave")
@@ -59,6 +67,17 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Cave")
 	TObjectPtr<UStaticMeshComponent> Mound;
+
+	/** A rock floor tilted to the slope, over the grass. */
+	UPROPERTY(VisibleAnywhere, Category = "Cave")
+	TObjectPtr<UStaticMeshComponent> FloorSlab;
+
+	/** A ramp from the floor's front edge down to the ground outside the mouth. */
+	UPROPERTY(VisibleAnywhere, Category = "Cave")
+	TObjectPtr<UStaticMeshComponent> Ramp;
+
+	/** The floor's height (cm) relative to the actor, at the chamber's middle. */
+	float FloorZ = 0.f;
 
 	UPROPERTY(VisibleAnywhere, Category = "Cave")
 	TObjectPtr<UPointLightComponent> Glowworms;

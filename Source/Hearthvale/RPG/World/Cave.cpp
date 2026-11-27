@@ -8,6 +8,8 @@
 #include "RPG/GatheringNodeDefinition.h"
 #include "RPG/ResourceNode.h"
 #include "RPG/World/LostCache.h"
+#include "RPG/World/WorldScenery.h"
+#include "EngineUtils.h"
 
 #define LOCTEXT_NAMESPACE "Cave"
 
@@ -53,6 +55,12 @@ ACave::ACave()
 	Mound = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mound"));
 	Mound->SetupAttachment(GetRootComponent());
 	Mound->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	FloorSlab = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Floor"));
+	FloorSlab->SetupAttachment(GetRootComponent());
+	FloorSlab->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
+	Ramp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Ramp"));
+	Ramp->SetupAttachment(GetRootComponent());
+	Ramp->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 	Glowworms = CreateDefaultSubobject<UPointLightComponent>(TEXT("Glowworms"));
 	Glowworms->SetupAttachment(GetRootComponent());
 	Glowworms->SetLightColor(FLinearColor(0.35f, 0.9f, 0.8f));
@@ -115,6 +123,7 @@ int32 ACave::SpawnAll(UWorld* World)
 			Cave->Biome = Spots[Each].Biome;
 			Cave->FinishSpawning(Transform);
 			Cave->Build();
+			Cave->ClearFootprint();
 			Cave->Furnish(Each);
 			++Placed;
 		}
@@ -139,6 +148,7 @@ void ACave::Build()
 	// The chamber's floor is the ground at its middle; walls go down a good way so slopes don't leave gaps.
 	const FVector Middle = Frame.TransformPosition(FVector(-Depth * 0.5f, 0.f, 0.f));
 	const float Floor = UWorldGenerator::GetGroundHeight(Middle.X, Middle.Y) - Base;
+	FloorZ = Floor;
 	constexpr float Thick = 120.f;
 	constexpr float Sink = 250.f;
 	const float WallHigh = Height + Sink + Thick;
@@ -165,14 +175,55 @@ void ACave::Build()
 		Rocks[Each]->SetStaticMesh(Pieces[Each].Mesh);
 		Rocks[Each]->SetRelativeLocationAndRotation(Pieces[Each].At, Pieces[Each].Turn);
 		Rocks[Each]->SetRelativeScale3D(Pieces[Each].Size / 100.f);
+		// Every piece shades the inside from the sun (the roof most of all).
+		Rocks[Each]->SetCastShadow(true);
 		if (Rock)
 		{
 			Rocks[Each]->SetMaterial(0, Rock);
 		}
 	}
+	// The floor: a slab laid along the slope from mouth to back and side to side, a little above the
+	// ground so the grass doesn't show through, with a low step at the mouth.
+	{
+		auto GroundAt = [&Frame, Base](float X, float Y)
+		{
+			const FVector At = Frame.TransformPosition(FVector(X, Y, 0.f));
+			return UWorldGenerator::GetGroundHeight(At.X, At.Y) - Base;
+		};
+		const float Front = GroundAt(0.f, 0.f), Back = GroundAt(-Depth, 0.f);
+		const float Left = GroundAt(-Depth * 0.5f, -Width * 0.5f), Right = GroundAt(-Depth * 0.5f, Width * 0.5f);
+		const FVector Along = FVector(Depth, 0.f, Front - Back).GetSafeNormal();
+		const FVector Across = FVector(0.f, Width, Right - Left).GetSafeNormal();
+		FloorSlab->SetStaticMesh(Cube);
+		FloorSlab->SetRelativeLocationAndRotation(FVector(-Depth * 0.5f, 0.f, (Front + Back + Left + Right) * 0.25f + 10.f),
+			FRotationMatrix::MakeFromXY(Along, Across).Rotator());
+		// Ends inside the mouth, its top about 30 cm up: a step anyone can climb.
+		FloorSlab->SetRelativeScale3D(FVector((Depth - 20.f) / 100.f, Width / 100.f, 0.4f));
+		FloorSlab->SetCastShadow(true);
+		if (Rock)
+		{
+			FloorSlab->SetMaterial(0, Rock);
+		}
+		// The ramp: from the floor's top at its front edge, out through the mouth to the ground beyond.
+		const FVector SlabCenter = FloorSlab->GetRelativeLocation();
+		const FVector Up = FVector::CrossProduct(Along, Across).GetSafeNormal();
+		const FVector Lip = SlabCenter + Along * ((Depth - 20.f) * 0.5f) + Up * 20.f;
+		const FVector Foot(Thick + 150.f, 0.f, GroundAt(Thick + 150.f, 0.f));
+		const FVector Slope = (Foot - Lip).GetSafeNormal();
+		const FVector RampUp = FVector::CrossProduct(Slope, FVector::RightVector).GetSafeNormal() * (FVector::CrossProduct(Slope, FVector::RightVector).Z < 0.f ? -1.f : 1.f);
+		Ramp->SetStaticMesh(Cube);
+		Ramp->SetRelativeLocationAndRotation((Lip + Foot) * 0.5f - RampUp * 20.f, FRotationMatrix::MakeFromXY(Slope, FVector::RightVector).Rotator());
+		Ramp->SetRelativeScale3D(FVector(FVector::Dist(Lip, Foot) / 100.f + 0.2f, 3.4f, 0.4f));
+		Ramp->SetCastShadow(true);
+		if (Rock)
+		{
+			Ramp->SetMaterial(0, Rock);
+		}
+	}
 	// A rocky dome heaped on the roof, so from outside it's a knoll with a hole in its face. It sits on the
 	// roof, so it never covers the way in.
 	Mound->SetStaticMesh(Sphere);
+	Mound->SetCastShadow(true);
 	Mound->SetRelativeLocation(FVector(-Depth * 0.5f, 0.f, Floor + Height + Thick * 0.5f));
 	Mound->SetRelativeScale3D(FVector((Depth + 500.f) / 100.f, (Width + 500.f) / 100.f, 5.f));
 	if (Rock)
@@ -180,6 +231,61 @@ void ACave::Build()
 		Mound->SetMaterial(0, Rock);
 	}
 	Glowworms->SetRelativeLocation(FVector(-Depth * 0.6f, 0.f, Floor + Height - 40.f));
+}
+
+bool ACave::IsInside(const UWorld* World, const FVector& Location)
+{
+	for (const ACave* Cave : TActorRange<ACave>(World))
+	{
+		const FVector Local = Cave->GetActorTransform().InverseTransformPosition(Location);
+		if (Local.X <= 60.f && Local.X >= -Depth && FMath::Abs(Local.Y) <= Width * 0.5f && Local.Z <= Cave->FloorZ + Height + 100.f
+			&& Local.Z >= Cave->FloorZ - 300.f)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+namespace
+{
+	/** The chamber, its walls and the boulders, and a margin round them (trees spread wide), for a cave placed so. */
+	bool InFootprintOf(const FTransform& Cave, const FVector& Location)
+	{
+		const FVector Local = Cave.InverseTransformPosition(Location);
+		return Local.X >= -ACave::Depth - 450.f && Local.X <= 800.f && FMath::Abs(Local.Y) <= ACave::Width * 0.5f + 550.f;
+	}
+}
+
+bool ACave::InAnyFootprint(const FVector& Location)
+{
+	return PlanCaves().ContainsByPredicate([&Location](const FCaveSpot& Spot)
+	{
+		return InFootprintOf(FTransform(FRotator(0.f, Spot.Yaw, 0.f), Spot.Location), Location);
+	});
+}
+
+void ACave::ClearFootprint()
+{
+	UWorld* World = GetWorld();
+	// Only this cave's: the others have already put their ore in.
+	const FTransform Frame = GetActorTransform();
+	auto InFootprint = [&Frame](const FVector& At) { return InFootprintOf(Frame, At); };
+	int32 Scenery = 0;
+	for (AWorldScenery* Each : TActorRange<AWorldScenery>(World))
+	{
+		Scenery += Each->RemoveInstancesWhere(InFootprint);
+	}
+	int32 Nodes = 0;
+	for (AResourceNode* Node : TActorRange<AResourceNode>(World))
+	{
+		if (InFootprint(Node->GetActorLocation()))
+		{
+			Node->Destroy();
+			++Nodes;
+		}
+	}
+	UE_LOG(LogHearthvale, Log, TEXT("World: cleared %d plants and %d trees or rocks from %s."), Scenery, Nodes, *CaveName.ToString());
 }
 
 void ACave::Furnish(int32 Index)

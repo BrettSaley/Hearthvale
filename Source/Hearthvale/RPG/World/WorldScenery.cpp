@@ -1,4 +1,5 @@
 #include "RPG/World/WorldScenery.h"
+#include "RPG/World/Cave.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "RPG/World/WorldGenerator.h"
 
@@ -49,7 +50,11 @@ void AWorldScenery::Build()
 	TMap<FName, TArray<FTransform>> SpotsByKind;
 	for (const FWorldScenerySpot& Spot : UWorldGenerator::PlanScenery())
 	{
-		SpotsByKind.FindOrAdd(Spot.Kind).Add(Spot.Transform);
+		// Nothing grows in the caves or crowds their mouths.
+		if (!ACave::InAnyFootprint(Spot.Transform.GetLocation()))
+		{
+			SpotsByKind.FindOrAdd(Spot.Kind).Add(Spot.Transform);
+		}
 	}
 
 	// One instanced component per part of each look; every spot of that kind is an instance of each.
@@ -123,4 +128,31 @@ void AWorldScenery::SetWinter(bool bInWinter)
 			Component->SetVisibility(!bWinter);
 		}
 	}
+}
+
+int32 AWorldScenery::RemoveInstancesWhere(TFunctionRef<bool(const FVector&)> Inside)
+{
+	int32 Removed = 0;
+	for (UHierarchicalInstancedStaticMeshComponent* Component : Built)
+	{
+		if (!Component)
+		{
+			continue;
+		}
+		TArray<int32> Doomed;
+		for (int32 Index = 0; Index < Component->GetInstanceCount(); ++Index)
+		{
+			FTransform Instance;
+			if (Component->GetInstanceTransform(Index, Instance, true) && Inside(Instance.GetLocation()))
+			{
+				Doomed.Add(Index);
+			}
+		}
+		if (Doomed.Num() > 0)
+		{
+			Component->RemoveInstances(Doomed);
+			Removed += Doomed.Num();
+		}
+	}
+	return Removed;
 }

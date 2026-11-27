@@ -444,6 +444,12 @@ bool FCavesTest::RunTest(const FString& Parameters)
 		}
 	}
 	TestEqual(TEXT("Three in the Highlands"), Highland, 3);
+	for (const FCaveSpot& Cave : Caves)
+	{
+		const FVector Inside = Cave.Location + FRotator(0.f, Cave.Yaw, 0.f).Vector() * -500.f;
+		TestTrue(TEXT("A cave's chamber is kept clear"), ACave::InAnyFootprint(Inside));
+	}
+	TestFalse(TEXT("The start isn't"), ACave::InAnyFootprint(Start));
 	TestTrue(TEXT("The hoards are numbered after the ruins"), ACave::FirstHoardIndex > ALostCache::PlanCaches().Num());
 	return true;
 }

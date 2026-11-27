@@ -64,6 +64,9 @@ public:
 	/** Under snow: the flowers and berries are gone until spring. */
 	void SetWinter(bool bInWinter);
 
+	/** Removes every piece of scenery whose spot passes a test (a cave clearing its footprint); how many. */
+	int32 RemoveInstancesWhere(TFunctionRef<bool(const FVector&)> Inside);
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scenery")
 	TArray<FSceneryLook> Looks;
