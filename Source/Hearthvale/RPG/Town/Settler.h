@@ -10,6 +10,7 @@ class UInventoryComponent;
 class USettlerDefinition;
 class USphereComponent;
 class UStaticMeshComponent;
+class UPersonAnimator;
 
 /** A settler as the save keeps them. */
 USTRUCT()
@@ -100,6 +101,7 @@ public:
 	static int32 NextHungryDays(int32 HungryDays, bool bFed) { return bFed ? 0 : HungryDays + 1; }
 
 	int32 GetHungryDays() const { return HungryDays; }
+	UPersonAnimator* GetAnimator() const { return Animator; }
 
 	/** Empties their belly (for testing). */
 	void Starve() { Fed = 0.f; }
@@ -126,6 +128,10 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> PartMeshes;
+
+	/** Walks, breathes, looks at you and gestures (see UPersonAnimator). */
+	UPROPERTY(VisibleAnywhere, Category = "Animation")
+	TObjectPtr<UPersonAnimator> Animator;
 
 	TWeakObjectPtr<ABuildPiece> Bed;
 	float Fed = 0.f;

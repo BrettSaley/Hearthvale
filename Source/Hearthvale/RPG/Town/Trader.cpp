@@ -9,6 +9,7 @@
 #include "RPG/Durability.h"
 #include "RPG/World/WorldClock.h"
 #include "RPG/Town/TownSubsystem.h"
+#include "RPG/Town/PersonAnimator.h"
 #include "RPG/FarmAnimal.h"
 #include "RPG/InventoryComponent.h"
 #include "RPG/Town/TraderDefinition.h"
@@ -41,6 +42,7 @@ ATrader::ATrader()
 	RootComponent = Bounds;
 	Person = CreateDefaultSubobject<USceneComponent>(TEXT("Person"));
 	Person->SetupAttachment(RootComponent);
+	Animator = CreateDefaultSubobject<UPersonAnimator>(TEXT("Animator"));
 }
 
 void ATrader::OnConstruction(const FTransform& Transform)
@@ -53,6 +55,16 @@ void ATrader::BeginPlay()
 {
 	Super::BeginPlay();
 	BuildLook();
+	// Just the trader: the stall's parts come after theirs.
+	if (Definition)
+	{
+		TArray<UStaticMeshComponent*> Body;
+		for (int32 Index = 0; Index < Definition->Parts.Num() && Index < PartMeshes.Num(); ++Index)
+		{
+			Body.Add(PartMeshes[Index]);
+		}
+		Animator->Rig(Person, Body);
+	}
 	CallOutWait = FMath::FRandRange(0.f, 5.f);
 }
 
@@ -241,6 +253,8 @@ void ATrader::Interact(AHearthvaleCharacter* Character)
 	if (!Controller->IsShopOpen() && !Definition->Greetings.IsEmpty())
 	{
 		Say(Character, Definition->Greetings[FMath::RandHelper(Definition->Greetings.Num())]);
+		Animator->Wave();
+		Animator->Gesture(3.5f);
 	}
 	// Already talking: no calling out to you as well.
 	CallOutWait = TraderCallOutGap;
@@ -294,6 +308,7 @@ int32 ATrader::Buy(AHearthvaleCharacter* Character, int32 StockIndex, int32 Coun
 	if (Bought > 0)
 	{
 		DayState.Sold[StockIndex] += Bought;
+		Animator->Gesture(1.5f);
 		Character->ShowMessage(FText::Format(LOCTEXT("Bought", "You buy {0} x {1} for {2} coins."), Bought, Name, Bought * Price),
 			HearthvaleUI::GoodColor);
 	}

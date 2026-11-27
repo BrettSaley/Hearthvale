@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
 #include "RPG/GatheringNodeDefinition.h"
+#include "RPG/Town/PersonAnimator.h"
 #include "SettlerDefinition.generated.h"
 
 class UItemDefinition;
@@ -46,6 +47,10 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Work")
 	ESettlerJob Job = ESettlerJob::Gatherer;
+
+	/** How they look at work by their house: swinging (an axe, a pick) or holding (a rod). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Work")
+	EPersonWork WorkMotion = EPersonWork::Swing;
 
 	/** A gatherer's haul. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Work")
